@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
-import { LossReason, PaymentTotals, POSType } from '../types';
+import { ExternalPOSSaleRow, LossReason, PaymentTotals, POSType } from '../types';
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -247,6 +247,92 @@ export const useStockState = () => {
     }
   };
 
+  const importExternalPOSSales = (sourceName: string, rows: ExternalPOSSaleRow[]) => {
+    const issues: Array<{ rowNumber: number; ticketId: string; message: string }> = [];
+    const acceptedRows: Array<ExternalPOSSaleRow & { productId: string; posId: string; rowNumber: number }> = [];
+
+    rows.forEach((row, index) => {
+      const rowNumber = index + 1;
+      const pos = db.posList.find(p => p.id === row.posCode || p.name.toLowerCase() === row.posCode.toLowerCase());
+      if (!pos) {
+        issues.push({ rowNumber, ticketId: row.ticketId, message: `POS inconnu: ${row.posCode}` });
+        return;
+      }
+
+      const alias = db.posProductAliases.find(mapping => {
+        const skuMatch = mapping.externalSku.toLowerCase() === row.externalSku.toLowerCase();
+        const posMatch = !mapping.posId || mapping.posId === pos.id;
+        return skuMatch && posMatch;
+      });
+      const product = alias
+        ? db.products.find(p => p.id === alias.productId)
+        : db.products.find(p => p.sku.toLowerCase() === row.externalSku.toLowerCase());
+
+      if (!product) {
+        issues.push({ rowNumber, ticketId: row.ticketId, message: `Produit POS non mappé: ${row.externalSku} - ${row.label}` });
+        return;
+      }
+
+      acceptedRows.push({ ...row, productId: product.id, posId: pos.id, rowNumber });
+    });
+
+    const groupedTickets = acceptedRows.reduce<Record<string, typeof acceptedRows>>((acc, row) => {
+      const key = `${row.posId}-${row.ticketId}`;
+      acc[key] = acc[key] || [];
+      acc[key].push(row);
+      return acc;
+    }, {});
+
+    let successCount = 0;
+    let rejectedCount = 0;
+
+    Object.values(groupedTickets).forEach(ticketRows => {
+      const firstRow = ticketRows[0];
+      const result = stockEngine.processExternalSale(
+        {
+          externalSaleId: `IMPORT-${firstRow.ticketId}`,
+          siteId: 'site-1',
+          posId: firstRow.posId,
+          items: ticketRows.map(row => ({ productId: row.productId, quantity: row.quantity })),
+          paymentContext: {
+            type: firstRow.paymentType,
+            roomNumber: firstRow.roomNumber,
+            amount: ticketRows.reduce((sum, row) => sum + row.amount, 0)
+          }
+        },
+        db.currentUser.id,
+        db.currentUser.name
+      );
+
+      if (result.success) {
+        successCount += 1;
+      } else {
+        rejectedCount += 1;
+        issues.push({
+          rowNumber: firstRow.rowNumber,
+          ticketId: firstRow.ticketId,
+          message: result.error || 'Ticket rejeté'
+        });
+      }
+    });
+
+    const newDb = getDB();
+    const run = {
+      id: `IMP-${Date.now().toString().slice(-6)}`,
+      sourceName,
+      importedAt: new Date().toISOString(),
+      rowCount: rows.length,
+      ticketCount: Object.keys(groupedTickets).length,
+      successCount,
+      rejectedCount: rejectedCount + issues.filter(issue => issue.message.includes('inconnu') || issue.message.includes('mappé')).length,
+      issues
+    };
+    newDb.externalPOSImportRuns.push(run);
+    saveDB(newDb);
+    refresh();
+    return run;
+  };
+
   const openCashSession = (posId: string, openingFloat: number) => {
     const newDb = getDB();
     const pos = newDb.posList.find(p => p.id === posId);
@@ -333,6 +419,7 @@ export const useStockState = () => {
     addPOS,
     addWarehouse,
     togglePMSExport,
+    importExternalPOSSales,
     openCashSession,
     closeCashSession,
     resetAllData

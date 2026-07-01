@@ -59,6 +59,13 @@ export interface POSPricing {
   defaultWarehouseId?: string; // Optional override
 }
 
+export interface POSProductAlias {
+  externalSku: string;
+  externalLabel: string;
+  posId?: string;
+  productId: string;
+}
+
 export interface Stock {
   productId: string;
   warehouseId: string;
@@ -240,6 +247,35 @@ export interface ExternalSale {
   };
   exportedToPms: boolean;
   date: string;
+}
+
+export interface ExternalPOSSaleRow {
+  date: string;
+  posCode: string;
+  ticketId: string;
+  externalSku: string;
+  label: string;
+  quantity: number;
+  amount: number;
+  paymentType: 'cash' | 'card' | 'room_charge' | 'other';
+  roomNumber?: string;
+}
+
+export interface ExternalPOSImportIssue {
+  rowNumber: number;
+  ticketId: string;
+  message: string;
+}
+
+export interface ExternalPOSImportRun {
+  id: string;
+  sourceName: string;
+  importedAt: string;
+  rowCount: number;
+  ticketCount: number;
+  successCount: number;
+  rejectedCount: number;
+  issues: ExternalPOSImportIssue[];
 }
 
 export type CashSessionStatus = 'open' | 'closed';

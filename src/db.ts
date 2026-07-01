@@ -4,6 +4,7 @@ import {
   POS,
   Warehouse,
   Product,
+  POSProductAlias,
   POSPricing,
   Stock,
   Batch,
@@ -16,6 +17,7 @@ import {
   Inventory,
   Loss,
   ExternalSale,
+  ExternalPOSImportRun,
   CashSession,
   PMSRoom,
   PMSFolio,
@@ -28,6 +30,7 @@ export interface DatabaseState {
   posList: POS[];
   warehouses: Warehouse[];
   products: Product[];
+  posProductAliases: POSProductAlias[];
   posPricing: POSPricing[];
   stocks: Stock[];
   batches: Batch[];
@@ -40,6 +43,7 @@ export interface DatabaseState {
   inventories: Inventory[];
   losses: Loss[];
   externalSales: ExternalSale[];
+  externalPOSImportRuns: ExternalPOSImportRun[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -77,12 +81,28 @@ const initialDB = (): DatabaseState => {
   const products: Product[] = [
     { id: 'prod-coca', name: 'Coca-Cola 33 cl', sku: 'COCA33', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 50, isActive: true },
     { id: 'prod-heineken', name: 'Heineken 33 cl', sku: 'HEIN33', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 40, isActive: true },
+    { id: 'prod-vin-rouge', name: 'Vin rouge maison 75 cl', sku: 'VINROUGE75', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 12, isActive: true },
+    { id: 'prod-gin', name: 'Gin premium', sku: 'GIN', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 3000, isActive: true },
+    { id: 'prod-tonic', name: 'Tonic 20 cl', sku: 'TONIC20', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 24, isActive: true },
     { id: 'prod-steak', name: 'Steak de Boeuf', sku: 'STEAK', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-pain-burger', name: 'Pain burger', sku: 'PAINBURGER', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-fromage', name: 'Fromage cheddar', sku: 'CHEDDAR', category: 'Alimentation', baseUnit: 'tranche', isStockable: true, globalAlertThreshold: 30, isActive: true },
     { id: 'prod-pdt', name: 'Pommes de terre', sku: 'PDT', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 50000, isActive: true },
     { id: 'prod-huile', name: 'Huile', sku: 'HUILE', category: 'Alimentation', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 10000, isActive: true },
     { id: 'prod-sel', name: 'Sel', sku: 'SEL', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 1000, isActive: true },
     { id: 'prod-steak-frites', name: 'Steak Frites', sku: 'STEAKFRITES', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-burger-maison', name: 'Burger Maison', sku: 'BURGERMAISON', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-gin-tonic', name: 'Gin Tonic', sku: 'GINTONIC', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-creme', name: 'Crème liquide 1L', sku: 'CREM1L', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true }
+  ];
+
+  const posProductAliases: POSProductAlias[] = [
+    { externalSku: 'COCA33', externalLabel: 'Coca-Cola 33 cl', productId: 'prod-coca' },
+    { externalSku: 'HEIN33', externalLabel: 'Heineken 33 cl', productId: 'prod-heineken' },
+    { externalSku: 'STEAKFRITES', externalLabel: 'Steak frites', productId: 'prod-steak-frites' },
+    { externalSku: 'BURGER', externalLabel: 'Burger maison', productId: 'prod-burger-maison' },
+    { externalSku: 'GINTONIC', externalLabel: 'Gin tonic', productId: 'prod-gin-tonic' },
+    { externalSku: 'VINROUGE75', externalLabel: 'Vin rouge maison 75 cl', productId: 'prod-vin-rouge' }
   ];
 
   const posPricing: POSPricing[] = [
@@ -95,9 +115,16 @@ const initialDB = (): DatabaseState => {
     { productId: 'prod-heineken', posId: 'pos-1', salePrice: 2500, taxRate: 18, isAvailable: true },
     { productId: 'prod-heineken', posId: 'pos-2', salePrice: 3000, taxRate: 18, isAvailable: true },
     { productId: 'prod-heineken', posId: 'pos-3', salePrice: 3500, taxRate: 18, isAvailable: true },
+    // Wine pricing
+    { productId: 'prod-vin-rouge', posId: 'pos-1', salePrice: 12000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-vin-rouge', posId: 'pos-3', salePrice: 18000, taxRate: 18, isAvailable: true },
     // Steak Frites pricing
     { productId: 'prod-steak-frites', posId: 'pos-1', salePrice: 6500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-steak-frites', posId: 'pos-4', salePrice: 7000, taxRate: 18, isAvailable: true }
+    { productId: 'prod-steak-frites', posId: 'pos-4', salePrice: 7000, taxRate: 18, isAvailable: true },
+    // Recipes and cocktails
+    { productId: 'prod-burger-maison', posId: 'pos-1', salePrice: 5500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-gin-tonic', posId: 'pos-2', salePrice: 4500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-gin-tonic', posId: 'pos-3', salePrice: 6000, taxRate: 18, isAvailable: true }
   ];
 
   const suppliers: Supplier[] = [
@@ -122,6 +149,26 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-huile', quantity: 20, unit: 'ml' },
         { productId: 'prod-sel', quantity: 2, unit: 'g' }
       ]
+    },
+    {
+      id: 'rec-burger-maison',
+      productId: 'prod-burger-maison',
+      name: 'Burger Maison',
+      ingredients: [
+        { productId: 'prod-pain-burger', quantity: 1, unit: 'unité' },
+        { productId: 'prod-steak', quantity: 1, unit: 'unité' },
+        { productId: 'prod-fromage', quantity: 1, unit: 'tranche' },
+        { productId: 'prod-pdt', quantity: 150, unit: 'g' }
+      ]
+    },
+    {
+      id: 'rec-gin-tonic',
+      productId: 'prod-gin-tonic',
+      name: 'Gin Tonic',
+      ingredients: [
+        { productId: 'prod-gin', quantity: 50, unit: 'ml' },
+        { productId: 'prod-tonic', quantity: 1, unit: 'unité' }
+      ]
     }
   ];
 
@@ -144,11 +191,19 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-hein-cas-1', productId: 'prod-heineken', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-HEIN-CAS-01', expiryDate: '2026-09-15', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 600, createdAt: dateStr },
     // Heineken in Night Club: 90 units
     { id: 'lot-hein-nc-1', productId: 'prod-heineken', warehouseId: 'wh-nightclub', batchNumber: 'LOT-HEIN-NC-01', expiryDate: '2026-08-20', quantity: 90, initialQuantity: 90, supplierId: 'sup-drinks', purchaseCost: 600, createdAt: dateStr },
+    { id: 'lot-vin-rest-1', productId: 'prod-vin-rouge', warehouseId: 'wh-restaurant', batchNumber: 'LOT-VIN-R01', expiryDate: '2028-12-31', quantity: 24, initialQuantity: 24, supplierId: 'sup-drinks', purchaseCost: 4500, createdAt: dateStr },
+    { id: 'lot-vin-nc-1', productId: 'prod-vin-rouge', warehouseId: 'wh-nightclub', batchNumber: 'LOT-VIN-NC01', expiryDate: '2028-12-31', quantity: 36, initialQuantity: 36, supplierId: 'sup-drinks', purchaseCost: 4500, createdAt: dateStr },
+    { id: 'lot-gin-cas-1', productId: 'prod-gin', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-GIN-CAS-01', expiryDate: '2028-06-30', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 12, createdAt: dateStr },
+    { id: 'lot-gin-nc-1', productId: 'prod-gin', warehouseId: 'wh-nightclub', batchNumber: 'LOT-GIN-NC-01', expiryDate: '2028-06-30', quantity: 16000, initialQuantity: 16000, supplierId: 'sup-drinks', purchaseCost: 12, createdAt: dateStr },
+    { id: 'lot-tonic-cas-1', productId: 'prod-tonic', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-TONIC-CAS-01', expiryDate: '2026-11-30', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 300, createdAt: dateStr },
+    { id: 'lot-tonic-nc-1', productId: 'prod-tonic', warehouseId: 'wh-nightclub', batchNumber: 'LOT-TONIC-NC-01', expiryDate: '2026-11-30', quantity: 96, initialQuantity: 96, supplierId: 'sup-drinks', purchaseCost: 300, createdAt: dateStr },
     
     // Steak in cold warehouse: 50 units
     { id: 'lot-steak-1', productId: 'prod-steak', warehouseId: 'wh-cold', batchNumber: 'LOT-STEAK-01', expiryDate: '2026-07-10', quantity: 50, initialQuantity: 50, supplierId: 'sup-market', purchaseCost: 1500, createdAt: dateStr },
     // Potatoes in Restaurant warehouse: 100 kg (100,000 g)
     { id: 'lot-pdt-1', productId: 'prod-pdt', warehouseId: 'wh-restaurant', batchNumber: 'LOT-PDT-01', expiryDate: '2026-07-20', quantity: 100000, initialQuantity: 100000, supplierId: 'sup-market', purchaseCost: 0.5, createdAt: dateStr },
+    { id: 'lot-pain-burger-1', productId: 'prod-pain-burger', warehouseId: 'wh-restaurant', batchNumber: 'LOT-PAIN-BURGER-01', expiryDate: '2026-07-08', quantity: 60, initialQuantity: 60, supplierId: 'sup-market', purchaseCost: 250, createdAt: dateStr },
+    { id: 'lot-cheddar-1', productId: 'prod-fromage', warehouseId: 'wh-restaurant', batchNumber: 'LOT-CHEDDAR-01', expiryDate: '2026-08-01', quantity: 120, initialQuantity: 120, supplierId: 'sup-market', purchaseCost: 150, createdAt: dateStr },
     // Oil in Restaurant warehouse: 20 L (20,000 ml)
     { id: 'lot-oil-1', productId: 'prod-huile', warehouseId: 'wh-restaurant', batchNumber: 'LOT-HUILE-01', expiryDate: '2026-12-31', quantity: 20000, initialQuantity: 20000, supplierId: 'sup-market', purchaseCost: 1.5, createdAt: dateStr },
     // Salt in Restaurant warehouse: 5 kg (5,000 g)
@@ -281,6 +336,7 @@ const initialDB = (): DatabaseState => {
     posList,
     warehouses,
     products,
+    posProductAliases,
     posPricing,
     stocks,
     batches,
@@ -293,6 +349,7 @@ const initialDB = (): DatabaseState => {
     inventories: [],
     losses: [],
     externalSales: [],
+    externalPOSImportRuns: [],
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -309,6 +366,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     posList: state.posList || [],
     warehouses: state.warehouses || [],
     products: state.products || [],
+    posProductAliases: state.posProductAliases || [],
     posPricing: state.posPricing || [],
     stocks: state.stocks || [],
     batches: state.batches || [],
@@ -321,6 +379,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     inventories: state.inventories || [],
     losses: state.losses || [],
     externalSales: state.externalSales || [],
+    externalPOSImportRuns: state.externalPOSImportRuns || [],
     cashSessions: state.cashSessions || [],
     pmsRooms: state.pmsRooms || [],
     pmsFolios: state.pmsFolios || [],

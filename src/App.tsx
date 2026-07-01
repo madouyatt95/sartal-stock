@@ -3,6 +3,7 @@ import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
   ShieldCheck,
+  FileSearch,
   Package, 
   Warehouse, 
   Layers, 
@@ -15,6 +16,7 @@ import {
   Users, 
   Settings as SettingsIcon, 
   Network, 
+  FileSpreadsheet,
   Download,
   Moon,
   Sun,
@@ -28,6 +30,7 @@ import {
 // Subviews
 import Dashboard from './views/Dashboard';
 import StockControl from './views/StockControl';
+import StockAudit from './views/StockAudit';
 import Products from './views/Products';
 import Warehouses from './views/Warehouses';
 import Stocks from './views/Stocks';
@@ -41,6 +44,7 @@ import Reorder from './views/Reorder';
 import Suppliers from './views/Suppliers';
 import Settings from './views/Settings';
 import Connectors from './views/Connectors';
+import POSImports from './views/POSImports';
 import Exports from './views/Exports';
 
 export const App: React.FC = () => {
@@ -63,6 +67,7 @@ export const App: React.FC = () => {
   const sidebarLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
     { id: 'stock-control', label: 'Contrôle Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
+    { id: 'stock-audit', label: 'Audit Stock', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
     { id: 'products', label: 'Produits / BOM', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'warehouses', label: 'Dépôts & POS', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'stocks', label: 'Suivi Stocks', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
@@ -74,6 +79,7 @@ export const App: React.FC = () => {
     { id: 'movements', label: 'Mouvements', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
     { id: 'reorder', label: 'Réappro', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'] },
+    { id: 'pos-imports', label: 'Imports POS', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
     { id: 'connectors', label: 'Connecteurs API', icon: <Network size={18} />, roles: ['admin'] },
     { id: 'exports', label: 'Exports CSV', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'] },
     { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} />, roles: ['admin'] }
@@ -101,6 +107,8 @@ export const App: React.FC = () => {
         return <Dashboard state={state} setView={setView} />;
       case 'stock-control':
         return <StockControl state={state} setView={setView} />;
+      case 'stock-audit':
+        return <StockAudit state={state} setView={setView} />;
       case 'products':
         return <Products state={state} />;
       case 'warehouses':
@@ -125,6 +133,8 @@ export const App: React.FC = () => {
         return <Suppliers state={state} />;
       case 'connectors':
         return <Connectors state={state} />;
+      case 'pos-imports':
+        return <POSImports state={state} setView={setView} />;
       case 'exports':
         return <Exports state={state} />;
       case 'settings':
