@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   ShieldCheck,
   FileSearch,
+  GitBranch,
   Package, 
   Warehouse, 
   Layers, 
@@ -31,6 +32,7 @@ import {
 import Dashboard from './views/Dashboard';
 import StockControl from './views/StockControl';
 import StockAudit from './views/StockAudit';
+import MappingControl from './views/MappingControl';
 import Products from './views/Products';
 import Warehouses from './views/Warehouses';
 import Stocks from './views/Stocks';
@@ -67,6 +69,7 @@ export const App: React.FC = () => {
   const sidebarLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
     { id: 'stock-control', label: 'Contrôle Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
+    { id: 'mapping-control', label: 'Cartographie', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
     { id: 'stock-audit', label: 'Audit Stock', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
     { id: 'products', label: 'Produits / BOM', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'warehouses', label: 'Dépôts & POS', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'] },
@@ -107,6 +110,8 @@ export const App: React.FC = () => {
         return <Dashboard state={state} setView={setView} />;
       case 'stock-control':
         return <StockControl state={state} setView={setView} />;
+      case 'mapping-control':
+        return <MappingControl state={state} setView={setView} />;
       case 'stock-audit':
         return <StockAudit state={state} setView={setView} />;
       case 'products':
