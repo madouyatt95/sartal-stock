@@ -65,30 +65,37 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // Sidebar links filtering based on user roles
+  // Navigation visible par role, avec des libelles orientes demo terrain.
   const sidebarLinks = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
-    { id: 'stock-control', label: 'Contrôle Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
-    { id: 'mapping-control', label: 'Cartographie', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
-    { id: 'stock-audit', label: 'Audit Stock', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
-    { id: 'products', label: 'Produits / BOM', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'] },
-    { id: 'warehouses', label: 'Dépôts & POS', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'] },
-    { id: 'stocks', label: 'Suivi Stocks', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
-    { id: 'purchases', label: 'Achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'] },
-    { id: 'receiving', label: 'Réceptions', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'] },
-    { id: 'transfers', label: 'Transferts', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'] },
-    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'] },
-    { id: 'losses', label: 'Pertes', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'] },
-    { id: 'movements', label: 'Mouvements', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
-    { id: 'reorder', label: 'Réappro', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'] },
-    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'] },
-    { id: 'pos-imports', label: 'Imports POS', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'] },
-    { id: 'connectors', label: 'Connecteurs API', icon: <Network size={18} />, roles: ['admin'] },
-    { id: 'exports', label: 'Exports CSV', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'] },
-    { id: 'settings', label: 'Paramètres', icon: <SettingsIcon size={18} />, roles: ['admin'] }
+    { id: 'dashboard', label: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'stock-control', label: 'Pilotage stock', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
+    { id: 'mapping-control', label: 'Mise en ordre', mobileLabel: 'Ordre', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Audit', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'stocks', label: 'Stocks & lots', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Operations' },
+    { id: 'receiving', label: 'Entrées dépôt', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Operations' },
+    { id: 'transfers', label: 'Transferts dépôt', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations' },
+    { id: 'inventories', label: 'Comptages', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations' },
+    { id: 'losses', label: 'Casses & pertes', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Operations' },
+    { id: 'products', label: 'Catalogue', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
+    { id: 'warehouses', label: 'Sites & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
+    { id: 'purchases', label: 'Achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
+    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
+    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
+    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Avance' },
+    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Avance' },
+    { id: 'exports', label: 'Exports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Avance' },
+    { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Avance' }
   ];
 
   const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
+  const sidebarSections = [
+    { id: 'Pilotage', label: 'Pilotage' },
+    { id: 'Operations', label: 'Opérations stock' },
+    { id: 'Referentiel', label: 'Données métier' },
+    { id: 'Avance', label: 'Avancé' }
+  ];
+  const mobilePrimaryLinks = allowedLinks.filter(link => ['stock-control', 'mapping-control', 'stock-audit', 'pos-imports'].includes(link.id));
 
   const renderView = () => {
     // Role checks fallback
@@ -188,42 +195,42 @@ export const App: React.FC = () => {
         </div>
 
         {/* Sidebar Links Navigation */}
-        <nav style={{ flexGrow: 1, padding: '20px 12px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' }}>
-          {allowedLinks.map(link => {
-            const isActive = view === link.id;
+        <nav style={{ flexGrow: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+          {sidebarSections.map(section => {
+            const sectionLinks = allowedLinks.filter(link => link.section === section.id);
+            if (sectionLinks.length === 0) return null;
+
             return (
-              <button
-                key={link.id}
-                onClick={() => {
-                  setView(link.id);
-                  setMobileMenuOpen(false);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  width: '100%',
-                  padding: '10px 14px',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: isActive ? 'var(--primary)' : 'transparent',
-                  color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontSize: '0.875rem',
-                  fontWeight: isActive ? 700 : 500,
-                  transition: 'all var(--transition-fast)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-sidebar-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                {link.icon}
-                <span>{link.label}</span>
-              </button>
+              <div className="sidebar-section" key={section.id}>
+                <span className="sidebar-section-title">{section.label}</span>
+                {sectionLinks.map(link => {
+                  const isActive = view === link.id;
+                  return (
+                    <button
+                      key={link.id}
+                      onClick={() => {
+                        setView(link.id);
+                        setMobileMenuOpen(false);
+                      }}
+                      className="sidebar-link"
+                      style={{
+                        backgroundColor: isActive ? 'var(--primary)' : 'transparent',
+                        color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',
+                        fontWeight: isActive ? 700 : 500
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-sidebar-hover)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      {link.icon}
+                      <span>{link.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -252,11 +259,19 @@ export const App: React.FC = () => {
 
       </aside>
 
+      {mobileMenuOpen && (
+        <button
+          className="mobile-sidebar-backdrop"
+          aria-label="Fermer le menu"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Main View Area */}
       <main className="main-content">
         
         {/* Global Navbar Header */}
-        <header style={{
+        <header className="app-header" style={{
           height: '70px',
           backgroundColor: 'var(--bg-card)',
           borderBottom: '1px solid var(--border-color)',
@@ -317,9 +332,25 @@ export const App: React.FC = () => {
         </header>
 
         {/* Tab View Component Render */}
-        <div style={{ flexGrow: 1, overflowY: 'auto' }}>
+        <div className="main-view-scroll" style={{ flexGrow: 1, overflowY: 'auto' }}>
           {renderView()}
         </div>
+
+        <nav className="mobile-bottom-nav" aria-label="Navigation principale mobile">
+          {mobilePrimaryLinks.map(link => (
+            <button
+              key={link.id}
+              onClick={() => {
+                setView(link.id);
+                setMobileMenuOpen(false);
+              }}
+              className={view === link.id ? 'active' : ''}
+            >
+              {link.icon}
+              <span>{link.mobileLabel || link.label}</span>
+            </button>
+          ))}
+        </nav>
 
       </main>
 
