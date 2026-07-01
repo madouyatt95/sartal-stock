@@ -113,10 +113,10 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
   ];
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Contrôle Stock Gérant</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Stock réel par dépôt</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             La preuve métier : stock réel par dépôt, alertes, pertes, péremptions et traçabilité des sorties POS.
           </p>

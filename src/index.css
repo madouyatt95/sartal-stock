@@ -478,7 +478,7 @@ button, input, select, textarea {
     justify-content: center;
     gap: 4px;
     min-height: 52px;
-    font-size: 0.66rem;
+    font-size: 0.61rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -491,5 +491,129 @@ button, input, select, textarea {
   .mobile-bottom-nav button.active {
     color: var(--primary);
     background: var(--primary-lightest);
+  }
+
+  .manager-mobile-page {
+    padding: 12px !important;
+    gap: 14px !important;
+  }
+
+  .manager-mobile-page > div:first-child {
+    display: block !important;
+  }
+
+  .manager-mobile-page > div:first-child p {
+    font-size: 0.88rem !important;
+    line-height: 1.45;
+  }
+
+  .manager-mobile-page > div:first-child .btn,
+  .manager-mobile-page > div:first-child > div:last-child,
+  .manager-mobile-page > div:first-child > button {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .manager-mobile-page > div:first-child > div:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+  }
+
+  .manager-mobile-page .grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .manager-mobile-page .grid-3,
+  .manager-mobile-page .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .manager-mobile-page .card {
+    padding: 14px !important;
+    box-shadow: none;
+  }
+
+  .manager-mobile-page .card[style*="padding: 0"] {
+    padding: 0 !important;
+  }
+
+  .manager-mobile-page .card[style*="grid-template-columns"],
+  .manager-mobile-page .card[style*="gridTemplateColumns"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+
+  .manager-mobile-page h2 {
+    font-size: 1.15rem !important;
+  }
+
+  .manager-mobile-page h3 {
+    font-size: 0.98rem !important;
+  }
+
+  .manager-mobile-page .table-container,
+  .manager-mobile-page div[style*="overflowX"] {
+    overflow: visible !important;
+  }
+
+  .manager-mobile-page .custom-table {
+    min-width: 0 !important;
+    width: 100%;
+    background: transparent;
+  }
+
+  .manager-mobile-page .custom-table thead {
+    display: none;
+  }
+
+  .manager-mobile-page .custom-table,
+  .manager-mobile-page .custom-table tbody,
+  .manager-mobile-page .custom-table tr,
+  .manager-mobile-page .custom-table td {
+    display: block;
+  }
+
+  .manager-mobile-page .custom-table tr {
+    margin: 10px 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+  }
+
+  .manager-mobile-page .custom-table td {
+    padding: 6px 0 !important;
+    border: none;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .manager-mobile-page .custom-table td + td {
+    border-top: 1px solid var(--border-color);
+  }
+
+  .manager-mobile-page .custom-table tr:hover td {
+    background: transparent;
+  }
+
+  .manager-mobile-page .badge {
+    white-space: normal;
+    text-align: left;
+    line-height: 1.25;
+  }
+
+  .manager-mobile-page textarea.form-control {
+    min-height: 160px;
+    font-size: 12px !important;
+    line-height: 1.35;
+  }
+
+  .manager-mobile-page .btn {
+    width: 100%;
   }
 }

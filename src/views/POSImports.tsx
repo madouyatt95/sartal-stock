@@ -102,12 +102,12 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Imports POS existants</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ventes caisse importées</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Collez un export de caisse, Sartal reconnaît les produits, rattache le POS au bon dépôt et rejoue les ventes pour calculer le stock réel.
+            Collez un export de caisse, Sartal reconnaît les produits, rattache le point de vente au bon dépôt et rejoue les ventes pour calculer le stock réel.
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setView('stock-control')}>

@@ -52,7 +52,7 @@ import Exports from './views/Exports';
 export const App: React.FC = () => {
   const state = useStockState();
   const { db } = state;
-  const [view, setView] = useState<string>('dashboard');
+  const [view, setView] = useState<string>('stock-control');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -68,9 +68,9 @@ export const App: React.FC = () => {
   // Navigation visible par role, avec des libelles orientes demo terrain.
   const sidebarLinks = [
     { id: 'dashboard', label: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stock-control', label: 'Pilotage stock', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
-    { id: 'mapping-control', label: 'Mise en ordre', mobileLabel: 'Ordre', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Audit', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'stock-control', label: 'Pilotage stock', mobileLabel: 'Stock réel', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
+    { id: 'mapping-control', label: 'Mise en ordre', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
     { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
     { id: 'stocks', label: 'Stocks & lots', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Operations' },
     { id: 'receiving', label: 'Entrées dépôt', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Operations' },
@@ -95,7 +95,10 @@ export const App: React.FC = () => {
     { id: 'Referentiel', label: 'Données métier' },
     { id: 'Avance', label: 'Avancé' }
   ];
-  const mobilePrimaryLinks = allowedLinks.filter(link => ['stock-control', 'mapping-control', 'stock-audit', 'pos-imports'].includes(link.id));
+  const mobilePrimaryOrder = ['stock-control', 'pos-imports', 'mapping-control', 'stock-audit'];
+  const mobilePrimaryLinks = mobilePrimaryOrder
+    .map(id => allowedLinks.find(link => link.id === id))
+    .filter((link): link is NonNullable<typeof link> => Boolean(link));
 
   const renderView = () => {
     // Role checks fallback

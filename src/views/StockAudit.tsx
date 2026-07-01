@@ -122,10 +122,10 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
   ];
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Audit Stock Existant</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Écarts de stock expliqués</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             On ne remplace pas leur logiciel au départ : on contrôle ses données, on détecte les écarts et on explique pourquoi le stock n'est pas fiable.
           </p>

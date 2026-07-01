@@ -66,12 +66,12 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
   );
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Cartographie & Mapping</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dépôts et caisses à relier</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            On ne suppose pas que les données sont propres. Sartal détecte les POS, produits et dépôts à partir des exports, puis montre ce qui doit être relié avant l'audit stock.
+            On ne suppose pas que les données sont propres. Sartal détecte les caisses, produits et dépôts à partir des exports, puis montre ce qui doit être relié avant l'audit stock.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
