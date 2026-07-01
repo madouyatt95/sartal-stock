@@ -17,6 +17,8 @@ import {
   Loss,
   ExternalSale,
   CashSession,
+  PMSRoom,
+  PMSFolio,
   User
 } from './types';
 
@@ -39,6 +41,8 @@ export interface DatabaseState {
   losses: Loss[];
   externalSales: ExternalSale[];
   cashSessions: CashSession[];
+  pmsRooms: PMSRoom[];
+  pmsFolios: PMSFolio[];
   users: User[];
   currentUser: User;
 }
@@ -231,6 +235,46 @@ const initialDB = (): DatabaseState => {
     { id: 'user-auditor', name: 'Auditeur Externe', role: 'auditor' }
   ];
 
+  const pmsRooms: PMSRoom[] = [
+    { id: 'room-204', siteId: 'site-1', roomNumber: '204', roomType: 'Suite Junior', status: 'occupied' },
+    { id: 'room-305', siteId: 'site-1', roomNumber: '305', roomType: 'Chambre Deluxe', status: 'occupied' },
+    { id: 'room-118', siteId: 'site-1', roomNumber: '118', roomType: 'Standard', status: 'occupied' },
+    { id: 'room-410', siteId: 'site-1', roomNumber: '410', roomType: 'Suite Présidentielle', status: 'vacant' }
+  ];
+
+  const pmsFolios: PMSFolio[] = [
+    {
+      id: 'folio-204',
+      roomId: 'room-204',
+      guestName: 'Aminata Diop',
+      reservationNumber: 'RSV-240701',
+      arrivalDate: '2026-07-01',
+      departureDate: '2026-07-05',
+      status: 'open',
+      charges: []
+    },
+    {
+      id: 'folio-305',
+      roomId: 'room-305',
+      guestName: 'Jean Morel',
+      reservationNumber: 'RSV-240702',
+      arrivalDate: '2026-06-30',
+      departureDate: '2026-07-03',
+      status: 'open',
+      charges: []
+    },
+    {
+      id: 'folio-118',
+      roomId: 'room-118',
+      guestName: 'Sarah Johnson',
+      reservationNumber: 'RSV-240703',
+      arrivalDate: '2026-07-01',
+      departureDate: '2026-07-02',
+      status: 'open',
+      charges: []
+    }
+  ];
+
   return {
     companies,
     sites,
@@ -250,6 +294,8 @@ const initialDB = (): DatabaseState => {
     losses: [],
     externalSales: [],
     cashSessions: [],
+    pmsRooms,
+    pmsFolios,
     users,
     currentUser: users[0] // Admin by default
   };
@@ -276,6 +322,8 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     losses: state.losses || [],
     externalSales: state.externalSales || [],
     cashSessions: state.cashSessions || [],
+    pmsRooms: state.pmsRooms || [],
+    pmsFolios: state.pmsFolios || [],
     users: state.users || [],
     currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
   };

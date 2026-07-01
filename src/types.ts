@@ -235,6 +235,7 @@ export interface ExternalSale {
   paymentContext: {
     type: 'cash' | 'card' | 'room_charge' | 'other';
     roomNumber?: string;
+    folioId?: string;
     amount: number;
   };
   exportedToPms: boolean;
@@ -269,6 +270,39 @@ export interface CashSession {
   cashDifference?: number;
   zReportNumber?: string;
   notes?: string;
+}
+
+export type PMSFolioStatus = 'open' | 'closed';
+export type PMSChargeStatus = 'pending' | 'exported' | 'reconciled';
+
+export interface PMSRoom {
+  id: string;
+  siteId: string;
+  roomNumber: string;
+  roomType: string;
+  status: 'occupied' | 'vacant' | 'maintenance';
+}
+
+export interface PMSFolioCharge {
+  id: string;
+  saleId: string;
+  externalSaleId: string;
+  posId: string;
+  label: string;
+  amount: number;
+  date: string;
+  status: PMSChargeStatus;
+}
+
+export interface PMSFolio {
+  id: string;
+  roomId: string;
+  guestName: string;
+  reservationNumber: string;
+  arrivalDate: string;
+  departureDate: string;
+  status: PMSFolioStatus;
+  charges: PMSFolioCharge[];
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

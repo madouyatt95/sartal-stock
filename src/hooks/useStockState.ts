@@ -38,6 +38,7 @@ export const useStockState = () => {
     paymentContext: {
       type: 'cash' | 'card' | 'room_charge' | 'other';
       roomNumber?: string;
+      folioId?: string;
       amount: number;
     };
   }) => {
@@ -236,6 +237,11 @@ export const useStockState = () => {
     const sale = newDb.externalSales.find(s => s.id === saleId);
     if (sale) {
       sale.exportedToPms = !sale.exportedToPms;
+      const folio = newDb.pmsFolios.find(f => f.id === sale.paymentContext.folioId);
+      const folioCharge = folio?.charges.find(charge => charge.saleId === sale.id);
+      if (folioCharge) {
+        folioCharge.status = sale.exportedToPms ? 'exported' : 'pending';
+      }
       saveDB(newDb);
       refresh();
     }

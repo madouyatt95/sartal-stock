@@ -46,7 +46,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [paymentType, setPaymentType] = useState<PaymentType>('cash');
-  const [roomNumber, setRoomNumber] = useState('');
+  const [selectedFolioId, setSelectedFolioId] = useState('');
   const [saleResult, setSaleResult] = useState<SaleResult | null>(null);
   const [openingFloat, setOpeningFloat] = useState(50000);
   const [closingCashDeclared, setClosingCashDeclared] = useState(0);
@@ -61,6 +61,9 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
   const selectedPOS = db.posList.find(p => p.id === selectedPosId);
   const targetWarehouse = db.warehouses.find(w => w.id === selectedPOS?.defaultWarehouseId);
   const activeSession = db.cashSessions.find(session => session.posId === selectedPosId && session.status === 'open');
+  const activeFolios = db.pmsFolios.filter(folio => folio.status === 'open');
+  const selectedFolio = db.pmsFolios.find(folio => folio.id === selectedFolioId);
+  const selectedFolioRoom = db.pmsRooms.find(room => room.id === selectedFolio?.roomId);
   const selectedPOSSessions = db.cashSessions
     .filter(session => session.posId === selectedPosId)
     .slice()
@@ -129,7 +132,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
     e.preventDefault();
     if (!selectedPOS || cart.length === 0) return;
     if (!activeSession) return;
-    if (paymentType === 'room_charge' && !roomNumber.trim()) return;
+    if (paymentType === 'room_charge' && !selectedFolio) return;
 
     const saleReference = `POS-${Date.now().toString().slice(-6)}`;
     const result = processSale({
@@ -139,7 +142,8 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
       items: cart.map(line => ({ productId: line.productId, quantity: line.quantity })),
       paymentContext: {
         type: paymentType,
-        roomNumber: paymentType === 'room_charge' ? roomNumber.trim() : undefined,
+        roomNumber: paymentType === 'room_charge' ? selectedFolioRoom?.roomNumber : undefined,
+        folioId: paymentType === 'room_charge' ? selectedFolioId : undefined,
         amount: subtotal
       }
     });
@@ -148,7 +152,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
 
     if (result.success) {
       setCart([]);
-      setRoomNumber('');
+      setSelectedFolioId('');
     }
   };
 
@@ -160,6 +164,12 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
   };
 
   const roomChargeSales = db.externalSales.filter(s => s.paymentContext.type === 'room_charge');
+  const pmsCharges = db.pmsFolios.flatMap(folio => (
+    folio.charges.map(charge => {
+      const room = db.pmsRooms.find(r => r.id === folio.roomId);
+      return { folio, charge, room };
+    })
+  ));
 
   const handleOpenSession = (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,12 +201,13 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
     }
 
     let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += "ID Vente;Date;Point de Vente;Chambre;Montant (FCFA);PMS Status\n";
+    csvContent += "ID Vente;Date;Point de Vente;Chambre;Client;Montant (FCFA);PMS Status\n";
 
     roomChargeSales.forEach(sale => {
       const pos = db.posList.find(p => p.id === sale.posId);
+      const folio = db.pmsFolios.find(f => f.id === sale.paymentContext.folioId);
       const date = new Date(sale.date).toLocaleDateString();
-      csvContent += `${sale.externalSaleId};${date};${pos?.name};${sale.paymentContext.roomNumber};${sale.paymentContext.amount};${sale.exportedToPms ? 'Exported' : 'Pending'}\n`;
+      csvContent += `${sale.externalSaleId};${date};${pos?.name};${sale.paymentContext.roomNumber};${folio?.guestName || ''};${sale.paymentContext.amount};${sale.exportedToPms ? 'Exported' : 'Pending'}\n`;
     });
 
     const encodedUri = encodeURI(csvContent);
@@ -416,7 +427,10 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setPaymentType(option.value as PaymentType)}
+                    onClick={() => {
+                      setPaymentType(option.value as PaymentType);
+                      if (option.value !== 'room_charge') setSelectedFolioId('');
+                    }}
                     className={paymentType === option.value ? 'btn btn-primary' : 'btn btn-secondary'}
                     style={{ padding: '9px 10px' }}
                   >
@@ -428,19 +442,32 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
 
             {paymentType === 'room_charge' && (
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Numéro de chambre</label>
-                <input
-                  type="text"
-                  value={roomNumber}
-                  onChange={(e) => setRoomNumber(e.target.value)}
+                <label className="form-label">Folio PMS ouvert</label>
+                <select
+                  value={selectedFolioId}
+                  onChange={(e) => setSelectedFolioId(e.target.value)}
                   className="form-control"
-                  placeholder="Ex: 204"
                   required
-                />
+                >
+                  <option value="">Sélectionner une chambre...</option>
+                  {activeFolios.map(folio => {
+                    const room = db.pmsRooms.find(r => r.id === folio.roomId);
+                    return (
+                      <option key={folio.id} value={folio.id}>
+                        Chambre {room?.roomNumber} - {folio.guestName} ({folio.reservationNumber})
+                      </option>
+                    );
+                  })}
+                </select>
+                {selectedFolio && (
+                  <div style={{ marginTop: '8px', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--info-light)', color: 'var(--info)', fontSize: '0.8rem', fontWeight: 700 }}>
+                    Folio {selectedFolio.reservationNumber} • Départ {new Date(selectedFolio.departureDate).toLocaleDateString()}
+                  </div>
+                )}
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary" disabled={cart.length === 0 || !activeSession} style={{ width: '100%', padding: '13px 16px' }}>
+            <button type="submit" className="btn btn-primary" disabled={cart.length === 0 || !activeSession || (paymentType === 'room_charge' && !selectedFolio)} style={{ width: '100%', padding: '13px 16px' }}>
               Encaisser et déduire le stock
             </button>
 
@@ -642,63 +669,87 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
       )}
 
       {activeSubTab === 'pms' && (
-        <div className="card" style={{ padding: 0 }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Journal des imputations chambre</h3>
-            <button className="btn btn-secondary" onClick={handleExportPMSCSV} style={{ gap: '6px', fontSize: '0.825rem', padding: '8px 12px' }}>
-              <FileSpreadsheet size={16} /> Exporter au format PMS (CSV)
-            </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="grid-3">
+            <div className="card">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>Folios ouverts</p>
+              <h2 style={{ marginTop: '8px' }}>{activeFolios.length}</h2>
+            </div>
+            <div className="card">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>Charges PMS en attente</p>
+              <h2 style={{ marginTop: '8px' }}>{pmsCharges.filter(item => item.charge.status === 'pending').length}</h2>
+            </div>
+            <div className="card">
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>Montant chambre</p>
+              <h2 style={{ marginTop: '8px' }}>{formatFCFA(roomChargeSales.reduce((sum, sale) => sum + sale.paymentContext.amount, 0))}</h2>
+            </div>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Réf Vente</th>
-                  <th>Date / Heure</th>
-                  <th>Point de Vente (POS)</th>
-                  <th>Chambre Cible</th>
-                  <th>Montant Vente</th>
-                  <th>Statut Exportation</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {roomChargeSales.slice().reverse().map(sale => {
-                  const pos = db.posList.find(p => p.id === sale.posId);
-                  return (
-                    <tr key={sale.id}>
-                      <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{sale.externalSaleId}</td>
-                      <td>{new Date(sale.date).toLocaleString()}</td>
-                      <td style={{ fontWeight: 600 }}>{pos?.name}</td>
-                      <td style={{ fontWeight: 800, color: 'var(--primary)' }}>Chambre {sale.paymentContext.roomNumber}</td>
-                      <td style={{ fontWeight: 700 }}>{formatFCFA(sale.paymentContext.amount)}</td>
-                      <td>
-                        <span className={`badge ${sale.exportedToPms ? 'badge-green' : 'badge-yellow'}`}>
-                          {sale.exportedToPms ? 'Exporté vers PMS' : 'En Attente Sync'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-secondary"
-                          onClick={() => togglePMSExport(sale.id)}
-                          style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                        >
-                          {sale.exportedToPms ? 'Marquer En attente' : 'Marquer Transmis'}
-                        </button>
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Journal des imputations chambre</h3>
+              <button className="btn btn-secondary" onClick={handleExportPMSCSV} style={{ gap: '6px', fontSize: '0.825rem', padding: '8px 12px' }}>
+                <FileSpreadsheet size={16} /> Exporter au format PMS (CSV)
+              </button>
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table className="custom-table">
+                <thead>
+                  <tr>
+                    <th>Réf Vente</th>
+                    <th>Date / Heure</th>
+                    <th>Point de Vente</th>
+                    <th>Chambre / Client</th>
+                    <th>Montant</th>
+                    <th>Statut PMS</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roomChargeSales.slice().reverse().map(sale => {
+                    const pos = db.posList.find(p => p.id === sale.posId);
+                    const folio = db.pmsFolios.find(f => f.id === sale.paymentContext.folioId);
+                    const room = db.pmsRooms.find(r => r.id === folio?.roomId);
+                    return (
+                      <tr key={sale.id}>
+                        <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{sale.externalSaleId}</td>
+                        <td>{new Date(sale.date).toLocaleString()}</td>
+                        <td style={{ fontWeight: 600 }}>{pos?.name}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <strong style={{ color: 'var(--primary)' }}>Chambre {room?.roomNumber || sale.paymentContext.roomNumber}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{folio?.guestName || 'Folio non lié'}</span>
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: 700 }}>{formatFCFA(sale.paymentContext.amount)}</td>
+                        <td>
+                          <span className={`badge ${sale.exportedToPms ? 'badge-green' : 'badge-yellow'}`}>
+                            {sale.exportedToPms ? 'Exporté vers PMS' : 'En Attente Sync'}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-secondary"
+                            onClick={() => togglePMSExport(sale.id)}
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                          >
+                            {sale.exportedToPms ? 'Marquer En attente' : 'Marquer Transmis'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {roomChargeSales.length === 0 && (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                        Aucune vente imputée sur chambre pour l'instant.
                       </td>
                     </tr>
-                  );
-                })}
-                {roomChargeSales.length === 0 && (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
-                      Aucune vente imputée sur chambre pour l'instant.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -175,7 +175,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
 
         {/* KPI 2 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stocks')}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Produits sous seuil</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--warning-light)', color: 'var(--warning)' }}>
@@ -191,7 +191,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
 
         {/* KPI 3 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stocks')}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Produits bientôt périmés</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--danger-light)', color: 'var(--danger)' }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
+  ShieldCheck,
   Package, 
   Warehouse, 
   Layers, 
@@ -26,6 +27,7 @@ import {
 
 // Subviews
 import Dashboard from './views/Dashboard';
+import StockControl from './views/StockControl';
 import Products from './views/Products';
 import Warehouses from './views/Warehouses';
 import Stocks from './views/Stocks';
@@ -60,6 +62,7 @@ export const App: React.FC = () => {
   // Sidebar links filtering based on user roles
   const sidebarLinks = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
+    { id: 'stock-control', label: 'Contrôle Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'] },
     { id: 'products', label: 'Produits / BOM', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'warehouses', label: 'Dépôts & POS', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'] },
     { id: 'stocks', label: 'Suivi Stocks', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'] },
@@ -96,6 +99,8 @@ export const App: React.FC = () => {
     switch (view) {
       case 'dashboard':
         return <Dashboard state={state} setView={setView} />;
+      case 'stock-control':
+        return <StockControl state={state} setView={setView} />;
       case 'products':
         return <Products state={state} />;
       case 'warehouses':

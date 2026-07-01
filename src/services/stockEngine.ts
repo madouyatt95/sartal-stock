@@ -305,6 +305,7 @@ export const processExternalSale = (
     paymentContext: {
       type: 'cash' | 'card' | 'room_charge' | 'other';
       roomNumber?: string;
+      folioId?: string;
       amount: number;
     };
   },
@@ -316,6 +317,11 @@ export const processExternalSale = (
   try {
     const pos = db.posList.find(p => p.id === salePayload.posId);
     if (!pos) throw new Error(`POS introuvable : ${salePayload.posId}`);
+
+    if (salePayload.paymentContext.type === 'room_charge') {
+      const folio = db.pmsFolios.find(f => f.id === salePayload.paymentContext.folioId && f.status === 'open');
+      if (!folio) throw new Error("Aucun folio PMS ouvert sélectionné pour l'imputation chambre");
+    }
 
     const createdMovements: StockMovement[] = [];
 
@@ -430,6 +436,22 @@ export const processExternalSale = (
     };
 
     db.externalSales.push(newSale);
+
+    if (newSale.paymentContext.type === 'room_charge' && newSale.paymentContext.folioId) {
+      const folio = db.pmsFolios.find(f => f.id === newSale.paymentContext.folioId);
+      if (folio) {
+        folio.charges.push({
+          id: genId('folio-charge'),
+          saleId: newSale.id,
+          externalSaleId: newSale.externalSaleId,
+          posId: newSale.posId,
+          label: `Consommation ${pos.name}`,
+          amount: newSale.paymentContext.amount,
+          date: newSale.date,
+          status: 'pending'
+        });
+      }
+    }
 
     if (openSession) {
       openSession.saleIds.push(newSale.id);
