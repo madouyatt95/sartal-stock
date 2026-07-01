@@ -1,0 +1,250 @@
+export interface Company {
+  id: string;
+  name: string;
+}
+
+export interface Site {
+  id: string;
+  companyId: string;
+  name: string;
+}
+
+export type POSType =
+  | 'restaurant'
+  | 'bar'
+  | 'night_club'
+  | 'casino'
+  | 'room_service'
+  | 'spa'
+  | 'boutique'
+  | 'mini_bar'
+  | 'other';
+
+export interface POS {
+  id: string;
+  siteId: string;
+  name: string;
+  type: POSType;
+  defaultWarehouseId: string;
+  authorizedRoles: string[];
+}
+
+export interface Warehouse {
+  id: string;
+  siteId: string;
+  name: string;
+  isColdStorage: boolean;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  barcode?: string;
+  category: string;
+  baseUnit: string;
+  isStockable: boolean;
+  globalAlertThreshold: number;
+  mainSupplierId?: string;
+  isActive: boolean;
+  imageUrl?: string;
+}
+
+export interface POSPricing {
+  productId: string;
+  posId: string;
+  salePrice: number;
+  taxRate: number; // e.g., 18 for 18%
+  isAvailable: boolean;
+  defaultWarehouseId?: string; // Optional override
+}
+
+export interface Stock {
+  productId: string;
+  warehouseId: string;
+  quantityAvailable: number;
+  quantityReserved: number;
+  alertThreshold: number;
+  averageCost: number;
+  lastUpdated: string; // ISO String
+}
+
+export interface Batch {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  batchNumber: string;
+  expiryDate?: string; // ISO Date (YYYY-MM-DD)
+  quantity: number; // current quantity
+  initialQuantity: number;
+  supplierId: string;
+  purchaseCost: number;
+  createdAt: string; // ISO date-time
+}
+
+export type StockMovementType =
+  | 'purchase_received'
+  | 'sale_consumption'
+  | 'transfer_out'
+  | 'transfer_in'
+  | 'inventory_adjustment'
+  | 'loss'
+  | 'production'
+  | 'manual_entry'
+  | 'correction';
+
+export interface StockMovement {
+  id: string;
+  companyId: string;
+  siteId: string;
+  posId?: string; // if related to a POS sale
+  warehouseId: string;
+  productId: string;
+  batchId?: string;
+  type: StockMovementType;
+  quantity: number; // positive for positive change, negative for reduction
+  unit: string;
+  cost: number;
+  userId: string;
+  userName: string;
+  date: string; // ISO date-time
+  reason: string;
+  externalReference?: string;
+}
+
+export interface RecipeIngredient {
+  productId: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface Recipe {
+  id: string;
+  productId: string; // product that this recipe makes
+  name: string;
+  ingredients: RecipeIngredient[];
+}
+
+export interface UnitConversion {
+  id: string;
+  productId?: string; // if product-specific (e.g. carton of Coca vs carton of juice)
+  fromUnit: string;
+  toUnit: string;
+  factor: number; // e.g. fromUnit: 'carton', toUnit: 'unité', factor: 24 (1 carton = 24 unités)
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact: string;
+  phone: string;
+  email: string;
+}
+
+export type SupplierOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'fully_received' | 'cancelled';
+
+export interface SupplierOrderItem {
+  productId: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  purchasePrice: number;
+  unit: string;
+  expiryDate?: string;
+  batchNumber?: string;
+}
+
+export interface SupplierOrder {
+  id: string;
+  supplierId: string;
+  status: SupplierOrderStatus;
+  items: SupplierOrderItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TransferStatus = 'draft' | 'validated' | 'received' | 'cancelled';
+
+export interface TransferItem {
+  productId: string;
+  quantity: number;
+}
+
+export interface Transfer {
+  id: string;
+  sourceWarehouseId: string;
+  destinationWarehouseId: string;
+  status: TransferStatus;
+  items: TransferItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type InventoryStatus = 'draft' | 'in_progress' | 'to_validate' | 'validated';
+
+export interface InventoryItem {
+  productId: string;
+  theoreticalQty: number;
+  realQty: number;
+  gap: number;
+}
+
+export interface Inventory {
+  id: string;
+  warehouseId: string;
+  status: InventoryStatus;
+  items: InventoryItem[];
+  date: string;
+  createdAt: string;
+}
+
+export type LossReason =
+  | 'casse'
+  | 'vol'
+  | 'peremption'
+  | 'erreur_cuisine'
+  | 'offert'
+  | 'consommation_personnel'
+  | 'autre';
+
+export interface Loss {
+  id: string;
+  productId: string;
+  warehouseId: string;
+  batchId?: string;
+  quantity: number;
+  reason: LossReason;
+  date: string;
+  userId: string;
+  userName: string;
+  note: string;
+}
+
+export interface ExternalSaleItem {
+  productId: string;
+  quantity: number;
+  salePrice: number;
+}
+
+export interface ExternalSale {
+  id: string;
+  externalSaleId: string;
+  siteId: string;
+  posId: string;
+  items: ExternalSaleItem[];
+  paymentContext: {
+    type: 'cash' | 'card' | 'room_charge' | 'other';
+    roomNumber?: string;
+    amount: number;
+  };
+  exportedToPms: boolean;
+  date: string;
+}
+
+export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';
+
+export interface User {
+  id: string;
+  name: string;
+  role: UserRole;
+  posId?: string; // For pos_manager, limits access to this POS only
+}
