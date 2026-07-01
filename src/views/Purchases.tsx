@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, ShoppingBag, ShoppingCart, UserCheck } from 'lucide-react';
+import { Plus, ShoppingBag } from 'lucide-react';
 
 interface PurchasesProps {
   state: StockState;

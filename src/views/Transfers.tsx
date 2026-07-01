@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { ArrowRightLeft, Plus, Send } from 'lucide-react';
+import { ArrowRightLeft, Send } from 'lucide-react';
 
 interface TransfersProps {
   state: StockState;

@@ -1,16 +1,11 @@
 import { getDB, saveDB, DatabaseState } from '../db';
 import {
   Batch,
-  Stock,
   StockMovement,
-  Recipe,
-  UnitConversion,
   ExternalSale,
-  SupplierOrder,
   Transfer,
   Inventory,
   Loss,
-  Product,
   StockMovementType,
   LossReason
 } from '../types';
@@ -412,6 +407,7 @@ export const processExternalSale = (
     }
 
     // Save sale logs
+    const openSession = db.cashSessions.find(session => session.posId === salePayload.posId && session.status === 'open');
     const saleItems = salePayload.items.map(item => {
       const pricing = db.posPricing.find(p => p.productId === item.productId && p.posId === salePayload.posId);
       return {
@@ -426,6 +422,7 @@ export const processExternalSale = (
       externalSaleId: salePayload.externalSaleId,
       siteId: salePayload.siteId,
       posId: salePayload.posId,
+      cashSessionId: openSession?.id,
       items: saleItems,
       paymentContext: salePayload.paymentContext,
       exportedToPms: false,
@@ -433,6 +430,13 @@ export const processExternalSale = (
     };
 
     db.externalSales.push(newSale);
+
+    if (openSession) {
+      openSession.saleIds.push(newSale.id);
+      openSession.totalSales += salePayload.paymentContext.amount;
+      openSession.paymentTotals[salePayload.paymentContext.type] += salePayload.paymentContext.amount;
+    }
+
     saveDB(db);
 
     return { success: true, movements: createdMovements };

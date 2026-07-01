@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Search, Filter, AlertTriangle, Calendar, Info, Layers } from 'lucide-react';
+import { Search, Filter, Layers } from 'lucide-react';
 
 interface StocksProps {
   state: StockState;

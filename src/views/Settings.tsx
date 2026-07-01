@@ -7,7 +7,7 @@ interface SettingsProps {
 }
 
 export const Settings: React.FC<SettingsProps> = ({ state }) => {
-  const { db, resetAllData } = state;
+  const { resetAllData } = state;
 
   const handleReset = () => {
     if (window.confirm("Êtes-vous sûr de vouloir réinitialiser la base de données ? Toutes les ventes simulées, commandes et transferts seront perdus.")) {

@@ -16,6 +16,7 @@ import {
   Inventory,
   Loss,
   ExternalSale,
+  CashSession,
   User
 } from './types';
 
@@ -37,6 +38,7 @@ export interface DatabaseState {
   inventories: Inventory[];
   losses: Loss[];
   externalSales: ExternalSale[];
+  cashSessions: CashSession[];
   users: User[];
   currentUser: User;
 }
@@ -247,8 +249,35 @@ const initialDB = (): DatabaseState => {
     inventories: [],
     losses: [],
     externalSales: [],
+    cashSessions: [],
     users,
     currentUser: users[0] // Admin by default
+  };
+};
+
+const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
+  return {
+    ...state,
+    companies: state.companies || [],
+    sites: state.sites || [],
+    posList: state.posList || [],
+    warehouses: state.warehouses || [],
+    products: state.products || [],
+    posPricing: state.posPricing || [],
+    stocks: state.stocks || [],
+    batches: state.batches || [],
+    movements: state.movements || [],
+    recipes: state.recipes || [],
+    conversions: state.conversions || [],
+    suppliers: state.suppliers || [],
+    supplierOrders: state.supplierOrders || [],
+    transfers: state.transfers || [],
+    inventories: state.inventories || [],
+    losses: state.losses || [],
+    externalSales: state.externalSales || [],
+    cashSessions: state.cashSessions || [],
+    users: state.users || [],
+    currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
   };
 };
 
@@ -260,7 +289,9 @@ export const getDB = (): DatabaseState => {
     return newState;
   }
   try {
-    return JSON.parse(data);
+    const parsedState = migrateDB(JSON.parse(data));
+    saveDB(parsedState);
+    return parsedState;
   } catch (e) {
     console.error("Failed to parse DB, resetting", e);
     const newState = initialDB();

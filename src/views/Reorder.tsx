@@ -1,6 +1,6 @@
 import React from 'react';
 import { StockState } from '../hooks/useStockState';
-import { AlertTriangle, ArrowRight, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, ShoppingCart } from 'lucide-react';
 
 interface ReorderProps {
   state: StockState;

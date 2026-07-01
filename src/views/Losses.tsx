@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Trash2, AlertTriangle, AlertOctagon } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { LossReason } from '../types';
 
 interface LossesProps {

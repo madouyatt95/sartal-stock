@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, Settings, List, CircleDollarSign } from 'lucide-react';
+import { Plus, Settings, CircleDollarSign } from 'lucide-react';
 
 interface ProductsProps {
   state: StockState;
@@ -97,9 +97,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {db.products.map(p => {
-                  const hasBOM = db.recipes.some(r => r.productId === p.id);
-                  return (
+                {db.products.map(p => (
                     <tr 
                       key={p.id} 
                       style={{ cursor: 'pointer', backgroundColor: selectedProduct === p.id ? 'var(--primary-lightest)' : undefined }}
@@ -124,8 +122,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                         </button>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>

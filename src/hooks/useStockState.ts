@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
-import { LossReason, POSType } from '../types';
+import { LossReason, PaymentTotals, POSType } from '../types';
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -227,7 +227,6 @@ export const useStockState = () => {
   };
 
   const resetAllData = () => {
-    const newDb = getDB();
     localStorage.removeItem('sartal_stock_db');
     refresh();
   };
@@ -240,6 +239,77 @@ export const useStockState = () => {
       saveDB(newDb);
       refresh();
     }
+  };
+
+  const openCashSession = (posId: string, openingFloat: number) => {
+    const newDb = getDB();
+    const pos = newDb.posList.find(p => p.id === posId);
+    if (!pos) throw new Error("Point de vente introuvable");
+
+    const existingOpenSession = newDb.cashSessions.find(session => session.posId === posId && session.status === 'open');
+    if (existingOpenSession) {
+      throw new Error(`Une session est déjà ouverte pour ${pos.name}`);
+    }
+
+    const sessionId = `CS-${Date.now().toString().slice(-6)}`;
+    newDb.cashSessions.push({
+      id: sessionId,
+      posId,
+      userId: newDb.currentUser.id,
+      userName: newDb.currentUser.name,
+      openedAt: new Date().toISOString(),
+      openingFloat,
+      status: 'open',
+      saleIds: [],
+      paymentTotals: {
+        cash: 0,
+        card: 0,
+        room_charge: 0,
+        other: 0
+      },
+      totalSales: 0
+    });
+    saveDB(newDb);
+    refresh();
+    return sessionId;
+  };
+
+  const closeCashSession = (sessionId: string, closingCashDeclared: number, notes?: string) => {
+    const newDb = getDB();
+    const session = newDb.cashSessions.find(s => s.id === sessionId);
+    if (!session) throw new Error("Session de caisse introuvable");
+    if (session.status === 'closed') throw new Error("Cette session est déjà clôturée");
+
+    const sessionSales = newDb.externalSales.filter(sale => sale.cashSessionId === session.id);
+    const paymentTotals: PaymentTotals = {
+      cash: 0,
+      card: 0,
+      room_charge: 0,
+      other: 0
+    };
+
+    sessionSales.forEach(sale => {
+      paymentTotals[sale.paymentContext.type] += sale.paymentContext.amount;
+    });
+
+    const totalSales = Object.values(paymentTotals).reduce((sum, amount) => sum + amount, 0);
+    const expectedCash = session.openingFloat + paymentTotals.cash;
+
+    session.status = 'closed';
+    session.closedAt = new Date().toISOString();
+    session.closedBy = newDb.currentUser.id;
+    session.closedByName = newDb.currentUser.name;
+    session.closingCashDeclared = closingCashDeclared;
+    session.expectedCash = expectedCash;
+    session.cashDifference = closingCashDeclared - expectedCash;
+    session.paymentTotals = paymentTotals;
+    session.totalSales = totalSales;
+    session.saleIds = sessionSales.map(sale => sale.id);
+    session.zReportNumber = `Z-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${session.id.slice(-4)}`;
+    session.notes = notes;
+
+    saveDB(newDb);
+    refresh();
   };
 
   return {
@@ -257,6 +327,8 @@ export const useStockState = () => {
     addPOS,
     addWarehouse,
     togglePMSExport,
+    openCashSession,
+    closeCashSession,
     resetAllData
   };
 };

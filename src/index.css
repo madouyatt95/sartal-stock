@@ -292,6 +292,13 @@ button, input, select, textarea {
   gap: 20px;
 }
 
+.pos-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+}
+
 @media (max-width: 1024px) {
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
@@ -300,6 +307,9 @@ button, input, select, textarea {
 
 @media (max-width: 768px) {
   .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .pos-workspace {
     grid-template-columns: 1fr;
   }
   .sidebar {

@@ -230,6 +230,7 @@ export interface ExternalSale {
   externalSaleId: string;
   siteId: string;
   posId: string;
+  cashSessionId?: string;
   items: ExternalSaleItem[];
   paymentContext: {
     type: 'cash' | 'card' | 'room_charge' | 'other';
@@ -238,6 +239,36 @@ export interface ExternalSale {
   };
   exportedToPms: boolean;
   date: string;
+}
+
+export type CashSessionStatus = 'open' | 'closed';
+
+export interface PaymentTotals {
+  cash: number;
+  card: number;
+  room_charge: number;
+  other: number;
+}
+
+export interface CashSession {
+  id: string;
+  posId: string;
+  userId: string;
+  userName: string;
+  openedAt: string;
+  openingFloat: number;
+  status: CashSessionStatus;
+  saleIds: string[];
+  paymentTotals: PaymentTotals;
+  totalSales: number;
+  closedAt?: string;
+  closedBy?: string;
+  closedByName?: string;
+  closingCashDeclared?: number;
+  expectedCash?: number;
+  cashDifference?: number;
+  zReportNumber?: string;
+  notes?: string;
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

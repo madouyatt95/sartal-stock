@@ -5,7 +5,6 @@ import {
   AlertTriangle, 
   Calendar, 
   Trash2, 
-  Activity, 
   ShoppingCart, 
   ArrowRightLeft, 
   ClipboardList, 
@@ -64,11 +63,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
     const cost = mvt ? Math.abs(mvt.cost) : 0;
     return sum + (l.quantity * cost);
   }, 0);
-
-  // Movements today
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const movementsToday = db.movements.filter(m => new Date(m.date) >= startOfToday);
 
   // 2. Charts calculations
   // Consumption by POS (Donut Chart)
