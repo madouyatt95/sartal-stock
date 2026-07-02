@@ -61,7 +61,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
 
   const statusBadge = (ok: boolean) => (
     <span className={`badge ${ok ? 'badge-green' : 'badge-red'}`}>
-      {ok ? 'Mappé' : 'À relier'}
+      {ok ? 'Reconnu' : 'À identifier'}
     </span>
   );
 
@@ -69,14 +69,14 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Rapprochement exports</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Contrôle des données de vente</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            On ne suppose pas que les données sont propres. Sartal détecte les caisses, produits et dépôts à partir des exports, puis montre ce qui doit être relié avant l'audit stock.
+            Sartal reconnaît les caisses, les produits et les dépôts présents dans les fichiers de ventes, puis signale les éléments à identifier avant le contrôle du stock.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => setView('pos-imports')}>
-            Voir l'export POS
+            Voir les ventes reçues
           </button>
           <button className="btn btn-primary" onClick={() => setView('stock-audit')}>
             Lancer l'audit
@@ -94,7 +94,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
         <div>
           <h2 style={{ fontSize: '1.35rem', fontWeight: 800 }}>Fiabilité de cartographie</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '8px', lineHeight: 1.6 }}>
-            Tant que les POS, produits et dépôts ne sont pas reliés, l'audit signale des zones non fiables au lieu de forcer un résultat faux.
+            Les ventes non reconnues sont isolées avant le calcul afin de préserver la fiabilité du stock présenté.
           </p>
           <div className="grid-4" style={{ marginTop: '18px' }}>
             <div>
@@ -120,7 +120,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
       <div className="grid-4">
         {[
           { label: 'POS détectés', value: discoveredPOS.length, sub: `${mappedPOS.length} reliés`, icon: <FileSpreadsheet size={20} />, color: 'var(--primary)' },
-          { label: 'Produits externes', value: discoveredProducts.length, sub: `${discoveredProducts.length - mappedProducts.length} à mapper`, icon: <Package size={20} />, color: 'var(--warning)' },
+          { label: 'Produits trouvés', value: discoveredProducts.length, sub: `${discoveredProducts.length - mappedProducts.length} à identifier`, icon: <Package size={20} />, color: 'var(--warning)' },
           { label: 'Dépôts Sartal', value: db.warehouses.length, sub: `${db.posList.length} POS avec dépôt`, icon: <Warehouse size={20} />, color: 'var(--success)' },
           { label: 'Recettes', value: db.recipes.length, sub: `${recipesWithMissingIngredients.length} incomplètes`, icon: <Puzzle size={20} />, color: 'var(--purple)' }
         ].map(card => (
@@ -240,7 +240,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <AlertTriangle size={20} color="var(--warning)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ce que cette page prouve</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Contrôle avant intégration</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {[

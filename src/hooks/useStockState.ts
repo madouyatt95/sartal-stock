@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
-import { ExternalPOSSaleRow, LossReason, PaymentTotals, POSType, Product, Supplier } from '../types';
+import { createEmptyPaymentTotals, ExternalPOSSaleRow, LossReason, PaymentTotals, PaymentType, POSType, Product, Supplier } from '../types';
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -36,7 +36,7 @@ export const useStockState = () => {
     posId: string;
     items: Array<{ productId: string; quantity: number }>;
     paymentContext: {
-      type: 'cash' | 'card' | 'room_charge' | 'other';
+      type: PaymentType;
       roomNumber?: string;
       folioId?: string;
       amount: number;
@@ -450,15 +450,44 @@ export const useStockState = () => {
 
     Object.values(groupedTickets).forEach(ticketRows => {
       const firstRow = ticketRows[0];
+      const pos = db.posList.find(item => item.id === firstRow.posId);
+      const hasMixedPayments = ticketRows.some(row => row.paymentType !== firstRow.paymentType);
+      if (!pos || hasMixedPayments) {
+        rejectedCount += 1;
+        issues.push({
+          rowNumber: firstRow.rowNumber,
+          ticketId: firstRow.ticketId,
+          message: !pos ? 'Point de vente introuvable' : 'Plusieurs moyens de paiement sur un même ticket ne sont pas encore pris en charge'
+        });
+        return;
+      }
+
+      const room = firstRow.roomNumber
+        ? db.pmsRooms.find(item => item.roomNumber === firstRow.roomNumber)
+        : undefined;
+      const folio = room
+        ? db.pmsFolios.find(item => item.roomId === room.id && item.status === 'open')
+        : undefined;
+      if (firstRow.paymentType === 'room_charge' && !folio) {
+        rejectedCount += 1;
+        issues.push({
+          rowNumber: firstRow.rowNumber,
+          ticketId: firstRow.ticketId,
+          message: `Aucun folio PMS ouvert pour la chambre ${firstRow.roomNumber || 'non renseignée'}`
+        });
+        return;
+      }
+
       const result = stockEngine.processExternalSale(
         {
           externalSaleId: `IMPORT-${firstRow.ticketId}`,
-          siteId: 'site-1',
+          siteId: pos.siteId,
           posId: firstRow.posId,
           items: ticketRows.map(row => ({ productId: row.productId, quantity: row.quantity })),
           paymentContext: {
             type: firstRow.paymentType,
             roomNumber: firstRow.roomNumber,
+            folioId: folio?.id,
             amount: ticketRows.reduce((sum, row) => sum + row.amount, 0)
           }
         },
@@ -515,12 +544,7 @@ export const useStockState = () => {
       openingFloat,
       status: 'open',
       saleIds: [],
-      paymentTotals: {
-        cash: 0,
-        card: 0,
-        room_charge: 0,
-        other: 0
-      },
+      paymentTotals: createEmptyPaymentTotals(),
       totalSales: 0
     });
     saveDB(newDb);
@@ -535,12 +559,7 @@ export const useStockState = () => {
     if (session.status === 'closed') throw new Error("Cette session est déjà clôturée");
 
     const sessionSales = newDb.externalSales.filter(sale => sale.cashSessionId === session.id);
-    const paymentTotals: PaymentTotals = {
-      cash: 0,
-      card: 0,
-      room_charge: 0,
-      other: 0
-    };
+    const paymentTotals: PaymentTotals = createEmptyPaymentTotals();
 
     sessionSales.forEach(sale => {
       paymentTotals[sale.paymentContext.type] += sale.paymentContext.amount;

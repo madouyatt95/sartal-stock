@@ -176,7 +176,7 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
         <div className="card" style={{ height: 'fit-content' }}>
           <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '8px' }}>Règles de Transfert</h4>
           <ul style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <li>Les prélèvements dans le dépôt source s'effectuent de façon <strong>ordonnée (FIFO)</strong>.</li>
+            <li>Les lots les plus anciens sont prélevés en premier dans le dépôt source.</li>
             <li>Le coût d'achat unitaire d'origine est intégralement conservé et transféré.</li>
             <li>Les numéros de lots et dates de péremption associés sont également reconduits vers le dépôt cible.</li>
             <li>Un mouvement de type <code>transfer_out</code> (négatif) est loggé pour la source et un <code>transfer_in</code> (positif) pour la cible.</li>

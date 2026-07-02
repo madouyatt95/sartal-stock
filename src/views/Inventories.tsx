@@ -124,7 +124,7 @@ export const Inventories: React.FC<InventoriesProps> = ({ state }) => {
                             ) : gap > 0 ? (
                               <span className="badge badge-green" style={{ fontSize: '0.7rem' }}>Entrée Stock (+{gap})</span>
                             ) : (
-                              <span className="badge badge-red" style={{ fontSize: '0.7rem' }}>Correction FIFO ({gap})</span>
+                              <span className="badge badge-red" style={{ fontSize: '0.7rem' }}>Écart de {gap}</span>
                             )}
                           </td>
                         </tr>

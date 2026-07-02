@@ -76,7 +76,7 @@ export const App: React.FC = () => {
     { id: 'answer', label: 'Réponse à la demande', mobileLabel: 'Réponse', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
     { id: 'simulation', label: 'Démo multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
     { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Ventes' },
-    { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
+    { id: 'pos-imports', label: 'Reprendre les ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
     { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Stock' },
     { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Stock' },
     { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Stock' },
@@ -90,7 +90,7 @@ export const App: React.FC = () => {
     { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
     { id: 'pricing', label: 'Prix par POS', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
     { id: 'warehouses', label: 'Points de vente & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
-    { id: 'mapping-control', label: 'Rapprochement exports', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Référentiel' },
+    { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Référentiel' },
     { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Analyse' },
     { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Analyse' },
     { id: 'settings', label: 'Paramétrage', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Paramétrage' }
@@ -185,9 +185,7 @@ export const App: React.FC = () => {
         {/* Sidebar Brand header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'white', fontSize: '1.2rem' }}>
-              S
-            </div>
+            <img src="./brand-mark.svg" alt="Sartal Stock" style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0 }} />
             <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '0.05em', color: 'white' }}>
               SÁRTAL STOCK
             </span>

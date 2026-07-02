@@ -158,7 +158,7 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
                               <Layers size={16} />
-                              <h4 style={{ fontSize: '0.875rem', fontWeight: 700 }}>Décomposition des lots en stock (Règle FIFO active)</h4>
+                              <h4 style={{ fontSize: '0.875rem', fontWeight: 700 }}>Détail des lots disponibles</h4>
                             </div>
                             {rowBatches.length > 0 ? (
                               <table className="custom-table" style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', fontSize: '0.825rem' }}>

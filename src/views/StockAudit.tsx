@@ -246,13 +246,13 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ce que l'audit prouve</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Résultats du contrôle</h3>
           </div>
           <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {[
               'Le logiciel actuel peut être gardé au départ.',
               'Sartal se branche sur les exports et contrôle la cohérence.',
-              'Les produits non mappés et dépôts mal configurés ressortent immédiatement.',
+              'Les produits non reconnus et les dépôts à corriger ressortent immédiatement.',
               'Le gérant obtient une valeur d’écart et des causes probables.',
               'Une fois la confiance gagnée, Sartal peut remplacer progressivement certains modules.'
             ].map(item => (
@@ -286,7 +286,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
                 {unmappedAliases.length === 0 && (
                   <tr>
                     <td colSpan={2} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>
-                      Aucune anomalie d'import POS pour le moment. Lancez l'exemple dans Imports POS pour faire ressortir un produit non mappé.
+                      Aucune vente non reconnue pour le moment.
                     </td>
                   </tr>
                 )}

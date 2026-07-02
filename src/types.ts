@@ -232,6 +232,19 @@ export interface ExternalSaleItem {
   salePrice: number;
 }
 
+export type PaymentType = 'cash' | 'card' | 'wave' | 'orange_money' | 'room_charge' | 'other';
+
+export const PAYMENT_TYPES: PaymentType[] = ['cash', 'card', 'wave', 'orange_money', 'room_charge', 'other'];
+
+export const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
+  cash: 'Espèces',
+  card: 'Carte bancaire',
+  wave: 'Wave',
+  orange_money: 'Orange Money',
+  room_charge: 'Chambre PMS',
+  other: 'Autre'
+};
+
 export interface ExternalSale {
   id: string;
   externalSaleId: string;
@@ -240,7 +253,7 @@ export interface ExternalSale {
   cashSessionId?: string;
   items: ExternalSaleItem[];
   paymentContext: {
-    type: 'cash' | 'card' | 'room_charge' | 'other';
+    type: PaymentType;
     roomNumber?: string;
     folioId?: string;
     amount: number;
@@ -257,7 +270,7 @@ export interface ExternalPOSSaleRow {
   label: string;
   quantity: number;
   amount: number;
-  paymentType: 'cash' | 'card' | 'room_charge' | 'other';
+  paymentType: PaymentType;
   roomNumber?: string;
 }
 
@@ -280,12 +293,16 @@ export interface ExternalPOSImportRun {
 
 export type CashSessionStatus = 'open' | 'closed';
 
-export interface PaymentTotals {
-  cash: number;
-  card: number;
-  room_charge: number;
-  other: number;
-}
+export type PaymentTotals = Record<PaymentType, number>;
+
+export const createEmptyPaymentTotals = (): PaymentTotals => ({
+  cash: 0,
+  card: 0,
+  wave: 0,
+  orange_money: 0,
+  room_charge: 0,
+  other: 0
+});
 
 export interface CashSession {
   id: string;

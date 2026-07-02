@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, FileSpreadsheet, Network, PackageCheck, Upload } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
-import { ExternalPOSSaleRow } from '../types';
+import { ExternalPOSSaleRow, PAYMENT_TYPES } from '../types';
 
 interface POSImportsProps {
   state: StockState;
@@ -11,8 +11,8 @@ interface POSImportsProps {
 const SAMPLE_EXPORT = `date;posCode;ticketId;externalSku;label;quantity;amount;paymentType;roomNumber
 2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;COCA33;Coca-Cola 33 cl;2;3000;cash;
 2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;STEAKFRITES;Steak frites;1;6500;cash;
-2026-07-02T12:44:00;Restaurant La Terrasse;REST-1002;BURGER;Burger maison;2;11000;card;
-2026-07-02T21:10:00;Bar des Machines à Sous;CAS-2201;GINTONIC;Gin tonic;3;13500;card;
+2026-07-02T12:44:00;Restaurant La Terrasse;REST-1002;BURGER;Burger maison;2;11000;orange_money;
+2026-07-02T21:10:00;Bar des Machines à Sous;CAS-2201;GINTONIC;Gin tonic;3;13500;wave;
 2026-07-02T21:30:00;Bar des Machines à Sous;CAS-2202;COCA33;Coca-Cola 33 cl;4;8000;room_charge;204
 2026-07-02T23:40:00;Night Club;NC-3301;VINROUGE75;Vin rouge maison;1;18000;card;
 2026-07-02T23:45:00;Night Club;NC-3302;HEIN33;Heineken 33 cl;6;21000;cash;
@@ -45,7 +45,7 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
       const values = line.split(';');
       const read = (key: string) => values[header.indexOf(key)]?.trim() || '';
       const paymentType = read('paymentType') as ExternalPOSSaleRow['paymentType'];
-      if (!['cash', 'card', 'room_charge', 'other'].includes(paymentType)) {
+      if (!PAYMENT_TYPES.includes(paymentType)) {
         parseIssues.push(`Ligne ${index + 2}: moyen de paiement invalide (${paymentType})`);
       }
 
@@ -105,7 +105,7 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ventes caisse importées</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Reprendre les ventes existantes</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             Collez un export de caisse, Sartal reconnaît les produits, rattache le point de vente au bon dépôt et rejoue les ventes pour calculer le stock réel.
           </p>
@@ -140,16 +140,19 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
             <label className="form-label">Nom de la source</label>
             <input value={sourceName} onChange={(e) => setSourceName(e.target.value)} className="form-control" />
           </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Export CSV POS</label>
-            <textarea
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              className="form-control"
-              rows={14}
-              style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
-            />
-          </div>
+          <details style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Afficher ou modifier les données importées</summary>
+            <div className="form-group" style={{ margin: '12px 0 0' }}>
+              <label className="form-label">Contenu du fichier de ventes</label>
+              <textarea
+                value={csvText}
+                onChange={(e) => setCsvText(e.target.value)}
+                className="form-control"
+                rows={12}
+                style={{ fontFamily: 'monospace', fontSize: '0.78rem' }}
+              />
+            </div>
+          </details>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setCsvText(SAMPLE_EXPORT)} type="button">
               Charger l'exemple
@@ -198,7 +201,7 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
                     <td>{item.row.externalSku}</td>
                     <td>
                       <span className={`badge ${item.product ? 'badge-green' : 'badge-red'}`}>
-                        {item.product?.name || 'À mapper'}
+                        {item.product?.name || 'À identifier'}
                       </span>
                     </td>
                   </tr>

@@ -74,7 +74,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ce que le prototype prouve</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Fonctionnement proposé</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
               Le même Coca-Cola est vendu dans trois points de vente, sans dupliquer le produit.
             </p>
@@ -108,7 +108,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
         <div className="card proof-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
             <ReceiptText size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Lecture gérant</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Bénéfices pour l'établissement</h3>
           </div>
           {[
             ['Produit', 'Le produit reste unique : pas de doublon Coca par bar ou restaurant.'],

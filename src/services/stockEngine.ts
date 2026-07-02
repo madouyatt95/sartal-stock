@@ -7,7 +7,8 @@ import {
   Inventory,
   Loss,
   StockMovementType,
-  LossReason
+  LossReason,
+  PaymentType
 } from '../types';
 
 // Helper to generate IDs
@@ -303,7 +304,7 @@ export const processExternalSale = (
     posId: string;
     items: Array<{ productId: string; quantity: number }>;
     paymentContext: {
-      type: 'cash' | 'card' | 'room_charge' | 'other';
+      type: PaymentType;
       roomNumber?: string;
       folioId?: string;
       amount: number;
@@ -317,6 +318,16 @@ export const processExternalSale = (
   try {
     const pos = db.posList.find(p => p.id === salePayload.posId);
     if (!pos) throw new Error(`POS introuvable : ${salePayload.posId}`);
+    if (pos.siteId !== salePayload.siteId) {
+      throw new Error(`Le point de vente "${pos.name}" n'appartient pas à l'établissement sélectionné`);
+    }
+
+    const duplicateSale = db.externalSales.find(sale => (
+      sale.posId === salePayload.posId && sale.externalSaleId === salePayload.externalSaleId
+    ));
+    if (duplicateSale) {
+      throw new Error(`La vente ${salePayload.externalSaleId} a déjà été enregistrée pour ${pos.name}`);
+    }
 
     if (salePayload.paymentContext.type === 'room_charge') {
       const folio = db.pmsFolios.find(f => f.id === salePayload.paymentContext.folioId && f.status === 'open');
@@ -329,9 +340,15 @@ export const processExternalSale = (
     for (const item of salePayload.items) {
       const product = db.products.find(p => p.id === item.productId);
       if (!product) throw new Error(`Produit introuvable : ${item.productId}`);
+      if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+        throw new Error(`Quantité invalide pour "${product.name}"`);
+      }
 
       // Determine output warehouse
       const pricing = db.posPricing.find(p => p.productId === item.productId && p.posId === salePayload.posId);
+      if (!pricing || !pricing.isAvailable || pricing.salePrice <= 0) {
+        throw new Error(`Aucun tarif actif pour "${product.name}" sur le point de vente "${pos.name}"`);
+      }
       const targetWarehouseId = pricing?.defaultWarehouseId || pos.defaultWarehouseId;
       if (!targetWarehouseId) throw new Error(`Aucun dépôt configuré pour le point de vente "${pos.name}" ou le produit "${product.name}"`);
 
@@ -419,9 +436,10 @@ export const processExternalSale = (
       return {
         productId: item.productId,
         quantity: item.quantity,
-        salePrice: pricing?.salePrice || 0
+        salePrice: pricing!.salePrice
       };
     });
+    const calculatedAmount = saleItems.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0);
 
     const newSale: ExternalSale = {
       id: genId('sale'),
@@ -430,7 +448,7 @@ export const processExternalSale = (
       posId: salePayload.posId,
       cashSessionId: openSession?.id,
       items: saleItems,
-      paymentContext: salePayload.paymentContext,
+      paymentContext: { ...salePayload.paymentContext, amount: calculatedAmount },
       exportedToPms: false,
       date: new Date().toISOString()
     };
@@ -455,8 +473,8 @@ export const processExternalSale = (
 
     if (openSession) {
       openSession.saleIds.push(newSale.id);
-      openSession.totalSales += salePayload.paymentContext.amount;
-      openSession.paymentTotals[salePayload.paymentContext.type] += salePayload.paymentContext.amount;
+      openSession.totalSales += calculatedAmount;
+      openSession.paymentTotals[salePayload.paymentContext.type] = (openSession.paymentTotals[salePayload.paymentContext.type] || 0) + calculatedAmount;
     }
 
     saveDB(db);

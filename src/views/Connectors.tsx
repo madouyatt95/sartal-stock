@@ -18,13 +18,11 @@ import {
   Trash2,
   UnlockKeyhole
 } from 'lucide-react';
-import { StockMovement } from '../types';
+import { PAYMENT_TYPE_LABELS, PaymentType, StockMovement } from '../types';
 
 interface ConnectorsProps {
   state: StockState;
 }
-
-type PaymentType = 'cash' | 'card' | 'room_charge' | 'other';
 
 interface CartLine {
   productId: string;
@@ -68,6 +66,20 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
     .filter(session => session.posId === selectedPosId)
     .slice()
     .sort((a, b) => b.openedAt.localeCompare(a.openedAt));
+  const paymentOptions: Array<{ value: PaymentType; label: string; icon: React.ReactNode }> = [
+    { value: 'cash', label: 'Espèces', icon: <Banknote size={16} /> },
+    { value: 'card', label: 'Carte', icon: <CreditCard size={16} /> },
+    { value: 'wave', label: 'Wave', icon: <Network size={16} /> },
+    { value: 'orange_money', label: 'Orange Money', icon: <Network size={16} /> },
+    { value: 'room_charge', label: 'Chambre', icon: <BedDouble size={16} /> },
+    { value: 'other', label: 'Autre', icon: <Network size={16} /> }
+  ];
+  const paymentBreakdown = activeSession
+    ? paymentOptions.map(option => ({
+      ...option,
+      amount: activeSession.paymentTotals[option.value] || 0
+    })).filter(option => option.amount > 0 || ['wave', 'orange_money'].includes(option.value))
+    : [];
 
   const availableProducts = useMemo(() => {
     return db.products
@@ -418,12 +430,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Mode de paiement</label>
               <div className="grid-2" style={{ gap: '8px' }}>
-                {[
-                  { value: 'cash', label: 'Espèces', icon: <Banknote size={16} /> },
-                  { value: 'card', label: 'Carte', icon: <CreditCard size={16} /> },
-                  { value: 'room_charge', label: 'Chambre', icon: <BedDouble size={16} /> },
-                  { value: 'other', label: 'Autre', icon: <Network size={16} /> }
-                ].map(option => (
+                {paymentOptions.map(option => (
                   <button
                     key={option.value}
                     type="button"
@@ -480,7 +487,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
                       Ticket {saleResult.reference} validé.
                     </div>
                     <p style={{ marginTop: '6px', fontWeight: 500 }}>
-                      {saleResult.movements.length} mouvement(s) FIFO généré(s).
+                      {saleResult.movements.length} sortie(s) de stock enregistrée(s).
                     </p>
                   </div>
                 ) : (
@@ -585,6 +592,18 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
                   </div>
                 </div>
 
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>Répartition encaissements</p>
+                  <div className="grid-2">
+                    {paymentBreakdown.map(item => (
+                      <div key={item.value} style={{ padding: '10px 12px', borderRadius: 'var(--radius-sm)', backgroundColor: item.value === 'wave' || item.value === 'orange_money' ? 'var(--info-light)' : 'var(--bg-app)', display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center' }}>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 700 }}>{PAYMENT_TYPE_LABELS[item.value]}</span>
+                        <strong>{formatFCFA(item.amount)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid-2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">Espèces comptées</label>
@@ -629,34 +648,50 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
                     <th>Session</th>
                     <th>Statut</th>
                     <th>Total</th>
+                    <th>Moyens</th>
                     <th>Écart cash</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedPOSSessions.map(session => (
-                    <tr key={session.id}>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <strong>{session.zReportNumber || session.id}</strong>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
-                            {new Date(session.openedAt).toLocaleString()}
+                  {selectedPOSSessions.map(session => {
+                    const sessionPaymentMix = paymentOptions
+                      .map(option => ({ ...option, amount: session.paymentTotals[option.value] || 0 }))
+                      .filter(option => option.amount > 0);
+
+                    return (
+                      <tr key={session.id}>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <strong>{session.zReportNumber || session.id}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                              {new Date(session.openedAt).toLocaleString()}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className={`badge ${session.status === 'open' ? 'badge-green' : 'badge-blue'}`}>
+                            {session.status === 'open' ? 'Ouverte' : 'Clôturée'}
                           </span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`badge ${session.status === 'open' ? 'badge-green' : 'badge-blue'}`}>
-                          {session.status === 'open' ? 'Ouverte' : 'Clôturée'}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: 700 }}>{formatFCFA(session.totalSales)}</td>
-                      <td style={{ fontWeight: 700, color: (session.cashDifference || 0) === 0 ? 'var(--success)' : 'var(--danger)' }}>
-                        {session.status === 'closed' ? formatFCFA(session.cashDifference || 0) : '-'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td style={{ fontWeight: 700 }}>{formatFCFA(session.totalSales)}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '145px' }}>
+                            {sessionPaymentMix.length > 0 ? sessionPaymentMix.map(item => (
+                              <span key={item.value} style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                <strong style={{ color: 'var(--text-primary)' }}>{PAYMENT_TYPE_LABELS[item.value]}</strong> {formatFCFA(item.amount)}
+                              </span>
+                            )) : <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Aucun encaissement</span>}
+                          </div>
+                        </td>
+                        <td style={{ fontWeight: 700, color: (session.cashDifference || 0) === 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          {session.status === 'closed' ? formatFCFA(session.cashDifference || 0) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {selectedPOSSessions.length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
+                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
                         Aucune session de caisse pour ce POS.
                       </td>
                     </tr>
