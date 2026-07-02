@@ -1,5 +1,14 @@
-const CACHE_NAME = 'sartal-stock-v2';
-const STATIC_ASSETS = ['./favicon.svg', './manifest.webmanifest'];
+const CACHE_NAME = 'sartal-stock-v3';
+const STATIC_ASSETS = [
+  './favicon.svg',
+  './brand-mark.svg',
+  './logo-sartal-stock.svg',
+  './pwa-icon-192.png',
+  './pwa-icon-512.png',
+  './pwa-icon-maskable-512.png',
+  './apple-touch-icon.png',
+  './manifest.webmanifest',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

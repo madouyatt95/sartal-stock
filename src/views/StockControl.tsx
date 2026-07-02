@@ -12,7 +12,7 @@ import {
   Trash2,
   Warehouse
 } from 'lucide-react';
-import { StockMovement } from '../types';
+import { PAYMENT_TYPE_LABELS, StockMovement } from '../types';
 
 interface StockControlProps {
   state: StockState;
@@ -118,7 +118,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Stock réel par dépôt</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            La preuve métier : stock réel par dépôt, alertes, pertes, péremptions et traçabilité des sorties POS.
+            Stock disponible par dépôt, alertes, pertes, péremptions et détail des sorties liées aux ventes.
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setView('stocks')}>
@@ -344,9 +344,9 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <div>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Preuve POS → stock</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ventes et sorties de stock</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-              Chaque vente POS est reliée au dépôt, aux mouvements FIFO et aux lots consommés.
+              Chaque vente est reliée au point de vente, au dépôt concerné et aux quantités sorties.
             </p>
           </div>
           <button className="btn btn-secondary" onClick={() => setView('connectors')}>
@@ -360,6 +360,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
                 <th>Vente</th>
                 <th>POS</th>
                 <th>Produits vendus</th>
+                <th>Paiement</th>
                 <th>Mouvements stock</th>
                 <th>Montant</th>
               </tr>
@@ -372,15 +373,18 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
                   <tr key={sale.id}>
                     <td style={{ fontWeight: 700, fontFamily: 'monospace' }}>{sale.externalSaleId}</td>
                     <td>{pos?.name}</td>
-                    <td>
-                      {sale.items.map(item => {
-                        const product = getProduct(item.productId);
-                        return `${item.quantity} x ${product?.name || item.productId}`;
-                      }).join(', ')}
-                    </td>
-                    <td>
-                      <span className={`badge ${relatedMovements.length > 0 ? 'badge-green' : 'badge-yellow'}`}>
-                        {relatedMovements.length} mouvement(s)
+	                    <td>
+	                      {sale.items.map(item => {
+	                        const product = getProduct(item.productId);
+	                        return `${item.quantity} x ${product?.name || item.productId}`;
+	                      }).join(', ')}
+	                    </td>
+	                    <td>
+	                      <span className="badge badge-blue">{PAYMENT_TYPE_LABELS[sale.paymentContext.type]}</span>
+	                    </td>
+	                    <td>
+	                      <span className={`badge ${relatedMovements.length > 0 ? 'badge-green' : 'badge-yellow'}`}>
+	                        {relatedMovements.length} mouvement(s)
                       </span>
                     </td>
                     <td style={{ fontWeight: 800 }}>{formatFCFA(sale.paymentContext.amount)}</td>
@@ -389,7 +393,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               })}
               {latestSales.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '36px' }}>
+	                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '36px' }}>
                     Aucune vente POS encore enregistrée. Lancez une vente depuis la caisse pour montrer la déduction automatique du dépôt.
                   </td>
                 </tr>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, CheckCircle, Package, PlayCircle, ReceiptText, RefreshCcw, Warehouse } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
-import { StockMovement } from '../types';
+import { PAYMENT_TYPE_LABELS, PaymentType, StockMovement } from '../types';
 
 interface BehaviorSimulationProps {
   state: StockState;
@@ -17,7 +17,10 @@ interface SimulationResult {
   afterQty: number;
   posName: string;
   warehouseName: string;
+  quantity: number;
   salePrice: number;
+  totalAmount: number;
+  paymentLabel: string;
   folioLabel?: string;
 }
 
@@ -26,7 +29,7 @@ interface DemoScenario {
   title: string;
   posId: string;
   quantity: number;
-  paymentType: 'card' | 'room_charge';
+  paymentType: PaymentType;
   story: string;
 }
 
@@ -40,16 +43,16 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
       title: 'Vente au restaurant',
       posId: 'pos-1',
       quantity: 2,
-      paymentType: 'card',
-      story: 'Le serveur vend 2 Coca à une table. Le prix restaurant s’applique et le dépôt restaurant est décrémenté.'
+      paymentType: 'orange_money',
+      story: 'Le serveur vend 2 Coca à une table, réglés en Orange Money. Le prix restaurant s’applique et le dépôt restaurant est décrémenté.'
     },
     {
       id: 'bar',
       title: 'Vente au bar casino',
       posId: 'pos-2',
       quantity: 2,
-      paymentType: 'card',
-      story: 'Le barman vend le même Coca plus cher. Le dépôt bar casino est impacté, pas celui du restaurant.'
+      paymentType: 'wave',
+      story: 'Le barman vend le même Coca plus cher, payé par Wave. Le dépôt bar casino est impacté, pas celui du restaurant.'
     },
     {
       id: 'nightclub',
@@ -62,7 +65,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
   ];
   const [selectedPosId, setSelectedPosId] = useState(demoPOS[0]?.id || '');
   const [quantity, setQuantity] = useState(2);
-  const [paymentType, setPaymentType] = useState<'card' | 'room_charge'>('card');
+  const [paymentType, setPaymentType] = useState<PaymentType>('orange_money');
   const [selectedFolioId, setSelectedFolioId] = useState(db.pmsFolios.find(folio => folio.status === 'open')?.id || '');
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [scenarioResults, setScenarioResults] = useState<SimulationResult[]>([]);
@@ -123,7 +126,10 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
       afterQty: freshStock,
       posName: selectedPOS.name,
       warehouseName: selectedWarehouse.name,
+      quantity,
       salePrice: selectedPricing.salePrice,
+      totalAmount: saleAmount,
+      paymentLabel: PAYMENT_TYPE_LABELS[paymentType],
       folioLabel: paymentType === 'room_charge' && selectedFolio && selectedRoom
         ? `Chambre ${selectedRoom.roomNumber} - ${selectedFolio.guestName}`
         : undefined
@@ -175,7 +181,10 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
         afterQty: saleResult.success ? beforeQty - scenario.quantity : beforeQty,
         posName: pos.name,
         warehouseName: warehouse.name,
+        quantity: scenario.quantity,
         salePrice: pricing.salePrice,
+        totalAmount: saleAmount,
+        paymentLabel: PAYMENT_TYPE_LABELS[scenario.paymentType],
         folioLabel: scenario.paymentType === 'room_charge' && selectedFolio && selectedRoom
           ? `Chambre ${selectedRoom.roomNumber} - ${selectedFolio.guestName}`
           : undefined
@@ -301,17 +310,20 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Paiement</label>
             <select
-              className="form-control"
-              value={paymentType}
-              onChange={(event) => {
-                setPaymentType(event.target.value as 'card' | 'room_charge');
-                setResult(null);
-                setScenarioResults([]);
-              }}
-            >
-              <option value="card">Carte / caisse</option>
-              <option value="room_charge">Imputer sur chambre PMS</option>
-            </select>
+	              className="form-control"
+	              value={paymentType}
+	              onChange={(event) => {
+	                setPaymentType(event.target.value as PaymentType);
+	                setResult(null);
+	                setScenarioResults([]);
+	              }}
+	            >
+	              <option value="orange_money">Orange Money</option>
+	              <option value="wave">Wave</option>
+	              <option value="card">Carte bancaire</option>
+	              <option value="cash">Espèces</option>
+	              <option value="room_charge">Imputer sur chambre PMS</option>
+	            </select>
           </div>
 
           {paymentType === 'room_charge' && (
@@ -363,13 +375,13 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
         <div className="card proof-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
             <Package size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Contrôles validés</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Résultat attendu</h3>
           </div>
           {[
             ['Prix POS', 'Prix appliqué selon le point de vente'],
             ['Dépôt', 'Sortie stock sur le dépôt associé'],
             ['Produit', 'Référentiel unique Coca-Cola 33 cl'],
-            ['Traçabilité', 'Mouvement stock généré'],
+            ['Traçabilité', 'Chaque sortie reste consultable'],
             ['PMS', 'Imputation chambre possible']
           ].map(item => (
             <div key={item[0]} className="proof-row">
@@ -398,8 +410,8 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
                   <strong>{formatQty(item.beforeQty)} → {formatQty(item.afterQty)}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-                  <span>Prix POS</span>
-                  <strong>{formatFCFA(item.salePrice)}</strong>
+                  <span>{item.quantity} × {formatFCFA(item.salePrice)}</span>
+                  <strong>{formatFCFA(item.totalAmount)}</strong>
                 </div>
               </div>
             ))}
@@ -423,7 +435,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
 
           {result.success ? (
             <>
-              <div className="grid-3">
+              <div className="grid-4">
                 <div style={{ padding: '14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)' }}>
                   <Warehouse size={18} color="var(--primary)" />
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '8px' }}>Dépôt impacté</p>
@@ -436,8 +448,13 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
                 </div>
                 <div style={{ padding: '14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)' }}>
                   <ReceiptText size={18} color="var(--primary)" />
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '8px' }}>Prix POS</p>
-                  <strong>{formatFCFA(result.salePrice)}</strong>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '8px' }}>Total vente</p>
+                  <strong>{result.quantity} × {formatFCFA(result.salePrice)} = {formatFCFA(result.totalAmount)}</strong>
+                </div>
+                <div style={{ padding: '14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)' }}>
+                  <ReceiptText size={18} color="var(--primary)" />
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '8px' }}>Paiement</p>
+                  <strong>{result.paymentLabel}</strong>
                 </div>
               </div>
 

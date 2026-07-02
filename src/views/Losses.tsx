@@ -29,7 +29,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
       setReason('casse');
       setNote('');
       
-      alert("Perte déclarée avec succès ! Le stock a été déduit via FIFO.");
+      alert("Perte enregistrée. Le stock du dépôt a été mis à jour.");
     } catch (err: any) {
       alert(err.message || "Erreur lors de la déclaration");
     }

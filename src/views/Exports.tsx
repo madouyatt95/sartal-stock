@@ -1,6 +1,7 @@
 import React from 'react';
 import { StockState } from '../hooks/useStockState';
 import { FileSpreadsheet, Download } from 'lucide-react';
+import { PAYMENT_TYPE_LABELS, PAYMENT_TYPES } from '../types';
 
 interface ExportsProps {
   state: StockState;
@@ -134,15 +135,25 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
   };
 
   const exportPOSConsumption = () => {
-    const headers = ["Point de Vente (POS)", "Nombre de ventes", "Montant Total (FCFA)", "Dépôt Principal"];
+    const headers = [
+      "Point de Vente (POS)",
+      "Nombre de ventes",
+      "Montant Total (FCFA)",
+      ...PAYMENT_TYPES.map(type => `Paiement ${PAYMENT_TYPE_LABELS[type]} (FCFA)`),
+      "Dépôt Principal"
+    ];
     const rows = db.posList.map(pos => {
       const sales = db.externalSales.filter(s => s.posId === pos.id);
       const totalAmount = sales.reduce((sum, s) => sum + s.paymentContext.amount, 0);
+      const paymentAmounts = PAYMENT_TYPES.map(type => (
+        sales.reduce((sum, sale) => sum + (sale.paymentContext.type === type ? sale.paymentContext.amount : 0), 0).toString()
+      ));
       const wh = db.warehouses.find(w => w.id === pos.defaultWarehouseId);
       return [
         pos.name,
         sales.length.toString(),
         totalAmount.toString(),
+        ...paymentAmounts,
         wh?.name || ''
       ];
     });
@@ -349,7 +360,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
         </div>
 
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Lecture gérant</h3>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Synthèse de gestion</h3>
           {[
             ['Stock', `${db.stocks.length} positions produit/dépôt suivies`],
             ['Ventes', `${db.externalSales.length} tickets ou imports caisse intégrés`],

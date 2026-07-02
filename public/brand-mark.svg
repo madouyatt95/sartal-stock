@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">Sartal Stock</title>
-  <desc id="desc">Icône Sartal Stock avec cube de stock et flux multi-dépôts</desc>
+  <desc id="desc">Marque Sartal Stock avec cube de stock et flux multi-dépôts</desc>
   <defs>
     <linearGradient id="bg" x1="8" y1="6" x2="58" y2="62" gradientUnits="userSpaceOnUse">
       <stop stop-color="#2563EB"/>

@@ -206,7 +206,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Méthode de sortie:</span>
-                    <strong className="badge badge-blue">FIFO (Obligatoire)</strong>
+                    <strong className="badge badge-blue">Lots les plus anciens utilisés en premier</strong>
                   </div>
                 </div>
               </div>

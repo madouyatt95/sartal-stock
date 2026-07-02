@@ -68,7 +68,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
   // Consumption by POS (Donut Chart)
   // Let's compute total consumption value per POS from externalSales
   const posConsumptionMap: Record<string, number> = {};
-  db.externalSales.forEach(sale => {
+  const salesThisMonth = db.externalSales.filter(sale => new Date(sale.date) >= firstDayOfMonth);
+  salesThisMonth.forEach(sale => {
     const saleTotal = sale.items.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0);
     posConsumptionMap[sale.posId] = (posConsumptionMap[sale.posId] || 0) + saleTotal;
   });
@@ -80,19 +81,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
 
   const totalPosSales = Object.values(posConsumptionMap).reduce((sum, v) => sum + v, 0) || 1; // avoid divide by zero
 
-  // Consumption by Depot (Bar Chart)
-  // Let's compute total deduction value from each warehouse from movements today/this month
-  const depotConsumptionMap: Record<string, number> = {};
-  db.movements
-    .filter(m => m.quantity < 0 && m.type === 'sale_consumption')
-    .forEach(mvt => {
-      const value = Math.abs(mvt.quantity) * mvt.cost;
-      depotConsumptionMap[mvt.warehouseId] = (depotConsumptionMap[mvt.warehouseId] || 0) + value;
+  // Sales revenue routed to each output warehouse by the POS/product configuration.
+  const depotSalesMap: Record<string, number> = {};
+  salesThisMonth.forEach(sale => {
+    const pos = db.posList.find(item => item.id === sale.posId);
+    if (!pos) return;
+
+    sale.items.forEach(item => {
+      const pricing = db.posPricing.find(rule => rule.productId === item.productId && rule.posId === sale.posId);
+      const warehouseId = pricing?.defaultWarehouseId || pos.defaultWarehouseId;
+      const saleValue = item.quantity * item.salePrice;
+      depotSalesMap[warehouseId] = (depotSalesMap[warehouseId] || 0) + saleValue;
     });
+  });
 
   // Ensure warehouses are in list
   db.warehouses.forEach(w => {
-    if (!depotConsumptionMap[w.id]) depotConsumptionMap[w.id] = 0;
+    if (!depotSalesMap[w.id]) depotSalesMap[w.id] = 0;
   });
 
   // Formatter FCFA
@@ -232,7 +237,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         
         {/* Consommation par POS */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Consommation par POS (ce mois)</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ventes par POS (ce mois)</h3>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexGrow: 1 }}>
             
             {/* Custom SVG Donut Chart */}
@@ -300,22 +305,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           </div>
         </div>
 
-        {/* Consommation par Dépôt */}
+        {/* Ventes par dépôt de sortie */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Consommation par dépôt (ce mois)</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ventes par dépôt de sortie (ce mois)</h3>
           
           {/* Custom CSS Bar Chart */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center', flexGrow: 1 }}>
             {(() => {
-              const maxVal = Math.max(...Object.values(depotConsumptionMap), 1);
+              const maxVal = Math.max(...Object.values(depotSalesMap), 1);
               return db.warehouses.slice(0, 4).map(w => {
-                const consumed = depotConsumptionMap[w.id] || 0;
-                const pct = (consumed / maxVal) * 100;
+                const sales = depotSalesMap[w.id] || 0;
+                const pct = (sales / maxVal) * 100;
                 return (
                   <div key={w.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 600 }}>
                       <span style={{ color: 'var(--text-secondary)' }}>{w.name}</span>
-                      <span>{formatFCFA(consumed)}</span>
+                      <span>{formatFCFA(sales)}</span>
                     </div>
                     <div style={{ width: '100%', height: '8px', backgroundColor: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ width: `${pct}%`, height: '100%', backgroundColor: 'var(--success)', borderRadius: '4px', transition: 'width 0.5s ease' }} />

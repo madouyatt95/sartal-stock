@@ -74,7 +74,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ce que le prototype prouve</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Fonctionnement proposé</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
               Le même Coca-Cola est vendu dans trois points de vente, sans dupliquer le produit.
             </p>
@@ -108,7 +108,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
         <div className="card proof-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
             <ReceiptText size={18} color="var(--primary)" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Lecture gérant</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Bénéfices pour l'établissement</h3>
           </div>
           {[
             ['Produit', 'Le produit reste unique : pas de doublon Coca par bar ou restaurant.'],
@@ -127,9 +127,9 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
       </div>
 
       <div className="card" style={{ display: 'grid', gap: '14px' }}>
-        <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Message commercial à tenir</h3>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Une mise en place progressive</h3>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-          “Je ne vous demande pas de remplacer votre caisse aujourd'hui. Je vous montre d'abord que je sais résoudre le vrai problème : relier vos ventes par point de vente à des dépôts indépendants, avec un catalogue unique et une traçabilité exploitable.”
+          Sartal peut d'abord se connecter aux ventes existantes pour relier chaque point de vente à son dépôt, fiabiliser le stock et conserver un catalogue unique. Les autres modules peuvent ensuite être déployés progressivement, sans remplacement brutal des outils actuels.
         </p>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-primary" onClick={() => setView('simulation')}>Simuler les ventes</button>

@@ -21,7 +21,8 @@ import {
   CashSession,
   PMSRoom,
   PMSFolio,
-  User
+  User,
+  createEmptyPaymentTotals
 } from './types';
 
 export interface DatabaseState {
@@ -601,6 +602,14 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     pos.name === 'Restaurant Le Jardin' ? { ...pos, name: 'Restaurant La Terrasse' } : pos
   ));
 
+  const cashSessions = (state.cashSessions || []).map(session => ({
+    ...session,
+    paymentTotals: {
+      ...createEmptyPaymentTotals(),
+      ...(session.paymentTotals || {})
+    }
+  }));
+
   const migratedState: DatabaseState = {
     ...state,
     companies: state.companies || [],
@@ -622,7 +631,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     losses: state.losses || [],
     externalSales: state.externalSales || [],
     externalPOSImportRuns: state.externalPOSImportRuns || [],
-    cashSessions: state.cashSessions || [],
+    cashSessions,
     pmsRooms: state.pmsRooms || [],
     pmsFolios: state.pmsFolios || [],
     users: state.users || [],

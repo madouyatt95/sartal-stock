@@ -48,7 +48,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
             <tbody>
               <tr>
                 <td style={{ fontWeight: 700 }}>Administrateur (Admin)</td>
-                <td><span className="badge badge-green">Accès Total</span> • Configuration, Achats, Réceptions, Transferts, Inventaires, Pertes, Simulator</td>
+                <td><span className="badge badge-green">Accès complet</span> • Paramètres, achats, réceptions, transferts, inventaires, pertes et ventes</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700 }}>Directeur</td>
