@@ -165,6 +165,61 @@ button, input, select, textarea {
   font-size: 0.82rem;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.modal-card {
+  width: min(620px, 100%);
+  max-height: min(760px, calc(100dvh - 36px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.modal-card-sm {
+  width: min(460px, 100%);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.modal-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.entity-row-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -577,49 +632,30 @@ button, input, select, textarea {
   }
 
   .manager-mobile-page .table-container,
+  .manager-mobile-page div[style*="overflow-x"],
   .manager-mobile-page div[style*="overflowX"] {
-    overflow: visible !important;
+    max-width: 100%;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   .manager-mobile-page .custom-table {
-    min-width: 0 !important;
+    min-width: 640px !important;
     width: 100%;
-    background: transparent;
-  }
-
-  .manager-mobile-page .custom-table thead {
-    display: none;
-  }
-
-  .manager-mobile-page .custom-table,
-  .manager-mobile-page .custom-table tbody,
-  .manager-mobile-page .custom-table tr,
-  .manager-mobile-page .custom-table td {
-    display: block;
-  }
-
-  .manager-mobile-page .custom-table tr {
-    margin: 10px 12px;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
     background: var(--bg-card);
   }
 
+  .manager-mobile-page .custom-table th,
   .manager-mobile-page .custom-table td {
-    padding: 6px 0 !important;
-    border: none;
+    padding: 10px 12px !important;
     font-size: 0.82rem;
     line-height: 1.35;
     word-break: break-word;
   }
 
-  .manager-mobile-page .custom-table td + td {
-    border-top: 1px solid var(--border-color);
-  }
-
-  .manager-mobile-page .custom-table tr:hover td {
-    background: transparent;
+  .manager-mobile-page .custom-table th {
+    font-size: 0.68rem;
+    white-space: nowrap;
   }
 
   .manager-mobile-page .badge {
@@ -648,5 +684,45 @@ button, input, select, textarea {
 
   .manager-mobile-page .btn {
     width: 100%;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .modal-card,
+  .modal-card-sm {
+    width: 100% !important;
+    max-height: calc(100dvh - 20px);
+    padding: 16px !important;
+    border-radius: var(--radius-sm);
+  }
+
+  .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .modal-line {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .modal-line .form-control,
+  .modal-line .btn {
+    width: 100% !important;
+  }
+
+  .entity-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .entity-row-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }

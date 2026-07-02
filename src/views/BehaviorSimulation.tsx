@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BedDouble, CheckCircle, Package, PlayCircle, ReceiptText, RefreshCcw, Warehouse } from 'lucide-react';
+import { ArrowRight, BedDouble, CheckCircle, Package, PlayCircle, ReceiptText, RefreshCcw, Warehouse } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 import { StockMovement } from '../types';
 
@@ -21,15 +21,51 @@ interface SimulationResult {
   folioLabel?: string;
 }
 
+interface DemoScenario {
+  id: string;
+  title: string;
+  posId: string;
+  quantity: number;
+  paymentType: 'card' | 'room_charge';
+  story: string;
+}
+
 export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, setView }) => {
   const { db, processSale, resetAllData } = state;
   const coca = db.products.find(product => product.id === 'prod-coca');
   const demoPOS = db.posList.filter(pos => ['pos-1', 'pos-2', 'pos-3'].includes(pos.id));
+  const demoScenarios: DemoScenario[] = [
+    {
+      id: 'restaurant',
+      title: 'Vente au restaurant',
+      posId: 'pos-1',
+      quantity: 2,
+      paymentType: 'card',
+      story: 'Le serveur vend 2 Coca à une table. Le prix restaurant s’applique et le dépôt restaurant est décrémenté.'
+    },
+    {
+      id: 'bar',
+      title: 'Vente au bar casino',
+      posId: 'pos-2',
+      quantity: 2,
+      paymentType: 'card',
+      story: 'Le barman vend le même Coca plus cher. Le dépôt bar casino est impacté, pas celui du restaurant.'
+    },
+    {
+      id: 'nightclub',
+      title: 'Vente au night-club',
+      posId: 'pos-3',
+      quantity: 2,
+      paymentType: 'room_charge',
+      story: 'Le night-club vend le même produit avec son prix et sa TVA, puis impute la consommation sur chambre.'
+    }
+  ];
   const [selectedPosId, setSelectedPosId] = useState(demoPOS[0]?.id || '');
   const [quantity, setQuantity] = useState(2);
   const [paymentType, setPaymentType] = useState<'card' | 'room_charge'>('card');
   const [selectedFolioId, setSelectedFolioId] = useState(db.pmsFolios.find(folio => folio.status === 'open')?.id || '');
   const [result, setResult] = useState<SimulationResult | null>(null);
+  const [scenarioResults, setScenarioResults] = useState<SimulationResult[]>([]);
 
   const selectedPOS = db.posList.find(pos => pos.id === selectedPosId);
   const selectedWarehouse = db.warehouses.find(warehouse => warehouse.id === selectedPOS?.defaultWarehouseId);
@@ -92,6 +128,62 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
         ? `Chambre ${selectedRoom.roomNumber} - ${selectedFolio.guestName}`
         : undefined
     });
+    setScenarioResults([]);
+  };
+
+  const runScenarioTour = () => {
+    if (!coca) return;
+    if (!selectedFolio && demoScenarios.some(scenario => scenario.paymentType === 'room_charge')) return;
+
+    const stockDeductions: Record<string, number> = {};
+    const results: SimulationResult[] = [];
+
+    demoScenarios.forEach((scenario, index) => {
+      const pos = db.posList.find(item => item.id === scenario.posId);
+      const pricing = db.posPricing.find(item => item.productId === coca.id && item.posId === scenario.posId);
+      const warehouse = db.warehouses.find(item => item.id === (pricing?.defaultWarehouseId || pos?.defaultWarehouseId));
+      const stock = db.stocks.find(item => item.productId === coca.id && item.warehouseId === warehouse?.id);
+      if (!pos || !pricing || !warehouse || !stock) return;
+
+      const reference = `TOUR-${Date.now().toString().slice(-6)}-${index + 1}`;
+      const previousDeduction = stockDeductions[warehouse.id] || 0;
+      const beforeQty = stock.quantityAvailable - previousDeduction;
+      const saleAmount = pricing.salePrice * scenario.quantity;
+      const saleResult = processSale({
+        externalSaleId: reference,
+        siteId: pos.siteId,
+        posId: pos.id,
+        items: [{ productId: coca.id, quantity: scenario.quantity }],
+        paymentContext: {
+          type: scenario.paymentType,
+          roomNumber: scenario.paymentType === 'room_charge' ? selectedRoom?.roomNumber : undefined,
+          folioId: scenario.paymentType === 'room_charge' ? selectedFolioId : undefined,
+          amount: saleAmount
+        }
+      });
+
+      if (saleResult.success) {
+        stockDeductions[warehouse.id] = previousDeduction + scenario.quantity;
+      }
+
+      results.push({
+        success: saleResult.success,
+        error: saleResult.error,
+        reference,
+        movements: saleResult.movements,
+        beforeQty,
+        afterQty: saleResult.success ? beforeQty - scenario.quantity : beforeQty,
+        posName: pos.name,
+        warehouseName: warehouse.name,
+        salePrice: pricing.salePrice,
+        folioLabel: scenario.paymentType === 'room_charge' && selectedFolio && selectedRoom
+          ? `Chambre ${selectedRoom.roomNumber} - ${selectedFolio.guestName}`
+          : undefined
+      });
+    });
+
+    setScenarioResults(results);
+    setResult(results[results.length - 1] || null);
   };
 
   const total = (selectedPricing?.salePrice || 0) * quantity;
@@ -130,16 +222,31 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
         </div>
       </div>
 
-      <div className="grid-3">
-        {posCards.map(card => {
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Parcours de présentation</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>Choisis une étape ou lance les trois ventes à la suite.</p>
+          </div>
+          <button className="btn btn-secondary" onClick={runScenarioTour}>
+            Simuler les 3 ventes <ArrowRight size={17} />
+          </button>
+        </div>
+        <div className="grid-3">
+        {demoScenarios.map(scenario => {
+          const card = posCards.find(item => item.pos.id === scenario.posId);
+          if (!card) return null;
           const isActive = card.pos.id === selectedPosId;
           return (
             <button
-              key={card.pos.id}
+              key={scenario.id}
               className="card"
               onClick={() => {
                 setSelectedPosId(card.pos.id);
+                setQuantity(scenario.quantity);
+                setPaymentType(scenario.paymentType);
                 setResult(null);
+                setScenarioResults([]);
               }}
               style={{
                 textAlign: 'left',
@@ -151,9 +258,10 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center' }}>
-                <strong>{card.pos.name}</strong>
+                <strong>{scenario.title}</strong>
                 {isActive && <CheckCircle size={18} color="var(--primary)" />}
               </div>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.45 }}>{scenario.story}</p>
               <span className="badge badge-blue">{formatFCFA(card.pricing?.salePrice || 0)} / Coca</span>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
                 Sortie stock : <strong>{card.warehouse?.name}</strong>
@@ -164,6 +272,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
             </button>
           );
         })}
+        </div>
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -184,6 +293,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
               onChange={(event) => {
                 setQuantity(Math.max(1, Number(event.target.value) || 1));
                 setResult(null);
+                setScenarioResults([]);
               }}
             />
           </div>
@@ -196,6 +306,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
               onChange={(event) => {
                 setPaymentType(event.target.value as 'card' | 'room_charge');
                 setResult(null);
+                setScenarioResults([]);
               }}
             >
               <option value="card">Carte / caisse</option>
@@ -242,6 +353,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
             onClick={() => {
               resetAllData();
               setResult(null);
+              setScenarioResults([]);
             }}
           >
             <RefreshCcw size={18} /> Réinitialiser la démo
@@ -268,6 +380,32 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
           ))}
         </div>
       </div>
+
+      {scenarioResults.length > 1 && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Impact des 3 ventes simulées</h3>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>Chaque vente touche son propre dépôt, même si le produit catalogue reste identique.</p>
+          </div>
+          <div className="grid-3">
+            {scenarioResults.map(item => (
+              <div key={item.reference} style={{ padding: '14px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border-color)', display: 'grid', gap: '8px' }}>
+                <strong>{item.posName}</strong>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{item.warehouseName}</span>
+                <span className={`badge ${item.success ? 'badge-green' : 'badge-red'}`}>{item.success ? 'Stock déduit' : 'Rejetée'}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <span>Stock Coca</span>
+                  <strong>{formatQty(item.beforeQty)} → {formatQty(item.afterQty)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <span>Prix POS</span>
+                  <strong>{formatFCFA(item.salePrice)}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {result && (
         <div className="card" style={{ borderColor: result.success ? 'var(--success)' : 'var(--danger)', display: 'flex', flexDirection: 'column', gap: '16px' }}>

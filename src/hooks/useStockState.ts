@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
-import { ExternalPOSSaleRow, LossReason, PaymentTotals, POSType } from '../types';
+import { ExternalPOSSaleRow, LossReason, PaymentTotals, POSType, Product, Supplier } from '../types';
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -166,6 +166,54 @@ export const useStockState = () => {
     return prodId;
   };
 
+  const updateProduct = (productId: string, patch: Partial<Omit<Product, 'id'>>) => {
+    const newDb = getDB();
+    const product = newDb.products.find(item => item.id === productId);
+    if (!product) throw new Error("Produit introuvable");
+
+    Object.assign(product, patch);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deleteProduct = (productId: string) => {
+    const newDb = getDB();
+    const product = newDb.products.find(item => item.id === productId);
+    if (!product) throw new Error("Produit introuvable");
+
+    newDb.products = newDb.products.filter(item => item.id !== productId);
+    newDb.posPricing = newDb.posPricing.filter(item => item.productId !== productId);
+    newDb.posProductAliases = newDb.posProductAliases.filter(item => item.productId !== productId);
+    newDb.recipes = newDb.recipes
+      .filter(recipe => recipe.productId !== productId)
+      .map(recipe => ({
+        ...recipe,
+        ingredients: recipe.ingredients.filter(ingredient => ingredient.productId !== productId)
+      }));
+    newDb.stocks = newDb.stocks.filter(item => item.productId !== productId);
+    newDb.batches = newDb.batches.filter(item => item.productId !== productId);
+    newDb.movements = newDb.movements.filter(item => item.productId !== productId);
+    newDb.losses = newDb.losses.filter(item => item.productId !== productId);
+    newDb.supplierOrders = newDb.supplierOrders.map(order => ({
+      ...order,
+      items: order.items.filter(item => item.productId !== productId)
+    }));
+    newDb.transfers = newDb.transfers.map(transfer => ({
+      ...transfer,
+      items: transfer.items.filter(item => item.productId !== productId)
+    }));
+    newDb.inventories = newDb.inventories.map(inventory => ({
+      ...inventory,
+      items: inventory.items.filter(item => item.productId !== productId)
+    }));
+    newDb.externalSales = newDb.externalSales
+      .map(sale => ({ ...sale, items: sale.items.filter(item => item.productId !== productId) }))
+      .filter(sale => sale.items.length > 0);
+
+    saveDB(newDb);
+    refresh();
+  };
+
   const updateProductPricing = (productId: string, posId: string, salePrice: number, taxRate: number) => {
     const newDb = getDB();
     const idx = newDb.posPricing.findIndex(p => p.productId === productId && p.posId === posId);
@@ -214,6 +262,43 @@ export const useStockState = () => {
     refresh();
   };
 
+  const updatePOS = (posId: string, patch: { name: string; type: POSType; defaultWarehouseId: string }) => {
+    const newDb = getDB();
+    const pos = newDb.posList.find(item => item.id === posId);
+    if (!pos) throw new Error("Point de vente introuvable");
+
+    pos.name = patch.name;
+    pos.type = patch.type;
+    pos.defaultWarehouseId = patch.defaultWarehouseId;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deletePOS = (posId: string) => {
+    const newDb = getDB();
+    const pos = newDb.posList.find(item => item.id === posId);
+    if (!pos) throw new Error("Point de vente introuvable");
+
+    newDb.posList = newDb.posList.filter(item => item.id !== posId);
+    newDb.posPricing = newDb.posPricing.filter(item => item.posId !== posId);
+    newDb.posProductAliases = newDb.posProductAliases.filter(item => item.posId !== posId);
+    newDb.movements = newDb.movements.filter(item => item.posId !== posId);
+    newDb.externalSales = newDb.externalSales.filter(item => item.posId !== posId);
+    newDb.externalPOSImportRuns = newDb.externalPOSImportRuns.map(run => ({
+      ...run,
+      issues: run.issues.filter(issue => !issue.message.includes(pos.name))
+    }));
+    newDb.cashSessions = newDb.cashSessions.filter(item => item.posId !== posId);
+    newDb.pmsFolios = newDb.pmsFolios.map(folio => ({
+      ...folio,
+      charges: folio.charges.filter(charge => charge.posId !== posId)
+    }));
+    newDb.users = newDb.users.map(user => user.posId === posId ? { ...user, posId: undefined } : user);
+
+    saveDB(newDb);
+    refresh();
+  };
+
   const addWarehouse = (name: string, isColdStorage: boolean) => {
     const newDb = getDB();
     const whId = `wh-${Date.now()}`;
@@ -223,6 +308,83 @@ export const useStockState = () => {
       name,
       isColdStorage
     });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateWarehouse = (warehouseId: string, patch: { name: string; isColdStorage: boolean }) => {
+    const newDb = getDB();
+    const warehouse = newDb.warehouses.find(item => item.id === warehouseId);
+    if (!warehouse) throw new Error("Dépôt introuvable");
+
+    warehouse.name = patch.name;
+    warehouse.isColdStorage = patch.isColdStorage;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deleteWarehouse = (warehouseId: string) => {
+    const newDb = getDB();
+    const warehouse = newDb.warehouses.find(item => item.id === warehouseId);
+    if (!warehouse) throw new Error("Dépôt introuvable");
+
+    const fallbackWarehouse = newDb.warehouses.find(item => item.id !== warehouseId);
+    newDb.posList = newDb.posList.map(pos => (
+      pos.defaultWarehouseId === warehouseId && fallbackWarehouse
+        ? { ...pos, defaultWarehouseId: fallbackWarehouse.id }
+        : pos
+    ));
+    newDb.posPricing = newDb.posPricing.map(rule => (
+      rule.defaultWarehouseId === warehouseId
+        ? { ...rule, defaultWarehouseId: undefined }
+        : rule
+    ));
+    newDb.warehouses = newDb.warehouses.filter(item => item.id !== warehouseId);
+    newDb.stocks = newDb.stocks.filter(item => item.warehouseId !== warehouseId);
+    newDb.batches = newDb.batches.filter(item => item.warehouseId !== warehouseId);
+    newDb.movements = newDb.movements.filter(item => item.warehouseId !== warehouseId);
+    newDb.losses = newDb.losses.filter(item => item.warehouseId !== warehouseId);
+    newDb.transfers = newDb.transfers.filter(item => item.sourceWarehouseId !== warehouseId && item.destinationWarehouseId !== warehouseId);
+    newDb.inventories = newDb.inventories.filter(item => item.warehouseId !== warehouseId);
+
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addSupplier = (supplier: Omit<Supplier, 'id'>) => {
+    const newDb = getDB();
+    const id = `sup-${Date.now()}`;
+    newDb.suppliers.push({ id, ...supplier });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateSupplier = (supplierId: string, patch: Omit<Supplier, 'id'>) => {
+    const newDb = getDB();
+    const supplier = newDb.suppliers.find(item => item.id === supplierId);
+    if (!supplier) throw new Error("Fournisseur introuvable");
+
+    Object.assign(supplier, patch);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deleteSupplier = (supplierId: string) => {
+    const newDb = getDB();
+    const fallbackSupplier = newDb.suppliers.find(item => item.id !== supplierId);
+
+    newDb.suppliers = newDb.suppliers.filter(item => item.id !== supplierId);
+    newDb.products = newDb.products.map(product => product.mainSupplierId === supplierId
+      ? { ...product, mainSupplierId: fallbackSupplier?.id }
+      : product
+    );
+    newDb.batches = newDb.batches.map(batch => batch.supplierId === supplierId
+      ? { ...batch, supplierId: fallbackSupplier?.id || 'unknown' }
+      : batch
+    );
+    newDb.supplierOrders = newDb.supplierOrders.filter(order => order.supplierId !== supplierId);
+
     saveDB(newDb);
     refresh();
   };
@@ -414,10 +576,19 @@ export const useStockState = () => {
     declareLoss: handleLoss,
     createSupplierOrder,
     addProduct,
+    updateProduct,
+    deleteProduct,
     updateProductPricing,
     addRecipe,
     addPOS,
+    updatePOS,
+    deletePOS,
     addWarehouse,
+    updateWarehouse,
+    deleteWarehouse,
+    addSupplier,
+    updateSupplier,
+    deleteSupplier,
     togglePMSExport,
     importExternalPOSSales,
     openCashSession,

@@ -1,19 +1,42 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, Settings } from 'lucide-react';
+import { Pencil, Plus, Settings, Trash2 } from 'lucide-react';
 
 interface ProductsProps {
   state: StockState;
 }
 
 export const Products: React.FC<ProductsProps> = ({ state }) => {
-  const { db, addProduct, addRecipe } = state;
+  const { db, addProduct, updateProduct, deleteProduct, addRecipe } = state;
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const productCategories = Array.from(new Set([
+    'Boissons',
+    'Boissons premium',
+    'Alimentation',
+    'Plats',
+    'Cocktails',
+    'Services',
+    ...db.products.map(product => product.category).filter(Boolean)
+  ]));
+  const productUnits = Array.from(new Set([
+    'unité',
+    'bouteille',
+    'verre',
+    'portion',
+    'ml',
+    'g',
+    'kg',
+    'litre',
+    'tranche',
+    'carton',
+    ...db.products.map(product => product.baseUnit).filter(Boolean)
+  ]));
   
   // Modals / forms state
   const [showAddProd, setShowAddProd] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [newProd, setNewProd] = useState({
-    name: '', sku: '', category: '', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10
+    name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10
   });
 
   const [showAddRecipe, setShowAddRecipe] = useState(false);
@@ -21,12 +44,44 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
     { productId: '', quantity: 1, unit: 'unité' }
   ]);
 
-  const handleAddProduct = (e: React.FormEvent) => {
+  const resetProductForm = () => {
+    setShowAddProd(false);
+    setEditingProductId(null);
+    setNewProd({ name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
+  };
+
+  const openEditProduct = (productId: string) => {
+    const product = db.products.find(item => item.id === productId);
+    if (!product) return;
+    setEditingProductId(productId);
+    setNewProd({
+      name: product.name,
+      sku: product.sku,
+      category: product.category,
+      baseUnit: product.baseUnit,
+      isStockable: product.isStockable,
+      globalAlertThreshold: product.globalAlertThreshold
+    });
+    setShowAddProd(true);
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProd.name || !newProd.sku) return;
-    addProduct(newProd);
-    setShowAddProd(false);
-    setNewProd({ name: '', sku: '', category: '', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
+    if (editingProductId) {
+      updateProduct(editingProductId, newProd);
+    } else {
+      addProduct(newProd);
+    }
+    resetProductForm();
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    const product = db.products.find(item => item.id === productId);
+    if (!product) return;
+    if (!window.confirm(`Supprimer "${product.name}" et ses règles associées ?`)) return;
+    deleteProduct(productId);
+    if (selectedProduct === productId) setSelectedProduct(null);
   };
 
   const handleAddRecipe = (e: React.FormEvent) => {
@@ -51,7 +106,11 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Produits & recettes</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Gérez vos articles, unités, seuils et recettes de préparation</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowAddProd(true)}>
+        <button className="btn btn-primary" onClick={() => {
+          setEditingProductId(null);
+          setNewProd({ name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
+          setShowAddProd(true);
+        }}>
           <Plus size={18} /> Ajouter un produit
         </button>
       </div>
@@ -95,9 +154,28 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                       </td>
                       <td style={{ textAlign: 'center' }}>{p.globalAlertThreshold}</td>
                       <td>
-                        <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }}>
-                          Détails
-                        </button>
+                        <div className="entity-row-actions">
+                          <button
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openEditProduct(p.id);
+                            }}
+                          >
+                            <Pencil size={14} /> Modifier
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDeleteProduct(p.id);
+                            }}
+                          >
+                            <Trash2 size={14} /> Suppr.
+                          </button>
+                        </div>
                       </td>
                     </tr>
                 ))}
@@ -186,10 +264,10 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
 
       {/* Add Product Modal Overlay */}
       {showAddProd && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '450px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nouveau Produit</h3>
-            <form onSubmit={handleAddProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="modal-overlay">
+          <div className="card modal-card">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editingProductId ? 'Modifier le produit' : 'Nouveau produit'}</h3>
+            <form onSubmit={handleSaveProduct} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
                 <label className="form-label">Nom du produit</label>
                 <input 
@@ -213,23 +291,29 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">Catégorie</label>
-                  <input 
-                    type="text" 
+                  <select
                     value={newProd.category} 
                     onChange={(e) => setNewProd({ ...newProd, category: e.target.value })} 
                     className="form-control"
                     required
-                  />
+                  >
+                    {productCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unité de base</label>
-                  <input 
-                    type="text" 
+                  <select
                     value={newProd.baseUnit} 
                     onChange={(e) => setNewProd({ ...newProd, baseUnit: e.target.value })} 
                     className="form-control"
                     required
-                  />
+                  >
+                    {productUnits.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="grid-2" style={{ alignItems: 'center' }}>
@@ -254,9 +338,9 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddProd(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primary">Créer le produit</button>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Annuler</button>
+                <button type="submit" className="btn btn-primary">{editingProductId ? 'Enregistrer' : 'Créer le produit'}</button>
               </div>
             </form>
           </div>
@@ -265,13 +349,13 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
 
       {/* Add Recipe Modal Overlay */}
       {showAddRecipe && selectedProdObj && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '550px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="modal-overlay">
+          <div className="card modal-card">
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Créer la recette de "{selectedProdObj.name}"</h3>
             <form onSubmit={handleAddRecipe} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {recipeIngredients.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div key={idx} className="modal-line">
                     <select 
                       value={item.productId}
                       onChange={(e) => {
@@ -322,7 +406,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
               >
                 + Ajouter un ingrédient
               </button>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+              <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowAddRecipe(false)}>Annuler</button>
                 <button type="submit" className="btn btn-primary">Enregistrer la recette</button>
               </div>

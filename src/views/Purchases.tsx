@@ -107,11 +107,11 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
 
       {/* Create Order Modal */}
       {showCreate && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '650px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="modal-overlay">
+          <div className="card modal-card">
             <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nouveau Bon de Commande</h3>
             
-            <form onSubmit={handleCreateOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto' }}>
+            <form onSubmit={handleCreateOrder} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
                 <label className="form-label">Fournisseur</label>
                 <select 
@@ -130,7 +130,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                 <label className="form-label">Lignes de commande</label>
                 {orderItems.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div key={idx} className="modal-line">
                     <select 
                       value={item.productId}
                       onChange={(e) => {
@@ -201,7 +201,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                 + Ajouter une ligne
               </button>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Annuler</button>
                 <button type="submit" className="btn btn-primary">Valider la commande</button>
               </div>

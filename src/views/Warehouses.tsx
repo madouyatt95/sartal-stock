@@ -1,32 +1,87 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, Warehouse, Landmark, ThermometerSnowflake } from 'lucide-react';
+import { Pencil, Plus, Trash2, Warehouse, Landmark, ThermometerSnowflake } from 'lucide-react';
+import { POSType } from '../types';
 
 interface WarehousesProps {
   state: StockState;
 }
 
 export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
-  const { db, addWarehouse, addPOS } = state;
+  const { db, addWarehouse, updateWarehouse, deleteWarehouse, addPOS, updatePOS, deletePOS } = state;
   const [showAddWh, setShowAddWh] = useState(false);
+  const [editingWarehouseId, setEditingWarehouseId] = useState<string | null>(null);
   const [newWh, setNewWh] = useState({ name: '', isColdStorage: false });
   const [showAddPOS, setShowAddPOS] = useState(false);
-  const [newPOS, setNewPOS] = useState({ name: '', type: 'restaurant' as any, defaultWarehouseId: '' });
+  const [editingPOSId, setEditingPOSId] = useState<string | null>(null);
+  const [newPOS, setNewPOS] = useState({ name: '', type: 'restaurant' as POSType, defaultWarehouseId: '' });
 
-  const handleAddWh = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newWh.name) return;
-    addWarehouse(newWh.name, newWh.isColdStorage);
+  const closeWarehouseModal = () => {
     setShowAddWh(false);
+    setEditingWarehouseId(null);
     setNewWh({ name: '', isColdStorage: false });
   };
 
-  const handleAddPOS = (e: React.FormEvent) => {
+  const closePOSModal = () => {
+    setShowAddPOS(false);
+    setEditingPOSId(null);
+    setNewPOS({ name: '', type: 'restaurant', defaultWarehouseId: '' });
+  };
+
+  const openEditWarehouse = (warehouseId: string) => {
+    const warehouse = db.warehouses.find(item => item.id === warehouseId);
+    if (!warehouse) return;
+    setEditingWarehouseId(warehouseId);
+    setNewWh({ name: warehouse.name, isColdStorage: warehouse.isColdStorage });
+    setShowAddWh(true);
+  };
+
+  const openEditPOS = (posId: string) => {
+    const pos = db.posList.find(item => item.id === posId);
+    if (!pos) return;
+    setEditingPOSId(posId);
+    setNewPOS({ name: pos.name, type: pos.type, defaultWarehouseId: pos.defaultWarehouseId });
+    setShowAddPOS(true);
+  };
+
+  const handleSaveWh = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWh.name) return;
+    if (editingWarehouseId) {
+      updateWarehouse(editingWarehouseId, newWh);
+    } else {
+      addWarehouse(newWh.name, newWh.isColdStorage);
+    }
+    closeWarehouseModal();
+  };
+
+  const handleSavePOS = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPOS.name || !newPOS.defaultWarehouseId) return;
-    addPOS(newPOS.name, newPOS.type, newPOS.defaultWarehouseId);
-    setShowAddPOS(false);
-    setNewPOS({ name: '', type: 'restaurant', defaultWarehouseId: '' });
+    if (editingPOSId) {
+      updatePOS(editingPOSId, newPOS);
+    } else {
+      addPOS(newPOS.name, newPOS.type, newPOS.defaultWarehouseId);
+    }
+    closePOSModal();
+  };
+
+  const handleDeleteWarehouse = (warehouseId: string) => {
+    const warehouse = db.warehouses.find(item => item.id === warehouseId);
+    if (!warehouse) return;
+    if (db.warehouses.length <= 1) {
+      alert("Il faut conserver au moins un dépôt.");
+      return;
+    }
+    if (!window.confirm(`Supprimer "${warehouse.name}" et ses stocks associés ?`)) return;
+    deleteWarehouse(warehouseId);
+  };
+
+  const handleDeletePOS = (posId: string) => {
+    const pos = db.posList.find(item => item.id === posId);
+    if (!pos) return;
+    if (!window.confirm(`Supprimer le point de vente "${pos.name}" et ses règles associées ?`)) return;
+    deletePOS(posId);
   };
 
   return (
@@ -37,10 +92,18 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
           <p style={{ color: 'var(--text-secondary)' }}>Configurez la cartographie de stockage et d'écoulement de votre complexe</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={() => setShowAddPOS(true)}>
+          <button className="btn btn-secondary" onClick={() => {
+            setEditingPOSId(null);
+            setNewPOS({ name: '', type: 'restaurant', defaultWarehouseId: db.warehouses[0]?.id || '' });
+            setShowAddPOS(true);
+          }}>
             <Plus size={18} /> Nouveau POS
           </button>
-          <button className="btn btn-primary" onClick={() => setShowAddWh(true)}>
+          <button className="btn btn-primary" onClick={() => {
+            setEditingWarehouseId(null);
+            setNewWh({ name: '', isColdStorage: false });
+            setShowAddWh(true);
+          }}>
             <Plus size={18} /> Nouveau Dépôt
           </button>
         </div>
@@ -61,7 +124,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
               const productsCount = whStock.filter(s => s.quantityAvailable > 0).length;
 
               return (
-                <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                <div key={w.id} className="entity-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ padding: '10px', borderRadius: '50%', backgroundColor: w.isColdStorage ? 'var(--info-light)' : 'var(--primary-lightest)', color: w.isColdStorage ? 'var(--info)' : 'var(--primary)' }}>
                       {w.isColdStorage ? <ThermometerSnowflake size={20} /> : <Warehouse size={20} />}
@@ -76,6 +139,14 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                     <h5 style={{ fontWeight: 800, fontSize: '1rem' }}>
                       {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(totalVal).replace('XOF', 'FCFA')}
                     </h5>
+                    <div className="entity-row-actions" style={{ marginTop: '10px' }}>
+                      <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => openEditWarehouse(w.id)}>
+                        <Pencil size={14} /> Modifier
+                      </button>
+                      <button className="btn btn-danger" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => handleDeleteWarehouse(w.id)}>
+                        <Trash2 size={14} /> Suppr.
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -93,7 +164,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
             {db.posList.map(pos => {
               const defaultWh = db.warehouses.find(w => w.id === pos.defaultWarehouseId);
               return (
-                <div key={pos.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)' }}>
+                <div key={pos.id} className="entity-row">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ padding: '10px', borderRadius: '50%', backgroundColor: 'var(--success-light)', color: 'var(--success)' }}>
                       <Landmark size={20} />
@@ -106,6 +177,14 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Dépôt de déduction par défaut</span>
                     <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--primary)' }}>{defaultWh?.name}</p>
+                    <div className="entity-row-actions" style={{ marginTop: '10px' }}>
+                      <button className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => openEditPOS(pos.id)}>
+                        <Pencil size={14} /> Modifier
+                      </button>
+                      <button className="btn btn-danger" style={{ padding: '6px 10px', fontSize: '0.75rem' }} onClick={() => handleDeletePOS(pos.id)}>
+                        <Trash2 size={14} /> Suppr.
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -116,10 +195,10 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
 
       {/* Add Warehouse Modal */}
       {showAddWh && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '400px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nouveau Dépôt</h3>
-            <form onSubmit={handleAddWh} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="modal-overlay">
+          <div className="card modal-card modal-card-sm">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editingWarehouseId ? 'Modifier le dépôt' : 'Nouveau dépôt'}</h3>
+            <form onSubmit={handleSaveWh} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
                 <label className="form-label">Nom du dépôt</label>
                 <input 
@@ -141,9 +220,9 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                   Chambre Froide / Stockage réfrigéré
                 </label>
               </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddWh(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primary">Créer le dépôt</button>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={closeWarehouseModal}>Annuler</button>
+                <button type="submit" className="btn btn-primary">{editingWarehouseId ? 'Enregistrer' : 'Créer le dépôt'}</button>
               </div>
             </form>
           </div>
@@ -152,10 +231,10 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
 
       {/* Add POS Modal */}
       {showAddPOS && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div className="card" style={{ width: '450px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Nouveau Point de Vente</h3>
-            <form onSubmit={handleAddPOS} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div className="modal-overlay">
+          <div className="card modal-card">
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editingPOSId ? 'Modifier le point de vente' : 'Nouveau point de vente'}</h3>
+            <form onSubmit={handleSavePOS} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
                 <label className="form-label">Nom du POS</label>
                 <input 
@@ -172,7 +251,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                   <label className="form-label">Type de Point de Vente</label>
                   <select 
                     value={newPOS.type} 
-                    onChange={(e) => setNewPOS({ ...newPOS, type: e.target.value as any })}
+                    onChange={(e) => setNewPOS({ ...newPOS, type: e.target.value as POSType })}
                     className="form-control"
                   >
                     <option value="restaurant">Restaurant</option>
@@ -201,9 +280,9 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAddPOS(false)}>Annuler</button>
-                <button type="submit" className="btn btn-primary">Créer le point de vente</button>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={closePOSModal}>Annuler</button>
+                <button type="submit" className="btn btn-primary">{editingPOSId ? 'Enregistrer' : 'Créer le point de vente'}</button>
               </div>
             </form>
           </div>

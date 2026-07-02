@@ -52,6 +52,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v2';
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -84,15 +85,26 @@ const initialDB = (): DatabaseState => {
     { id: 'prod-vin-rouge', name: 'Vin rouge maison 75 cl', sku: 'VINROUGE75', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 12, isActive: true },
     { id: 'prod-gin', name: 'Gin premium', sku: 'GIN', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 3000, isActive: true },
     { id: 'prod-tonic', name: 'Tonic 20 cl', sku: 'TONIC20', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 24, isActive: true },
+    { id: 'prod-eau-50', name: 'Eau minérale 50 cl', sku: 'EAU50', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 60, isActive: true },
+    { id: 'prod-champagne-brut', name: 'Champagne brut 75 cl', sku: 'CHAMPBRUT75', category: 'Boissons premium', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 8, isActive: true },
+    { id: 'prod-rhum-blanc', name: 'Rhum blanc', sku: 'RHUMBLANC', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 3000, isActive: true },
+    { id: 'prod-menthe', name: 'Menthe fraîche', sku: 'MENTHE', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 500, isActive: true },
+    { id: 'prod-citron-vert', name: 'Citron vert', sku: 'CITRONVERT', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 30, isActive: true },
+    { id: 'prod-sucre-canne', name: 'Sirop sucre de canne', sku: 'SUCRECANNE', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 2000, isActive: true },
     { id: 'prod-steak', name: 'Steak de Boeuf', sku: 'STEAK', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
     { id: 'prod-pain-burger', name: 'Pain burger', sku: 'PAINBURGER', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
     { id: 'prod-fromage', name: 'Fromage cheddar', sku: 'CHEDDAR', category: 'Alimentation', baseUnit: 'tranche', isStockable: true, globalAlertThreshold: 30, isActive: true },
     { id: 'prod-pdt', name: 'Pommes de terre', sku: 'PDT', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 50000, isActive: true },
     { id: 'prod-huile', name: 'Huile', sku: 'HUILE', category: 'Alimentation', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 10000, isActive: true },
     { id: 'prod-sel', name: 'Sel', sku: 'SEL', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 1000, isActive: true },
+    { id: 'prod-riz-parfume', name: 'Riz parfumé', sku: 'RIZPARF', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 25000, isActive: true },
+    { id: 'prod-poisson-dorade', name: 'Dorade portion', sku: 'DORADE', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 12, isActive: true },
+    { id: 'prod-legumes-mix', name: 'Légumes garniture', sku: 'LEGMIX', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 15000, isActive: true },
     { id: 'prod-steak-frites', name: 'Steak Frites', sku: 'STEAKFRITES', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-burger-maison', name: 'Burger Maison', sku: 'BURGERMAISON', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-gin-tonic', name: 'Gin Tonic', sku: 'GINTONIC', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-mojito', name: 'Mojito maison', sku: 'MOJITO', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-thieb-signature', name: 'Thieboudienne signature', sku: 'THIEB', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-creme', name: 'Crème liquide 1L', sku: 'CREM1L', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true }
   ];
 
@@ -102,14 +114,18 @@ const initialDB = (): DatabaseState => {
     { externalSku: 'STEAKFRITES', externalLabel: 'Steak frites', productId: 'prod-steak-frites' },
     { externalSku: 'BURGER', externalLabel: 'Burger maison', productId: 'prod-burger-maison' },
     { externalSku: 'GINTONIC', externalLabel: 'Gin tonic', productId: 'prod-gin-tonic' },
-    { externalSku: 'VINROUGE75', externalLabel: 'Vin rouge maison 75 cl', productId: 'prod-vin-rouge' }
+    { externalSku: 'VINROUGE75', externalLabel: 'Vin rouge maison 75 cl', productId: 'prod-vin-rouge' },
+    { externalSku: 'EAU50', externalLabel: 'Eau minérale 50 cl', productId: 'prod-eau-50' },
+    { externalSku: 'CHAMPBRUT75', externalLabel: 'Champagne brut 75 cl', productId: 'prod-champagne-brut' },
+    { externalSku: 'MOJITO', externalLabel: 'Mojito maison', productId: 'prod-mojito' },
+    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' }
   ];
 
   const posPricing: POSPricing[] = [
     // Coca-Cola pricing
     { productId: 'prod-coca', posId: 'pos-1', salePrice: 1500, taxRate: 18, isAvailable: true },
     { productId: 'prod-coca', posId: 'pos-2', salePrice: 2000, taxRate: 18, isAvailable: true },
-    { productId: 'prod-coca', posId: 'pos-3', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-coca', posId: 'pos-3', salePrice: 2500, taxRate: 20, isAvailable: true },
     { productId: 'prod-coca', posId: 'pos-4', salePrice: 2000, taxRate: 18, isAvailable: true },
     // Heineken pricing
     { productId: 'prod-heineken', posId: 'pos-1', salePrice: 2500, taxRate: 18, isAvailable: true },
@@ -118,13 +134,26 @@ const initialDB = (): DatabaseState => {
     // Wine pricing
     { productId: 'prod-vin-rouge', posId: 'pos-1', salePrice: 12000, taxRate: 18, isAvailable: true },
     { productId: 'prod-vin-rouge', posId: 'pos-3', salePrice: 18000, taxRate: 18, isAvailable: true },
+    // Everyday product with different prices and tax setup
+    { productId: 'prod-eau-50', posId: 'pos-1', salePrice: 1000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-2', salePrice: 1500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-3', salePrice: 2000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-4', salePrice: 1200, taxRate: 18, isAvailable: true },
+    // Premium products
+    { productId: 'prod-champagne-brut', posId: 'pos-2', salePrice: 75000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-champagne-brut', posId: 'pos-3', salePrice: 85000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-champagne-brut', posId: 'pos-4', salePrice: 90000, taxRate: 18, isAvailable: true },
     // Steak Frites pricing
     { productId: 'prod-steak-frites', posId: 'pos-1', salePrice: 6500, taxRate: 18, isAvailable: true },
     { productId: 'prod-steak-frites', posId: 'pos-4', salePrice: 7000, taxRate: 18, isAvailable: true },
     // Recipes and cocktails
     { productId: 'prod-burger-maison', posId: 'pos-1', salePrice: 5500, taxRate: 18, isAvailable: true },
     { productId: 'prod-gin-tonic', posId: 'pos-2', salePrice: 4500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-gin-tonic', posId: 'pos-3', salePrice: 6000, taxRate: 18, isAvailable: true }
+    { productId: 'prod-gin-tonic', posId: 'pos-3', salePrice: 6000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-mojito', posId: 'pos-2', salePrice: 5000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-mojito', posId: 'pos-3', salePrice: 7000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-thieb-signature', posId: 'pos-1', salePrice: 9500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true }
   ];
 
   const suppliers: Supplier[] = [
@@ -169,6 +198,29 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-gin', quantity: 50, unit: 'ml' },
         { productId: 'prod-tonic', quantity: 1, unit: 'unité' }
       ]
+    },
+    {
+      id: 'rec-mojito',
+      productId: 'prod-mojito',
+      name: 'Mojito maison',
+      ingredients: [
+        { productId: 'prod-rhum-blanc', quantity: 50, unit: 'ml' },
+        { productId: 'prod-menthe', quantity: 8, unit: 'g' },
+        { productId: 'prod-citron-vert', quantity: 0.5, unit: 'unité' },
+        { productId: 'prod-sucre-canne', quantity: 20, unit: 'ml' }
+      ]
+    },
+    {
+      id: 'rec-thieb-signature',
+      productId: 'prod-thieb-signature',
+      name: 'Thieboudienne signature',
+      ingredients: [
+        { productId: 'prod-poisson-dorade', quantity: 1, unit: 'unité' },
+        { productId: 'prod-riz-parfume', quantity: 250, unit: 'g' },
+        { productId: 'prod-legumes-mix', quantity: 180, unit: 'g' },
+        { productId: 'prod-huile', quantity: 25, unit: 'ml' },
+        { productId: 'prod-sel', quantity: 3, unit: 'g' }
+      ]
     }
   ];
 
@@ -197,6 +249,19 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-gin-nc-1', productId: 'prod-gin', warehouseId: 'wh-nightclub', batchNumber: 'LOT-GIN-NC-01', expiryDate: '2028-06-30', quantity: 16000, initialQuantity: 16000, supplierId: 'sup-drinks', purchaseCost: 12, createdAt: dateStr },
     { id: 'lot-tonic-cas-1', productId: 'prod-tonic', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-TONIC-CAS-01', expiryDate: '2026-11-30', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 300, createdAt: dateStr },
     { id: 'lot-tonic-nc-1', productId: 'prod-tonic', warehouseId: 'wh-nightclub', batchNumber: 'LOT-TONIC-NC-01', expiryDate: '2026-11-30', quantity: 96, initialQuantity: 96, supplierId: 'sup-drinks', purchaseCost: 300, createdAt: dateStr },
+    { id: 'lot-eau-rest-1', productId: 'prod-eau-50', warehouseId: 'wh-restaurant', batchNumber: 'LOT-EAU-REST-01', expiryDate: '2027-02-28', quantity: 240, initialQuantity: 240, supplierId: 'sup-drinks', purchaseCost: 200, createdAt: dateStr },
+    { id: 'lot-eau-cas-1', productId: 'prod-eau-50', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-EAU-CAS-01', expiryDate: '2027-02-28', quantity: 180, initialQuantity: 180, supplierId: 'sup-drinks', purchaseCost: 200, createdAt: dateStr },
+    { id: 'lot-eau-nc-1', productId: 'prod-eau-50', warehouseId: 'wh-nightclub', batchNumber: 'LOT-EAU-NC-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt: dateStr },
+    { id: 'lot-champ-cas-1', productId: 'prod-champagne-brut', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CHAMP-CAS-01', expiryDate: '2029-12-31', quantity: 12, initialQuantity: 12, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt: dateStr },
+    { id: 'lot-champ-nc-1', productId: 'prod-champagne-brut', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CHAMP-NC-01', expiryDate: '2029-12-31', quantity: 18, initialQuantity: 18, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt: dateStr },
+    { id: 'lot-rhum-cas-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-RHUM-CAS-01', expiryDate: '2029-12-31', quantity: 9000, initialQuantity: 9000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt: dateStr },
+    { id: 'lot-rhum-nc-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-nightclub', batchNumber: 'LOT-RHUM-NC-01', expiryDate: '2029-12-31', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt: dateStr },
+    { id: 'lot-menthe-cas-1', productId: 'prod-menthe', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-MENTHE-CAS-01', expiryDate: '2026-07-06', quantity: 800, initialQuantity: 800, supplierId: 'sup-market', purchaseCost: 8, createdAt: dateStr },
+    { id: 'lot-menthe-nc-1', productId: 'prod-menthe', warehouseId: 'wh-nightclub', batchNumber: 'LOT-MENTHE-NC-01', expiryDate: '2026-07-06', quantity: 1000, initialQuantity: 1000, supplierId: 'sup-market', purchaseCost: 8, createdAt: dateStr },
+    { id: 'lot-citron-cas-1', productId: 'prod-citron-vert', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CITRON-CAS-01', expiryDate: '2026-07-12', quantity: 60, initialQuantity: 60, supplierId: 'sup-market', purchaseCost: 150, createdAt: dateStr },
+    { id: 'lot-citron-nc-1', productId: 'prod-citron-vert', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CITRON-NC-01', expiryDate: '2026-07-12', quantity: 80, initialQuantity: 80, supplierId: 'sup-market', purchaseCost: 150, createdAt: dateStr },
+    { id: 'lot-sucre-cas-1', productId: 'prod-sucre-canne', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-SUCRE-CAS-01', expiryDate: '2027-04-30', quantity: 3000, initialQuantity: 3000, supplierId: 'sup-drinks', purchaseCost: 2, createdAt: dateStr },
+    { id: 'lot-sucre-nc-1', productId: 'prod-sucre-canne', warehouseId: 'wh-nightclub', batchNumber: 'LOT-SUCRE-NC-01', expiryDate: '2027-04-30', quantity: 4000, initialQuantity: 4000, supplierId: 'sup-drinks', purchaseCost: 2, createdAt: dateStr },
     
     // Steak in cold warehouse: 50 units
     { id: 'lot-steak-1', productId: 'prod-steak', warehouseId: 'wh-cold', batchNumber: 'LOT-STEAK-01', expiryDate: '2026-07-10', quantity: 50, initialQuantity: 50, supplierId: 'sup-market', purchaseCost: 1500, createdAt: dateStr },
@@ -208,6 +273,9 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-oil-1', productId: 'prod-huile', warehouseId: 'wh-restaurant', batchNumber: 'LOT-HUILE-01', expiryDate: '2026-12-31', quantity: 20000, initialQuantity: 20000, supplierId: 'sup-market', purchaseCost: 1.5, createdAt: dateStr },
     // Salt in Restaurant warehouse: 5 kg (5,000 g)
     { id: 'lot-salt-1', productId: 'prod-sel', warehouseId: 'wh-restaurant', batchNumber: 'LOT-SEL-01', expiryDate: '2027-12-31', quantity: 5000, initialQuantity: 5000, supplierId: 'sup-market', purchaseCost: 0.1, createdAt: dateStr },
+    { id: 'lot-riz-rest-1', productId: 'prod-riz-parfume', warehouseId: 'wh-restaurant', batchNumber: 'LOT-RIZ-R01', expiryDate: '2027-01-31', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt: dateStr },
+    { id: 'lot-dorade-rest-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-restaurant', batchNumber: 'LOT-DORADE-R01', expiryDate: '2026-07-08', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 1800, createdAt: dateStr },
+    { id: 'lot-legumes-rest-1', productId: 'prod-legumes-mix', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LEG-R01', expiryDate: '2026-07-09', quantity: 30000, initialQuantity: 30000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt: dateStr },
 
     // Crème liquide 1L in Cold storage: 15 units (near expiry!)
     { id: 'lot-creme-1', productId: 'prod-creme', warehouseId: 'wh-cold', batchNumber: 'LOT-CREME-01', expiryDate: '2026-07-04', quantity: 15, initialQuantity: 15, supplierId: 'sup-market', purchaseCost: 1200, createdAt: dateStr }
@@ -358,12 +426,182 @@ const initialDB = (): DatabaseState => {
   };
 };
 
+const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
+  if (localStorage.getItem(DEMO_SEED_KEY) === 'done') {
+    return state;
+  }
+
+  const seedDate = new Date();
+  seedDate.setMonth(seedDate.getMonth() - 1);
+  const createdAt = seedDate.toISOString();
+
+  const demoProducts: Product[] = [
+    { id: 'prod-eau-50', name: 'Eau minérale 50 cl', sku: 'EAU50', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 60, isActive: true },
+    { id: 'prod-champagne-brut', name: 'Champagne brut 75 cl', sku: 'CHAMPBRUT75', category: 'Boissons premium', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 8, isActive: true },
+    { id: 'prod-rhum-blanc', name: 'Rhum blanc', sku: 'RHUMBLANC', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 3000, isActive: true },
+    { id: 'prod-menthe', name: 'Menthe fraîche', sku: 'MENTHE', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 500, isActive: true },
+    { id: 'prod-citron-vert', name: 'Citron vert', sku: 'CITRONVERT', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 30, isActive: true },
+    { id: 'prod-sucre-canne', name: 'Sirop sucre de canne', sku: 'SUCRECANNE', category: 'Boissons', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 2000, isActive: true },
+    { id: 'prod-riz-parfume', name: 'Riz parfumé', sku: 'RIZPARF', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 25000, isActive: true },
+    { id: 'prod-poisson-dorade', name: 'Dorade portion', sku: 'DORADE', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 12, isActive: true },
+    { id: 'prod-legumes-mix', name: 'Légumes garniture', sku: 'LEGMIX', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 15000, isActive: true },
+    { id: 'prod-mojito', name: 'Mojito maison', sku: 'MOJITO', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-thieb-signature', name: 'Thieboudienne signature', sku: 'THIEB', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true }
+  ];
+
+  demoProducts.forEach(product => {
+    if (!state.products.some(item => item.id === product.id)) {
+      state.products.push(product);
+    }
+  });
+
+  const aliases: POSProductAlias[] = [
+    { externalSku: 'EAU50', externalLabel: 'Eau minérale 50 cl', productId: 'prod-eau-50' },
+    { externalSku: 'CHAMPBRUT75', externalLabel: 'Champagne brut 75 cl', productId: 'prod-champagne-brut' },
+    { externalSku: 'MOJITO', externalLabel: 'Mojito maison', productId: 'prod-mojito' },
+    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' }
+  ];
+
+  aliases.forEach(alias => {
+    const exists = state.posProductAliases.some(item => (
+      item.externalSku === alias.externalSku && item.productId === alias.productId && item.posId === alias.posId
+    ));
+    if (!exists) state.posProductAliases.push(alias);
+  });
+
+  const pricingRules: POSPricing[] = [
+    { productId: 'prod-coca', posId: 'pos-3', salePrice: 2500, taxRate: 20, isAvailable: true },
+    { productId: 'prod-gin-tonic', posId: 'pos-3', salePrice: 6000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-1', salePrice: 1000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-2', salePrice: 1500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-3', salePrice: 2000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-eau-50', posId: 'pos-4', salePrice: 1200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-champagne-brut', posId: 'pos-2', salePrice: 75000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-champagne-brut', posId: 'pos-3', salePrice: 85000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-champagne-brut', posId: 'pos-4', salePrice: 90000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-mojito', posId: 'pos-2', salePrice: 5000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-mojito', posId: 'pos-3', salePrice: 7000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-thieb-signature', posId: 'pos-1', salePrice: 9500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true }
+  ];
+
+  pricingRules.forEach(rule => {
+    const index = state.posPricing.findIndex(item => item.productId === rule.productId && item.posId === rule.posId);
+    if (index >= 0) {
+      state.posPricing[index] = { ...state.posPricing[index], ...rule };
+    } else {
+      state.posPricing.push(rule);
+    }
+  });
+
+  const recipes: Recipe[] = [
+    {
+      id: 'rec-mojito',
+      productId: 'prod-mojito',
+      name: 'Mojito maison',
+      ingredients: [
+        { productId: 'prod-rhum-blanc', quantity: 50, unit: 'ml' },
+        { productId: 'prod-menthe', quantity: 8, unit: 'g' },
+        { productId: 'prod-citron-vert', quantity: 0.5, unit: 'unité' },
+        { productId: 'prod-sucre-canne', quantity: 20, unit: 'ml' }
+      ]
+    },
+    {
+      id: 'rec-thieb-signature',
+      productId: 'prod-thieb-signature',
+      name: 'Thieboudienne signature',
+      ingredients: [
+        { productId: 'prod-poisson-dorade', quantity: 1, unit: 'unité' },
+        { productId: 'prod-riz-parfume', quantity: 250, unit: 'g' },
+        { productId: 'prod-legumes-mix', quantity: 180, unit: 'g' },
+        { productId: 'prod-huile', quantity: 25, unit: 'ml' },
+        { productId: 'prod-sel', quantity: 3, unit: 'g' }
+      ]
+    }
+  ];
+
+  recipes.forEach(recipe => {
+    if (!state.recipes.some(item => item.id === recipe.id)) {
+      state.recipes.push(recipe);
+    }
+  });
+
+  const batches: Batch[] = [
+    { id: 'lot-eau-rest-1', productId: 'prod-eau-50', warehouseId: 'wh-restaurant', batchNumber: 'LOT-EAU-REST-01', expiryDate: '2027-02-28', quantity: 240, initialQuantity: 240, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
+    { id: 'lot-eau-cas-1', productId: 'prod-eau-50', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-EAU-CAS-01', expiryDate: '2027-02-28', quantity: 180, initialQuantity: 180, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
+    { id: 'lot-eau-nc-1', productId: 'prod-eau-50', warehouseId: 'wh-nightclub', batchNumber: 'LOT-EAU-NC-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
+    { id: 'lot-champ-cas-1', productId: 'prod-champagne-brut', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CHAMP-CAS-01', expiryDate: '2029-12-31', quantity: 12, initialQuantity: 12, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt },
+    { id: 'lot-champ-nc-1', productId: 'prod-champagne-brut', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CHAMP-NC-01', expiryDate: '2029-12-31', quantity: 18, initialQuantity: 18, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt },
+    { id: 'lot-rhum-cas-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-RHUM-CAS-01', expiryDate: '2029-12-31', quantity: 9000, initialQuantity: 9000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt },
+    { id: 'lot-rhum-nc-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-nightclub', batchNumber: 'LOT-RHUM-NC-01', expiryDate: '2029-12-31', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt },
+    { id: 'lot-menthe-cas-1', productId: 'prod-menthe', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-MENTHE-CAS-01', expiryDate: '2026-07-06', quantity: 800, initialQuantity: 800, supplierId: 'sup-market', purchaseCost: 8, createdAt },
+    { id: 'lot-menthe-nc-1', productId: 'prod-menthe', warehouseId: 'wh-nightclub', batchNumber: 'LOT-MENTHE-NC-01', expiryDate: '2026-07-06', quantity: 1000, initialQuantity: 1000, supplierId: 'sup-market', purchaseCost: 8, createdAt },
+    { id: 'lot-citron-cas-1', productId: 'prod-citron-vert', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CITRON-CAS-01', expiryDate: '2026-07-12', quantity: 60, initialQuantity: 60, supplierId: 'sup-market', purchaseCost: 150, createdAt },
+    { id: 'lot-citron-nc-1', productId: 'prod-citron-vert', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CITRON-NC-01', expiryDate: '2026-07-12', quantity: 80, initialQuantity: 80, supplierId: 'sup-market', purchaseCost: 150, createdAt },
+    { id: 'lot-sucre-cas-1', productId: 'prod-sucre-canne', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-SUCRE-CAS-01', expiryDate: '2027-04-30', quantity: 3000, initialQuantity: 3000, supplierId: 'sup-drinks', purchaseCost: 2, createdAt },
+    { id: 'lot-sucre-nc-1', productId: 'prod-sucre-canne', warehouseId: 'wh-nightclub', batchNumber: 'LOT-SUCRE-NC-01', expiryDate: '2027-04-30', quantity: 4000, initialQuantity: 4000, supplierId: 'sup-drinks', purchaseCost: 2, createdAt },
+    { id: 'lot-riz-rest-1', productId: 'prod-riz-parfume', warehouseId: 'wh-restaurant', batchNumber: 'LOT-RIZ-R01', expiryDate: '2027-01-31', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt },
+    { id: 'lot-dorade-rest-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-restaurant', batchNumber: 'LOT-DORADE-R01', expiryDate: '2026-07-08', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 1800, createdAt },
+    { id: 'lot-legumes-rest-1', productId: 'prod-legumes-mix', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LEG-R01', expiryDate: '2026-07-09', quantity: 30000, initialQuantity: 30000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt }
+  ];
+
+  batches.forEach(batch => {
+    if (state.batches.some(item => item.id === batch.id)) return;
+
+    state.batches.push(batch);
+    const product = state.products.find(item => item.id === batch.productId);
+    const stock = state.stocks.find(item => item.productId === batch.productId && item.warehouseId === batch.warehouseId);
+
+    if (stock) {
+      const currentValue = stock.quantityAvailable * stock.averageCost;
+      stock.quantityAvailable += batch.quantity;
+      stock.averageCost = stock.quantityAvailable > 0
+        ? (currentValue + (batch.quantity * batch.purchaseCost)) / stock.quantityAvailable
+        : batch.purchaseCost;
+      stock.lastUpdated = createdAt;
+    } else {
+      state.stocks.push({
+        productId: batch.productId,
+        warehouseId: batch.warehouseId,
+        quantityAvailable: batch.quantity,
+        quantityReserved: 0,
+        alertThreshold: product?.globalAlertThreshold || 5,
+        averageCost: batch.purchaseCost,
+        lastUpdated: createdAt
+      });
+    }
+
+    const movementId = `mvt-${batch.id}`;
+    if (!state.movements.some(item => item.id === movementId)) {
+      state.movements.push({
+        id: movementId,
+        companyId: 'comp-1',
+        siteId: 'site-1',
+        warehouseId: batch.warehouseId,
+        productId: batch.productId,
+        batchId: batch.id,
+        type: 'purchase_received',
+        quantity: batch.initialQuantity,
+        unit: product?.baseUnit || 'unité',
+        cost: batch.purchaseCost,
+        userId: 'user-system',
+        userName: 'Système Seeding',
+        date: createdAt,
+        reason: 'Ajout exemples métier hospitality'
+      });
+    }
+  });
+
+  localStorage.setItem(DEMO_SEED_KEY, 'done');
+  return state;
+};
+
 const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
   const posList = (state.posList || []).map(pos => (
     pos.name === 'Restaurant Le Jardin' ? { ...pos, name: 'Restaurant La Terrasse' } : pos
   ));
 
-  return {
+  const migratedState: DatabaseState = {
     ...state,
     companies: state.companies || [],
     sites: state.sites || [],
@@ -390,6 +628,8 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     users: state.users || [],
     currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
   };
+
+  return ensureHospitalityDemoData(migratedState);
 };
 
 export const getDB = (): DatabaseState => {

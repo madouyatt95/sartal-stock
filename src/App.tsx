@@ -32,6 +32,7 @@ import {
 
 // Subviews
 import Dashboard from './views/Dashboard';
+import ManagerAnswer from './views/ManagerAnswer';
 import BehaviorSimulation from './views/BehaviorSimulation';
 import StockControl from './views/StockControl';
 import StockAudit from './views/StockAudit';
@@ -56,7 +57,7 @@ import POSPricing from './views/POSPricing';
 export const App: React.FC = () => {
   const state = useStockState();
   const { db } = state;
-  const [view, setView] = useState<string>('simulation');
+  const [view, setView] = useState<string>('answer');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -72,6 +73,7 @@ export const App: React.FC = () => {
   // Navigation visible par role, structuree comme un produit metier complet.
   const sidebarLinks = [
     { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'answer', label: 'Réponse à la demande', mobileLabel: 'Réponse', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
     { id: 'simulation', label: 'Démo multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
     { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Ventes' },
     { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
@@ -104,7 +106,7 @@ export const App: React.FC = () => {
     { id: 'Analyse', label: 'Analyse' },
     { id: 'Paramétrage', label: 'Paramétrage' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'simulation', 'stock-control', 'stock-audit', 'exports'];
+  const mobilePrimaryOrder = ['dashboard', 'answer', 'simulation', 'stock-control', 'exports'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -127,6 +129,8 @@ export const App: React.FC = () => {
     switch (view) {
       case 'dashboard':
         return <Dashboard state={state} setView={setView} />;
+      case 'answer':
+        return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
         return <BehaviorSimulation state={state} setView={setView} />;
       case 'stock-control':

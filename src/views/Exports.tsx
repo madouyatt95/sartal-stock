@@ -159,6 +159,25 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
     const stock = db.stocks.find(item => item.productId === loss.productId && item.warehouseId === loss.warehouseId);
     return sum + (loss.quantity * (stock?.averageCost || 0));
   }, 0);
+  const inventoryGapRows = db.inventories.flatMap(inventory => {
+    const warehouse = db.warehouses.find(item => item.id === inventory.warehouseId);
+    return inventory.items
+      .filter(item => item.gap !== 0)
+      .map(item => {
+        const product = db.products.find(productItem => productItem.id === item.productId);
+        const stock = db.stocks.find(stockItem => stockItem.productId === item.productId && stockItem.warehouseId === inventory.warehouseId);
+        return {
+          id: `${inventory.id}-${item.productId}`,
+          source: `Inventaire ${new Date(inventory.date).toLocaleDateString()}`,
+          product,
+          warehouse,
+          quantity: item.gap,
+          value: Math.abs(item.gap) * (stock?.averageCost || 0)
+        };
+      });
+  });
+  const inventoryGapValue = inventoryGapRows.reduce((sum, row) => sum + row.value, 0);
+  const totalGapValue = inventoryGapValue + lossValue;
   const pendingPmsCharges = db.pmsFolios.flatMap(folio => folio.charges).filter(charge => charge.status === 'pending');
   const posSummary = db.posList.map(pos => {
     const sales = db.externalSales.filter(sale => sale.posId === pos.id);
@@ -170,6 +189,15 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       amount: sales.reduce((sum, sale) => sum + sale.paymentContext.amount, 0)
     };
   });
+  const warehouseSummary = db.warehouses.map(warehouse => {
+    const stocks = db.stocks.filter(stock => stock.warehouseId === warehouse.id);
+    return {
+      warehouse,
+      positionCount: stocks.length,
+      value: stocks.reduce((sum, stock) => sum + (stock.quantityAvailable * stock.averageCost), 0),
+      underThreshold: stocks.filter(stock => stock.quantityAvailable <= stock.alertThreshold).length
+    };
+  }).filter(row => row.positionCount > 0);
 
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -189,12 +217,102 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
           <h2 style={{ marginTop: '8px' }}>{formatFCFA(salesAmount)}</h2>
         </div>
         <div className="card">
-          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Pertes valorisées</p>
-          <h2 style={{ marginTop: '8px' }}>{formatFCFA(lossValue)}</h2>
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Écarts valorisés</p>
+          <h2 style={{ marginTop: '8px' }}>{formatFCFA(totalGapValue)}</h2>
         </div>
         <div className="card">
           <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>PMS à exporter</p>
           <h2 style={{ marginTop: '8px' }}>{pendingPmsCharges.length}</h2>
+        </div>
+      </div>
+
+      <div className="grid-2" style={{ alignItems: 'start' }}>
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Stock par dépôt</h3>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
+              Vision immédiate des stocks séparés par restaurant, bar, night-club et réserve.
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Dépôt</th>
+                  <th>Positions</th>
+                  <th>Sous seuil</th>
+                  <th>Valeur stock</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseSummary.map(row => (
+                  <tr key={row.warehouse.id}>
+                    <td style={{ fontWeight: 800 }}>{row.warehouse.name}</td>
+                    <td>{row.positionCount}</td>
+                    <td>{row.underThreshold}</td>
+                    <td style={{ fontWeight: 800 }}>{formatFCFA(row.value)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Écarts valorisés</h3>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
+              Pertes déclarées et écarts d'inventaire convertis en valeur.
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="custom-table">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Produit</th>
+                  <th>Dépôt</th>
+                  <th>Écart</th>
+                  <th>Valeur</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventoryGapRows.map(row => (
+                  <tr key={row.id}>
+                    <td>{row.source}</td>
+                    <td style={{ fontWeight: 800 }}>{row.product?.name}</td>
+                    <td>{row.warehouse?.name}</td>
+                    <td>{row.quantity}</td>
+                    <td style={{ fontWeight: 800 }}>{formatFCFA(row.value)}</td>
+                  </tr>
+                ))}
+                {db.losses.map(loss => {
+                  const product = db.products.find(item => item.id === loss.productId);
+                  const warehouse = db.warehouses.find(item => item.id === loss.warehouseId);
+                  const stock = db.stocks.find(item => item.productId === loss.productId && item.warehouseId === loss.warehouseId);
+                  const value = loss.quantity * (stock?.averageCost || 0);
+                  return (
+                    <tr key={loss.id}>
+                      <td>Perte / casse</td>
+                      <td style={{ fontWeight: 800 }}>{product?.name}</td>
+                      <td>{warehouse?.name}</td>
+                      <td>-{loss.quantity}</td>
+                      <td style={{ fontWeight: 800 }}>{formatFCFA(value)}</td>
+                    </tr>
+                  );
+                })}
+                {inventoryGapRows.length === 0 && db.losses.length === 0 && (
+                  <tr>
+                    <td>Aucun écart saisi</td>
+                    <td>Inventaire à lancer</td>
+                    <td>-</td>
+                    <td>0</td>
+                    <td>{formatFCFA(0)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
