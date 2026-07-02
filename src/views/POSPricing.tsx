@@ -134,8 +134,9 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
           </div>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', order: -1 }}>
           <div>
+            <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.78rem', marginBottom: '4px' }}>RÉGLAGE DES PRIX</p>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{selectedProduct?.name || 'Produit'}</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
               Réglez le prix par POS. Le dépôt affiché vient du point de vente ou d'une règle spécifique produit/POS.
