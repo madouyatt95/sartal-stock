@@ -49,10 +49,10 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Déclaration de Pertes</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Déclarez la casse, le vol, les péremptions ou les erreurs de production et retirez-les immédiatement du stock</p>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Pertes & casses</h1>
+        <p style={{ color: 'var(--text-secondary)' }}>Déclarez la casse, le vol, les péremptions ou les erreurs de préparation et retirez-les immédiatement du stock</p>
       </div>
 
       <div className="grid-2" style={{ gridTemplateColumns: '0.8fr 1.2fr' }}>

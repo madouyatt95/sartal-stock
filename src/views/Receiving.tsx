@@ -65,9 +65,9 @@ export const Receiving: React.FC<ReceivingProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Réception de Marchandises</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Réceptions</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Réceptionnez vos commandes fournisseurs, attribuez les numéros de lots et dates de péremption</p>
       </div>
 
@@ -214,7 +214,7 @@ export const Receiving: React.FC<ReceivingProps> = ({ state }) => {
               <li>Vérifiez la concordance des quantités livrées avec le bon de commande.</li>
               <li>Saisissez le <strong>numéro de lot</strong> inscrit sur les bouteilles ou cartons pour assurer la traçabilité.</li>
               <li>Indiquez la <strong>date limite de consommation (DLC)</strong> si applicable.</li>
-              <li>Le système recalculera automatiquement le <strong>Coût Moyen (CUMP)</strong> de l'article dans le dépôt ciblé.</li>
+              <li>Le système recalculera automatiquement le <strong>coût moyen</strong> de l'article dans le dépôt ciblé.</li>
             </ol>
           </div>
         </div>

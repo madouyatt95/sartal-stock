@@ -125,7 +125,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Welcome banner */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -438,7 +438,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
                     </div>
                     <div style={{ flexGrow: 1 }}>
                       <p style={{ fontSize: '0.825rem', fontWeight: 700 }}>{prod?.name}</p>
-                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>SKU: {prod?.sku}</p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Code article : {prod?.sku}</p>
                     </div>
                     <span style={{ fontSize: '0.825rem', fontWeight: 700 }}>
                       {item.qty} {prod?.baseUnit}

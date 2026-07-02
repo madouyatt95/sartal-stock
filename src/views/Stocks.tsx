@@ -46,10 +46,10 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Suivi des Stocks</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Lots & stocks</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Visualisez les stocks réels par dépôt et examinez les lots par date de péremption</p>
       </div>
 
@@ -61,7 +61,7 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input 
             type="text"
-            placeholder="Rechercher par produit, SKU, catégorie..."
+            placeholder="Rechercher par produit, code article, catégorie..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="form-control"
@@ -101,10 +101,10 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
               <tr>
                 <th style={{ width: '40px' }}></th>
                 <th>Produit</th>
-                <th>SKU</th>
+                <th>Code article</th>
                 <th>Dépôt</th>
                 <th>Quantité Disponible</th>
-                <th>Coût Moyen (CUMP)</th>
+                <th>Coût moyen</th>
                 <th>Valeur du Stock</th>
                 <th>Alerte Seuil</th>
                 <th>Statut</th>

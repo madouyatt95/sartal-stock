@@ -46,7 +46,7 @@ export const Inventories: React.FC<InventoriesProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Fiches d'Inventaires</h1>
@@ -83,7 +83,7 @@ export const Inventories: React.FC<InventoriesProps> = ({ state }) => {
                   <thead>
                     <tr>
                       <th>Produit</th>
-                      <th>SKU</th>
+                      <th>Code article</th>
                       <th>Théorique (Système)</th>
                       <th style={{ width: '150px' }}>Réel Compté</th>
                       <th>Écart / Variance</th>

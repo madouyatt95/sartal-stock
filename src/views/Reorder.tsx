@@ -61,10 +61,10 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Suggestions de Réapprovisionnement</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>À commander</h1>
         <p style={{ color: 'var(--text-secondary)' }}>
           Réapprovisionnez intelligemment. Le système détecte les articles sous le seuil critique et propose des quantités de réapprovisionnement.
         </p>
@@ -80,7 +80,7 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
             <thead>
               <tr>
                 <th>Produit</th>
-                <th>SKU</th>
+                <th>Code article</th>
                 <th>Stock Actuel</th>
                 <th>Seuil d'Alerte</th>
                 <th>Fournisseur Suggéré</th>

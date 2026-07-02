@@ -37,10 +37,10 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Transferts de Stock</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Transferts inter-dépôts</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Déplacez des stocks entre vos dépôts (ex: Dépôt Central vers Dépôt Restaurant) en conservant la traçabilité des lots</p>
       </div>
 

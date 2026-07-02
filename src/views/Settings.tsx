@@ -18,10 +18,10 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Paramètres Système</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Paramétrage</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Configurez les habilitations de profils et gérez les données système</p>
       </div>
 

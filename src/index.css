@@ -144,6 +144,27 @@ button, input, select, textarea {
   transition: all var(--transition-fast);
 }
 
+.proof-card {
+  gap: 10px;
+}
+
+.proof-row {
+  display: grid;
+  grid-template-columns: 18px 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.proof-row strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
@@ -422,11 +443,6 @@ button, input, select, textarea {
     transform: translateX(0);
   }
 
-  .mobile-hidden-link,
-  .mobile-hidden-section {
-    display: none;
-  }
-
   .mobile-sidebar-backdrop {
     display: block;
     position: fixed;
@@ -457,16 +473,16 @@ button, input, select, textarea {
 
   .mobile-bottom-nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     position: fixed;
-    left: 10px;
-    right: 10px;
+    left: 8px;
+    right: 8px;
     bottom: calc(10px + env(safe-area-inset-bottom));
     z-index: 70;
-    padding: 8px;
-    gap: 6px;
+    padding: 6px;
+    gap: 4px;
     border: 1px solid var(--border-color);
-    border-radius: 18px;
+    border-radius: 14px;
     background: color-mix(in srgb, var(--bg-card) 94%, transparent);
     box-shadow: var(--shadow-xl);
     backdrop-filter: blur(14px);
@@ -474,16 +490,16 @@ button, input, select, textarea {
 
   .mobile-bottom-nav button {
     border: none;
-    border-radius: 12px;
+    border-radius: 10px;
     background: transparent;
     color: var(--text-secondary);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    min-height: 52px;
-    font-size: 0.61rem;
+    gap: 3px;
+    min-height: 48px;
+    font-size: 0.58rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -610,6 +626,18 @@ button, input, select, textarea {
     white-space: normal;
     text-align: left;
     line-height: 1.25;
+  }
+
+  .manager-mobile-page p,
+  .manager-mobile-page span {
+    font-size: 0.84rem;
+  }
+
+  .proof-row {
+    grid-template-columns: 18px 78px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 0.8rem;
   }
 
   .manager-mobile-page textarea.form-control {

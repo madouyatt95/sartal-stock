@@ -69,7 +69,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dépôts et caisses à relier</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Rapprochement exports</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             On ne suppose pas que les données sont propres. Sartal détecte les caisses, produits et dépôts à partir des exports, puis montre ce qui doit être relié avant l'audit stock.
           </p>
@@ -122,7 +122,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
           { label: 'POS détectés', value: discoveredPOS.length, sub: `${mappedPOS.length} reliés`, icon: <FileSpreadsheet size={20} />, color: 'var(--primary)' },
           { label: 'Produits externes', value: discoveredProducts.length, sub: `${discoveredProducts.length - mappedProducts.length} à mapper`, icon: <Package size={20} />, color: 'var(--warning)' },
           { label: 'Dépôts Sartal', value: db.warehouses.length, sub: `${db.posList.length} POS avec dépôt`, icon: <Warehouse size={20} />, color: 'var(--success)' },
-          { label: 'Recettes BOM', value: db.recipes.length, sub: `${recipesWithMissingIngredients.length} incomplètes`, icon: <Puzzle size={20} />, color: 'var(--purple)' }
+          { label: 'Recettes', value: db.recipes.length, sub: `${recipesWithMissingIngredients.length} incomplètes`, icon: <Puzzle size={20} />, color: 'var(--purple)' }
         ].map(card => (
           <div key={card.label} className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -178,7 +178,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
             <table className="custom-table">
               <thead>
                 <tr>
-                  <th>SKU export</th>
+                  <th>Code export</th>
                   <th>Libellé caisse</th>
                   <th>Produit Sartal</th>
                   <th>Statut</th>

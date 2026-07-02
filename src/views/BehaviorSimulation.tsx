@@ -100,14 +100,34 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Simulation multi-POS</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Démo multi-POS</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Même Coca 33 cl, prix différent selon le point de vente, sortie automatique du dépôt associé et option d'imputation chambre.
+            Scénario de vente contrôlé : même produit, prix par point de vente, dépôt de sortie automatique et imputation chambre.
           </p>
         </div>
-        <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
-          Voir stock réel
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => setView('pricing')}>
+            Prix par POS
+          </button>
+          <button className="btn btn-primary" onClick={() => setView('stock-control')}>
+            Voir stock réel
+          </button>
+        </div>
+      </div>
+
+      <div className="grid-3">
+        <div className="card">
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Produit référentiel</p>
+          <h2 style={{ marginTop: '8px', fontSize: '1.25rem' }}>{coca?.name}</h2>
+        </div>
+        <div className="card">
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Prix actifs</p>
+          <h2 style={{ marginTop: '8px', fontSize: '1.25rem' }}>{posCards.length} points de vente</h2>
+        </div>
+        <div className="card">
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Dépôts isolés</p>
+          <h2 style={{ marginTop: '8px', fontSize: '1.25rem' }}>{new Set(posCards.map(card => card.warehouse?.id)).size} stocks séparés</h2>
+        </div>
       </div>
 
       <div className="grid-3">
@@ -228,21 +248,22 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
           </button>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Package size={20} color="var(--primary)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Ce que la simulation prouve</h3>
+        <div className="card proof-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <Package size={18} color="var(--primary)" />
+            <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Contrôles validés</h3>
           </div>
           {[
-            'Le prix vient du point de vente sélectionné.',
-            'Le dépôt de sortie vient du paramétrage du POS.',
-            'Le produit reste unique dans le référentiel.',
-            'La vente crée un mouvement stock traçable.',
-            'Une consommation peut être imputée sur une chambre PMS.'
+            ['Prix POS', 'Prix appliqué selon le point de vente'],
+            ['Dépôt', 'Sortie stock sur le dépôt associé'],
+            ['Produit', 'Référentiel unique Coca-Cola 33 cl'],
+            ['Traçabilité', 'Mouvement stock généré'],
+            ['PMS', 'Imputation chambre possible']
           ].map(item => (
-            <div key={item} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <CheckCircle size={18} color="var(--success)" style={{ marginTop: '2px', flexShrink: 0 }} />
-              <span style={{ color: 'var(--text-secondary)', lineHeight: 1.45 }}>{item}</span>
+            <div key={item[0]} className="proof-row">
+              <CheckCircle size={16} color="var(--success)" style={{ flexShrink: 0 }} />
+              <strong>{item[0]}</strong>
+              <span>{item[1]}</span>
             </div>
           ))}
         </div>

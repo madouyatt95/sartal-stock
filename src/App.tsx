@@ -3,6 +3,7 @@ import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
   PlayCircle,
+  CircleDollarSign,
   ShieldCheck,
   FileSearch,
   GitBranch,
@@ -50,6 +51,7 @@ import Settings from './views/Settings';
 import Connectors from './views/Connectors';
 import POSImports from './views/POSImports';
 import Exports from './views/Exports';
+import POSPricing from './views/POSPricing';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -67,38 +69,42 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // Navigation visible par role, avec des libelles orientes demo terrain.
+  // Navigation visible par role, structuree comme un produit metier complet.
   const sidebarLinks = [
-    { id: 'dashboard', label: 'Synthèse', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage', mobileHidden: true },
-    { id: 'simulation', label: 'Simulation comportement', mobileLabel: 'Simulation', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stock-control', label: 'Pilotage stock', mobileLabel: 'Stock réel', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
-    { id: 'mapping-control', label: 'Mise en ordre', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stocks', label: 'Stocks & lots', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Operations', mobileHidden: true },
-    { id: 'receiving', label: 'Réceptions fournisseur', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Operations', mobileHidden: true },
-    { id: 'transfers', label: 'Déplacements stock', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations', mobileHidden: true },
-    { id: 'inventories', label: 'Comptages', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations', mobileHidden: true },
-    { id: 'losses', label: 'Casses & pertes', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Operations', mobileHidden: true },
-    { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
-    { id: 'warehouses', label: 'Sites & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
-    { id: 'purchases', label: 'Achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
-    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
-    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
-    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Avance', mobileHidden: true },
-    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Avance', mobileHidden: true },
-    { id: 'exports', label: 'Exports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Avance', mobileHidden: true },
-    { id: 'settings', label: 'Administration', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Avance', mobileHidden: true }
+    { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'simulation', label: 'Démo multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Ventes' },
+    { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
+    { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Stock' },
+    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Stock' },
+    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Stock' },
+    { id: 'transfers', label: 'Transferts inter-dépôts', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Stock' },
+    { id: 'losses', label: 'Pertes & casses', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Stock' },
+    { id: 'stocks', label: 'Lots & stocks', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Stock' },
+    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
+    { id: 'purchases', label: 'Commandes achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
+    { id: 'receiving', label: 'Réceptions', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Approvisionnement' },
+    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
+    { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
+    { id: 'pricing', label: 'Prix par POS', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
+    { id: 'warehouses', label: 'Points de vente & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
+    { id: 'mapping-control', label: 'Rapprochement exports', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Référentiel' },
+    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Analyse' },
+    { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Analyse' },
+    { id: 'settings', label: 'Paramétrage', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Paramétrage' }
   ];
 
   const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
   const sidebarSections = [
     { id: 'Pilotage', label: 'Pilotage' },
-    { id: 'Operations', label: 'Opérations stock' },
-    { id: 'Referentiel', label: 'Données métier' },
-    { id: 'Avance', label: 'Avancé' }
+    { id: 'Ventes', label: 'Ventes & caisse' },
+    { id: 'Stock', label: 'Stock & contrôle' },
+    { id: 'Approvisionnement', label: 'Approvisionnement' },
+    { id: 'Référentiel', label: 'Référentiel' },
+    { id: 'Analyse', label: 'Analyse' },
+    { id: 'Paramétrage', label: 'Paramétrage' }
   ];
-  const mobilePrimaryOrder = ['simulation', 'stock-control', 'mapping-control', 'stock-audit'];
+  const mobilePrimaryOrder = ['dashboard', 'simulation', 'stock-control', 'stock-audit', 'exports'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -131,6 +137,8 @@ export const App: React.FC = () => {
         return <StockAudit state={state} setView={setView} />;
       case 'products':
         return <Products state={state} />;
+      case 'pricing':
+        return <POSPricing state={state} />;
       case 'warehouses':
         return <Warehouses state={state} />;
       case 'stocks':
@@ -209,7 +217,7 @@ export const App: React.FC = () => {
             if (sectionLinks.length === 0) return null;
 
             return (
-              <div className={`sidebar-section ${sectionLinks.every(link => link.mobileHidden) ? 'mobile-hidden-section' : ''}`} key={section.id}>
+              <div className="sidebar-section" key={section.id}>
                 <span className="sidebar-section-title">{section.label}</span>
                 {sectionLinks.map(link => {
                   const isActive = view === link.id;
@@ -220,7 +228,7 @@ export const App: React.FC = () => {
                         setView(link.id);
                         setMobileMenuOpen(false);
                       }}
-                      className={`sidebar-link ${link.mobileHidden ? 'mobile-hidden-link' : ''}`}
+                      className="sidebar-link"
                       style={{
                         backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                         color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',

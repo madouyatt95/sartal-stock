@@ -99,7 +99,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
       case 'transfer_in': return 'Transfert entrant';
       case 'inventory_adjustment': return 'Inventaire';
       case 'loss': return 'Perte';
-      case 'production': return 'Production';
+      case 'production': return 'Préparation';
       default: return 'Correction';
     }
   };

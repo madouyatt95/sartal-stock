@@ -30,10 +30,10 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dépôts & Points de vente</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Points de vente & dépôts</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Configurez la cartographie de stockage et d'écoulement de votre complexe</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>

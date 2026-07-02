@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, Settings, CircleDollarSign } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 
 interface ProductsProps {
   state: StockState;
 }
 
 export const Products: React.FC<ProductsProps> = ({ state }) => {
-  const { db, addProduct, updateProductPricing, addRecipe } = state;
+  const { db, addProduct, addRecipe } = state;
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   
   // Modals / forms state
@@ -21,21 +21,12 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
     { productId: '', quantity: 1, unit: 'unité' }
   ]);
 
-  const [pricingFields, setPricingFields] = useState<Record<string, { salePrice: number; taxRate: number }>>({});
-
   const handleAddProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProd.name || !newProd.sku) return;
     addProduct(newProd);
     setShowAddProd(false);
     setNewProd({ name: '', sku: '', category: '', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
-  };
-
-  const handleSavePricing = (prodId: string) => {
-    Object.entries(pricingFields).forEach(([posId, pricing]) => {
-      updateProductPricing(prodId, posId, pricing.salePrice, pricing.taxRate);
-    });
-    alert("Tarifs enregistrés !");
   };
 
   const handleAddRecipe = (e: React.FormEvent) => {
@@ -53,24 +44,12 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
   const selectedProdObj = db.products.find(p => p.id === selectedProduct);
   const selectedRecipe = db.recipes.find(r => r.productId === selectedProduct);
 
-  const initPricingFields = (prodId: string) => {
-    const fields: Record<string, { salePrice: number; taxRate: number }> = {};
-    db.posList.forEach(pos => {
-      const pricing = db.posPricing.find(p => p.productId === prodId && p.posId === pos.id);
-      fields[pos.id] = {
-        salePrice: pricing?.salePrice || 0,
-        taxRate: pricing?.taxRate || 18
-      };
-    });
-    setPricingFields(fields);
-  };
-
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Produits & recettes</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Gérez vos articles, tarifs POS et fiches techniques (BOM)</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Gérez vos articles, unités, seuils et recettes de préparation</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddProd(true)}>
           <Plus size={18} /> Ajouter un produit
@@ -88,7 +67,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
               <thead>
                 <tr>
                   <th>Nom</th>
-                  <th>SKU</th>
+                  <th>Code article</th>
                   <th>Catégorie</th>
                   <th>Unité</th>
                   <th>Type</th>
@@ -103,7 +82,6 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                       style={{ cursor: 'pointer', backgroundColor: selectedProduct === p.id ? 'var(--primary-lightest)' : undefined }}
                       onClick={() => {
                         setSelectedProduct(p.id);
-                        initPricingFields(p.id);
                       }}
                     >
                       <td style={{ fontWeight: 700 }}>{p.name}</td>
@@ -128,7 +106,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
           </div>
         </div>
 
-        {/* Right Side: Pricing / BOM config */}
+        {/* Right Side: recipe config */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           {selectedProdObj ? (
             <>
@@ -137,7 +115,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)' }}>{selectedProdObj.name}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.875rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>SKU:</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Code article :</span>
                     <strong style={{ fontFamily: 'monospace' }}>{selectedProdObj.sku}</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -155,64 +133,12 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 </div>
               </div>
 
-              {/* Pricing Config Card */}
-              <div className="card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <CircleDollarSign size={20} color="var(--primary)" />
-                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Tarifs et Dépôts par Point de Vente</h3>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {db.posList.map(pos => {
-                    const fieldVal = pricingFields[pos.id] || { salePrice: 0, taxRate: 18 };
-                    return (
-                      <div key={pos.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', padding: '10px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
-                        <div style={{ flexGrow: 1, minWidth: '120px' }}>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 700 }}>{pos.name}</span>
-                          <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Dépôt de sortie : {db.warehouses.find(w => w.id === pos.defaultWarehouseId)?.name}</p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <input 
-                            type="number"
-                            placeholder="Prix de vente"
-                            value={fieldVal.salePrice || ''}
-                            onChange={(e) => setPricingFields({
-                              ...pricingFields,
-                              [pos.id]: { ...fieldVal, salePrice: parseFloat(e.target.value) || 0 }
-                            })}
-                            className="form-control"
-                            style={{ width: '100px', fontSize: '0.825rem', padding: '6px 10px' }}
-                          />
-                          <input 
-                            type="number"
-                            placeholder="TVA %"
-                            value={fieldVal.taxRate || ''}
-                            onChange={(e) => setPricingFields({
-                              ...pricingFields,
-                              [pos.id]: { ...fieldVal, taxRate: parseFloat(e.target.value) || 0 }
-                            })}
-                            className="form-control"
-                            style={{ width: '60px', fontSize: '0.825rem', padding: '6px 10px' }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button 
-                    className="btn btn-primary" 
-                    onClick={() => handleSavePricing(selectedProdObj.id)}
-                    style={{ marginTop: '8px' }}
-                  >
-                    Enregistrer les prix
-                  </button>
-                </div>
-              </div>
-
-              {/* Recipe / BOM Card */}
+              {/* Recipe card */}
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Settings size={20} color="var(--purple)" />
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Fiche Technique / Recette (BOM)</h3>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Fiche recette</h3>
                   </div>
                   {!selectedRecipe && (
                     <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => setShowAddRecipe(true)}>
@@ -252,7 +178,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
             </>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              Sélectionnez un produit pour configurer ses prix et sa recette (BOM).
+              Sélectionnez un produit pour configurer sa recette.
             </div>
           )}
         </div>
@@ -275,7 +201,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">SKU (Code Unique)</label>
+                <label className="form-label">Code article</label>
                 <input 
                   type="text" 
                   value={newProd.sku} 

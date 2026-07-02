@@ -220,7 +220,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Caisse POS & Connexion PMS</h1>
         <p style={{ color: 'var(--text-secondary)' }}>
@@ -327,7 +327,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
                         <Plus size={18} color="var(--primary)" />
                       </div>
                       <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginTop: '6px' }}>
-                        {product.sku} • {recipe ? 'Recette/BOM' : product.baseUnit}
+                        {product.sku} • {recipe ? 'Recette détaillée' : product.baseUnit}
                       </p>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '10px' }}>
@@ -689,7 +689,7 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Journal des imputations chambre</h3>
               <button className="btn btn-secondary" onClick={handleExportPMSCSV} style={{ gap: '6px', fontSize: '0.825rem', padding: '8px 12px' }}>
-                <FileSpreadsheet size={16} /> Exporter au format PMS (CSV)
+                <FileSpreadsheet size={16} /> Exporter vers le PMS
               </button>
             </div>
 

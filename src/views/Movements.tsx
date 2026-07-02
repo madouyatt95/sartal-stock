@@ -62,10 +62,10 @@ export const Movements: React.FC<MovementsProps> = ({ state }) => {
   });
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Grand Livre des Mouvements</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Journal stock</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Examinez la traçabilité complète de vos stocks. Aucun produit ne peut être ajouté ou retiré sans historique.</p>
       </div>
 

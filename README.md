@@ -8,7 +8,7 @@ Le projet part d'un socle POS multi-points de vente connecte au stock multi-depo
 
 Un meme etablissement peut exploiter plusieurs POS:
 
-- Restaurant Le Jardin
+- Restaurant La Terrasse
 - Bar des Machines a Sous
 - Night Club
 - Bars piscine, room service, lounge ou autres espaces
@@ -17,7 +17,7 @@ Un meme produit peut etre vendu dans plusieurs POS avec un prix different, tout 
 
 Exemple:
 
-- Coca-Cola 33 cl vendu 1 500 FCFA au Restaurant Le Jardin
+- Coca-Cola 33 cl vendu 1 500 FCFA au Restaurant La Terrasse
 - Coca-Cola 33 cl vendu 2 000 FCFA au Bar des Machines a Sous
 - Coca-Cola 33 cl vendu 2 500 FCFA au Night Club
 
@@ -50,7 +50,7 @@ Le produit reste unique dans le referentiel, mais chaque vente utilise le tarif 
 ## Modules ERP Cibles
 
 - Gestion des achats et fournisseurs
-- Production, recettes et fiches techniques
+- Préparation, recettes et fiches techniques
 - Inventaires et transferts entre depots
 - CRM et comptes clients
 - Fidelite et avantages client

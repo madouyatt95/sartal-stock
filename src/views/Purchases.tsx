@@ -39,11 +39,11 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
   };
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Commandes d'Achats</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Commandes achats</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Créez et suivez vos bons de commandes fournisseurs avant réception</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
