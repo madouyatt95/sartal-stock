@@ -8,7 +8,6 @@ import {
   ShoppingCart, 
   ArrowRightLeft, 
   ClipboardList, 
-  TrendingDown,
   ChevronRight,
   Package
 } from 'lucide-react';
@@ -136,7 +135,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Bonjour {db.currentUser.name} 👋
+            Bonjour {db.currentUser.name}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             Voici la vue d'ensemble du stock pour {db.companies[0]?.name}
@@ -169,14 +168,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           </div>
           <div>
             <h2 style={{ fontSize: '1.65rem', fontWeight: 800 }}>{formatFCFA(totalStockValue)}</h2>
-            <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-              +8.3% <span style={{ color: 'var(--text-muted)' }}>vs mois dernier</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, display: 'inline-flex', marginTop: '4px' }}>
+              Valorisation au coût moyen actuel
             </span>
           </div>
-          {/* Sparkline simulation */}
-          <svg viewBox="0 0 100 20" style={{ height: '30px', width: '100%', marginTop: '8px', fill: 'none', stroke: 'var(--primary)', strokeWidth: 2 }}>
-            <path d="M0,15 L10,12 L20,16 L30,10 L40,13 L50,9 L60,14 L70,8 L80,10 L90,5 L100,2" />
-          </svg>
         </div>
 
         {/* KPI 2 */}
@@ -221,14 +216,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           </div>
           <div>
             <h2 style={{ fontSize: '1.65rem', fontWeight: 800 }}>{formatFCFA(totalLossCost)}</h2>
-            <span style={{ fontSize: '0.75rem', color: 'var(--danger)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-              <TrendingDown size={14} /> -12.6% <span style={{ color: 'var(--text-muted)' }}>vs mois dernier</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, display: 'inline-flex', marginTop: '4px' }}>
+              Pertes déclarées depuis le début du mois
             </span>
           </div>
-          {/* Sparkline simulation */}
-          <svg viewBox="0 0 100 20" style={{ height: '30px', width: '100%', marginTop: '8px', fill: 'none', stroke: 'var(--purple)', strokeWidth: 2 }}>
-            <path d="M0,2 L10,6 L20,3 L30,8 L40,5 L50,11 L60,8 L70,14 L80,12 L90,16 L100,18" />
-          </svg>
         </div>
       </div>
 

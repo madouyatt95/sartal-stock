@@ -156,6 +156,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                     </select>
                     <input 
                       type="number"
+                      min="1"
                       placeholder="Qté"
                       value={item.quantityOrdered || ''}
                       onChange={(e) => {
@@ -169,6 +170,8 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                     />
                     <input 
                       type="number"
+                      min="0"
+                      step="any"
                       placeholder="Coût achat"
                       value={item.purchasePrice || ''}
                       onChange={(e) => {

@@ -25,9 +25,7 @@ import {
   Sun,
   Menu,
   X,
-  User,
-  Search,
-  Bell
+  User
 } from 'lucide-react';
 
 // Subviews
@@ -310,18 +308,6 @@ export const App: React.FC = () => {
             <Menu size={24} />
           </button>
 
-          {/* Dummy search bar */}
-          <div style={{ position: 'relative', width: '300px', display: 'flex', alignItems: 'center' }} className="nav-search-bar">
-            <Search size={16} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Recherche rapide... (Ctrl + K)" 
-              disabled
-              className="form-control" 
-              style={{ width: '100%', paddingLeft: '32px', fontSize: '0.775rem', height: '34px', background: 'var(--bg-app)' }}
-            />
-          </div>
-
           {/* Org & Info filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             
@@ -335,14 +321,6 @@ export const App: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-site-details">
               <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Site Actuel</span>
               <strong style={{ color: 'var(--text-primary)' }}>{db.sites[0]?.name}</strong>
-            </div>
-
-            <div style={{ height: '24px', width: '1px', backgroundColor: 'var(--border-color)' }} className="nav-divider" />
-
-            {/* Notification indicator */}
-            <div style={{ position: 'relative', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-              <Bell size={20} />
-              <div style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', backgroundColor: 'var(--danger)', borderRadius: '50%' }} />
             </div>
 
           </div>
@@ -381,7 +359,7 @@ export const App: React.FC = () => {
           .mobile-close-btn {
             display: block !important;
           }
-          .nav-search-bar, .nav-company-details, .nav-site-details, .nav-divider {
+          .nav-company-details, .nav-site-details, .nav-divider {
             display: none !important;
           }
         }

@@ -53,7 +53,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v2';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v3';
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -244,6 +244,7 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-hein-cas-1', productId: 'prod-heineken', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-HEIN-CAS-01', expiryDate: '2026-09-15', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 600, createdAt: dateStr },
     // Heineken in Night Club: 90 units
     { id: 'lot-hein-nc-1', productId: 'prod-heineken', warehouseId: 'wh-nightclub', batchNumber: 'LOT-HEIN-NC-01', expiryDate: '2026-08-20', quantity: 90, initialQuantity: 90, supplierId: 'sup-drinks', purchaseCost: 600, createdAt: dateStr },
+    { id: 'lot-hein-rest-1', productId: 'prod-heineken', warehouseId: 'wh-restaurant', batchNumber: 'LOT-HEIN-REST-01', expiryDate: '2026-09-30', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 600, createdAt: dateStr },
     { id: 'lot-vin-rest-1', productId: 'prod-vin-rouge', warehouseId: 'wh-restaurant', batchNumber: 'LOT-VIN-R01', expiryDate: '2028-12-31', quantity: 24, initialQuantity: 24, supplierId: 'sup-drinks', purchaseCost: 4500, createdAt: dateStr },
     { id: 'lot-vin-nc-1', productId: 'prod-vin-rouge', warehouseId: 'wh-nightclub', batchNumber: 'LOT-VIN-NC01', expiryDate: '2028-12-31', quantity: 36, initialQuantity: 36, supplierId: 'sup-drinks', purchaseCost: 4500, createdAt: dateStr },
     { id: 'lot-gin-cas-1', productId: 'prod-gin', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-GIN-CAS-01', expiryDate: '2028-06-30', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 12, createdAt: dateStr },
@@ -255,6 +256,8 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-eau-nc-1', productId: 'prod-eau-50', warehouseId: 'wh-nightclub', batchNumber: 'LOT-EAU-NC-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt: dateStr },
     { id: 'lot-champ-cas-1', productId: 'prod-champagne-brut', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CHAMP-CAS-01', expiryDate: '2029-12-31', quantity: 12, initialQuantity: 12, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt: dateStr },
     { id: 'lot-champ-nc-1', productId: 'prod-champagne-brut', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CHAMP-NC-01', expiryDate: '2029-12-31', quantity: 18, initialQuantity: 18, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt: dateStr },
+    { id: 'lot-eau-central-1', productId: 'prod-eau-50', warehouseId: 'wh-central', batchNumber: 'LOT-EAU-CENT-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt: dateStr },
+    { id: 'lot-champ-central-1', productId: 'prod-champagne-brut', warehouseId: 'wh-central', batchNumber: 'LOT-CHAMP-CENT-01', expiryDate: '2029-12-31', quantity: 8, initialQuantity: 8, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt: dateStr },
     { id: 'lot-rhum-cas-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-RHUM-CAS-01', expiryDate: '2029-12-31', quantity: 9000, initialQuantity: 9000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt: dateStr },
     { id: 'lot-rhum-nc-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-nightclub', batchNumber: 'LOT-RHUM-NC-01', expiryDate: '2029-12-31', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt: dateStr },
     { id: 'lot-menthe-cas-1', productId: 'prod-menthe', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-MENTHE-CAS-01', expiryDate: '2026-07-06', quantity: 800, initialQuantity: 800, supplierId: 'sup-market', purchaseCost: 8, createdAt: dateStr },
@@ -277,6 +280,13 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-riz-rest-1', productId: 'prod-riz-parfume', warehouseId: 'wh-restaurant', batchNumber: 'LOT-RIZ-R01', expiryDate: '2027-01-31', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt: dateStr },
     { id: 'lot-dorade-rest-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-restaurant', batchNumber: 'LOT-DORADE-R01', expiryDate: '2026-07-08', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 1800, createdAt: dateStr },
     { id: 'lot-legumes-rest-1', productId: 'prod-legumes-mix', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LEG-R01', expiryDate: '2026-07-09', quantity: 30000, initialQuantity: 30000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt: dateStr },
+    { id: 'lot-steak-central-1', productId: 'prod-steak', warehouseId: 'wh-central', batchNumber: 'LOT-STEAK-CENT-01', expiryDate: '2026-07-12', quantity: 20, initialQuantity: 20, supplierId: 'sup-market', purchaseCost: 1550, createdAt: dateStr },
+    { id: 'lot-pdt-central-1', productId: 'prod-pdt', warehouseId: 'wh-central', batchNumber: 'LOT-PDT-CENT-01', expiryDate: '2026-07-20', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.5, createdAt: dateStr },
+    { id: 'lot-oil-central-1', productId: 'prod-huile', warehouseId: 'wh-central', batchNumber: 'LOT-HUILE-CENT-01', expiryDate: '2026-12-31', quantity: 10000, initialQuantity: 10000, supplierId: 'sup-market', purchaseCost: 1.5, createdAt: dateStr },
+    { id: 'lot-salt-central-1', productId: 'prod-sel', warehouseId: 'wh-central', batchNumber: 'LOT-SEL-CENT-01', expiryDate: '2027-12-31', quantity: 2000, initialQuantity: 2000, supplierId: 'sup-market', purchaseCost: 0.1, createdAt: dateStr },
+    { id: 'lot-riz-central-1', productId: 'prod-riz-parfume', warehouseId: 'wh-central', batchNumber: 'LOT-RIZ-CENT-01', expiryDate: '2027-01-31', quantity: 20000, initialQuantity: 20000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt: dateStr },
+    { id: 'lot-dorade-central-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-central', batchNumber: 'LOT-DORADE-CENT-01', expiryDate: '2026-07-08', quantity: 20, initialQuantity: 20, supplierId: 'sup-market', purchaseCost: 1800, createdAt: dateStr },
+    { id: 'lot-legumes-central-1', productId: 'prod-legumes-mix', warehouseId: 'wh-central', batchNumber: 'LOT-LEG-CENT-01', expiryDate: '2026-07-09', quantity: 15000, initialQuantity: 15000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt: dateStr },
 
     // Crème liquide 1L in Cold storage: 15 units (near expiry!)
     { id: 'lot-creme-1', productId: 'prod-creme', warehouseId: 'wh-cold', batchNumber: 'LOT-CREME-01', expiryDate: '2026-07-04', quantity: 15, initialQuantity: 15, supplierId: 'sup-market', purchaseCost: 1200, createdAt: dateStr }
@@ -531,8 +541,11 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'lot-eau-rest-1', productId: 'prod-eau-50', warehouseId: 'wh-restaurant', batchNumber: 'LOT-EAU-REST-01', expiryDate: '2027-02-28', quantity: 240, initialQuantity: 240, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
     { id: 'lot-eau-cas-1', productId: 'prod-eau-50', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-EAU-CAS-01', expiryDate: '2027-02-28', quantity: 180, initialQuantity: 180, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
     { id: 'lot-eau-nc-1', productId: 'prod-eau-50', warehouseId: 'wh-nightclub', batchNumber: 'LOT-EAU-NC-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
+    { id: 'lot-eau-central-1', productId: 'prod-eau-50', warehouseId: 'wh-central', batchNumber: 'LOT-EAU-CENT-01', expiryDate: '2027-02-28', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 200, createdAt },
     { id: 'lot-champ-cas-1', productId: 'prod-champagne-brut', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-CHAMP-CAS-01', expiryDate: '2029-12-31', quantity: 12, initialQuantity: 12, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt },
     { id: 'lot-champ-nc-1', productId: 'prod-champagne-brut', warehouseId: 'wh-nightclub', batchNumber: 'LOT-CHAMP-NC-01', expiryDate: '2029-12-31', quantity: 18, initialQuantity: 18, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt },
+    { id: 'lot-champ-central-1', productId: 'prod-champagne-brut', warehouseId: 'wh-central', batchNumber: 'LOT-CHAMP-CENT-01', expiryDate: '2029-12-31', quantity: 8, initialQuantity: 8, supplierId: 'sup-drinks', purchaseCost: 35000, createdAt },
+    { id: 'lot-hein-rest-1', productId: 'prod-heineken', warehouseId: 'wh-restaurant', batchNumber: 'LOT-HEIN-REST-01', expiryDate: '2026-09-30', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 600, createdAt },
     { id: 'lot-rhum-cas-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-RHUM-CAS-01', expiryDate: '2029-12-31', quantity: 9000, initialQuantity: 9000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt },
     { id: 'lot-rhum-nc-1', productId: 'prod-rhum-blanc', warehouseId: 'wh-nightclub', batchNumber: 'LOT-RHUM-NC-01', expiryDate: '2029-12-31', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-drinks', purchaseCost: 10, createdAt },
     { id: 'lot-menthe-cas-1', productId: 'prod-menthe', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-MENTHE-CAS-01', expiryDate: '2026-07-06', quantity: 800, initialQuantity: 800, supplierId: 'sup-market', purchaseCost: 8, createdAt },
@@ -543,7 +556,14 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'lot-sucre-nc-1', productId: 'prod-sucre-canne', warehouseId: 'wh-nightclub', batchNumber: 'LOT-SUCRE-NC-01', expiryDate: '2027-04-30', quantity: 4000, initialQuantity: 4000, supplierId: 'sup-drinks', purchaseCost: 2, createdAt },
     { id: 'lot-riz-rest-1', productId: 'prod-riz-parfume', warehouseId: 'wh-restaurant', batchNumber: 'LOT-RIZ-R01', expiryDate: '2027-01-31', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt },
     { id: 'lot-dorade-rest-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-restaurant', batchNumber: 'LOT-DORADE-R01', expiryDate: '2026-07-08', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 1800, createdAt },
-    { id: 'lot-legumes-rest-1', productId: 'prod-legumes-mix', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LEG-R01', expiryDate: '2026-07-09', quantity: 30000, initialQuantity: 30000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt }
+    { id: 'lot-legumes-rest-1', productId: 'prod-legumes-mix', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LEG-R01', expiryDate: '2026-07-09', quantity: 30000, initialQuantity: 30000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt },
+    { id: 'lot-steak-central-1', productId: 'prod-steak', warehouseId: 'wh-central', batchNumber: 'LOT-STEAK-CENT-01', expiryDate: '2026-07-12', quantity: 20, initialQuantity: 20, supplierId: 'sup-market', purchaseCost: 1550, createdAt },
+    { id: 'lot-pdt-central-1', productId: 'prod-pdt', warehouseId: 'wh-central', batchNumber: 'LOT-PDT-CENT-01', expiryDate: '2026-07-20', quantity: 50000, initialQuantity: 50000, supplierId: 'sup-market', purchaseCost: 0.5, createdAt },
+    { id: 'lot-oil-central-1', productId: 'prod-huile', warehouseId: 'wh-central', batchNumber: 'LOT-HUILE-CENT-01', expiryDate: '2026-12-31', quantity: 10000, initialQuantity: 10000, supplierId: 'sup-market', purchaseCost: 1.5, createdAt },
+    { id: 'lot-salt-central-1', productId: 'prod-sel', warehouseId: 'wh-central', batchNumber: 'LOT-SEL-CENT-01', expiryDate: '2027-12-31', quantity: 2000, initialQuantity: 2000, supplierId: 'sup-market', purchaseCost: 0.1, createdAt },
+    { id: 'lot-riz-central-1', productId: 'prod-riz-parfume', warehouseId: 'wh-central', batchNumber: 'LOT-RIZ-CENT-01', expiryDate: '2027-01-31', quantity: 20000, initialQuantity: 20000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt },
+    { id: 'lot-dorade-central-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-central', batchNumber: 'LOT-DORADE-CENT-01', expiryDate: '2026-07-08', quantity: 20, initialQuantity: 20, supplierId: 'sup-market', purchaseCost: 1800, createdAt },
+    { id: 'lot-legumes-central-1', productId: 'prod-legumes-mix', warehouseId: 'wh-central', batchNumber: 'LOT-LEG-CENT-01', expiryDate: '2026-07-09', quantity: 15000, initialQuantity: 15000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt }
   ];
 
   batches.forEach(batch => {

@@ -113,6 +113,8 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                     <label className="form-label">Quantité perdue</label>
                     <input 
                       type="number"
+                      min="0.01"
+                      step="any"
                       value={qty || ''}
                       onChange={(e) => setQty(parseFloat(e.target.value) || 0)}
                       className="form-control"

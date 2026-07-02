@@ -172,6 +172,8 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
                     <input
                       className="form-control"
                       type="number"
+                      min="0"
+                      step="1"
                       value={row.field.salePrice || ''}
                       onChange={(event) => setPricingFields({
                         ...pricingFields,
@@ -184,6 +186,9 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
                     <input
                       className="form-control"
                       type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
                       value={row.field.taxRate || ''}
                       onChange={(event) => setPricingFields({
                         ...pricingFields,

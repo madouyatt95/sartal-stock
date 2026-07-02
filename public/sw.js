@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sartal-stock-v3';
+const CACHE_NAME = 'sartal-stock-v4';
 const STATIC_ASSETS = [
   './favicon.svg',
   './brand-mark.svg',
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   './pwa-icon-maskable-512.png',
   './apple-touch-icon.png',
   './manifest.webmanifest',
+  './index.html',
 ];
 
 self.addEventListener('install', (event) => {

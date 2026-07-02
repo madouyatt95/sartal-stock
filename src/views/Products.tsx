@@ -68,10 +68,18 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
   const handleSaveProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProd.name || !newProd.sku) return;
+    const duplicateSku = db.products.some(product => (
+      product.id !== editingProductId && product.sku.toLowerCase() === newProd.sku.trim().toLowerCase()
+    ));
+    if (duplicateSku) {
+      alert("Ce code article est déjà utilisé par un autre produit.");
+      return;
+    }
+    const normalizedProduct = { ...newProd, name: newProd.name.trim(), sku: newProd.sku.trim().toUpperCase() };
     if (editingProductId) {
-      updateProduct(editingProductId, newProd);
+      updateProduct(editingProductId, normalizedProduct);
     } else {
-      addProduct(newProd);
+      addProduct(normalizedProduct);
     }
     resetProductForm();
   };
@@ -332,6 +340,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   <label className="form-label">Seuil d'alerte global</label>
                   <input 
                     type="number" 
+                    min="0"
                     value={newProd.globalAlertThreshold} 
                     onChange={(e) => setNewProd({ ...newProd, globalAlertThreshold: parseInt(e.target.value) || 0 })} 
                     className="form-control"
@@ -376,6 +385,8 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                     </select>
                     <input 
                       type="number"
+                      min="0.01"
+                      step="any"
                       placeholder="Quantité"
                       value={item.quantity || ''}
                       onChange={(e) => {

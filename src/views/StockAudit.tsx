@@ -96,7 +96,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
   const importedTickets = db.externalPOSImportRuns.reduce((sum, run) => sum + run.successCount, 0);
   const rejectedTickets = db.externalPOSImportRuns.reduce((sum, run) => sum + run.rejectedCount, 0);
 
-  const unmappedAliases = db.externalPOSImportRuns.flatMap(run => run.issues).filter(issue => issue.message.includes('mappé') || issue.message.includes('inconnu'));
+  const unmappedAliases = db.externalPOSImportRuns.flatMap(run => run.issues).filter(issue => issue.message.includes('non reconnu') || issue.message.includes('inconnu'));
 
   const auditFlow = [
     {
@@ -127,7 +127,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Écarts de stock expliqués</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            On ne remplace pas leur logiciel au départ : on contrôle ses données, on détecte les écarts et on explique pourquoi le stock n'est pas fiable.
+            Votre logiciel actuel peut être conservé au départ : Sartal contrôle les données, détecte les écarts et aide à expliquer les différences de stock.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -253,7 +253,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
               'Le logiciel actuel peut être gardé au départ.',
               'Sartal se branche sur les exports et contrôle la cohérence.',
               'Les produits non reconnus et les dépôts à corriger ressortent immédiatement.',
-              'Le gérant obtient une valeur d’écart et des causes probables.',
+              'Vous obtenez une valeur d’écart et des causes probables.',
               'Une fois la confiance gagnée, Sartal peut remplacer progressivement certains modules.'
             ].map(item => (
               <div key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>

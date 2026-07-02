@@ -74,7 +74,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
       value: rows.reduce((sum, row) => sum + row.value, 0),
       productCount: rows.length,
       alerts: rows.filter(row => row.status !== 'normal').length,
-      recentOut: db.movements
+      recentOutCost: db.movements
         .filter(movement => movement.warehouseId === warehouse.id && movement.quantity < 0)
         .slice(-8)
         .reduce((sum, movement) => sum + Math.abs(movement.quantity * movement.cost), 0)
@@ -129,7 +129,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
       <div className="grid-4">
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Valeur stock réel</span>
+            <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Valeur du stock</span>
             <ShieldCheck size={20} color="var(--primary)" />
           </div>
           <h2 style={{ fontSize: '1.6rem' }}>{formatFCFA(stockValue)}</h2>
@@ -195,7 +195,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
                 <div>
                   <strong>{card.warehouse.name}</strong>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
-                    {card.productCount} produit(s) suivis • sorties récentes {formatFCFA(card.recentOut)}
+                    {card.productCount} produit(s) suivis • coût des sorties récentes {formatFCFA(card.recentOutCost)}
                   </p>
                 </div>
                 <div style={{ textAlign: 'right' }}>

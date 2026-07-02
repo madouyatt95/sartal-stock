@@ -431,7 +431,7 @@ export const useStockState = () => {
         : db.products.find(p => p.sku.toLowerCase() === row.externalSku.toLowerCase());
 
       if (!product) {
-        issues.push({ rowNumber, ticketId: row.ticketId, message: `Produit POS non mappé: ${row.externalSku} - ${row.label}` });
+        issues.push({ rowNumber, ticketId: row.ticketId, message: `Produit de caisse non reconnu : ${row.externalSku} - ${row.label}` });
         return;
       }
 

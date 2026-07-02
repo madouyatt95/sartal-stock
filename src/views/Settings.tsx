@@ -52,7 +52,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
               </tr>
               <tr>
                 <td style={{ fontWeight: 700 }}>Directeur</td>
-                <td><span className="badge badge-info">Lecture Seule globale</span> • Consultation de tous les rapports et indicateurs, pas de saisie d'écriture</td>
+                <td><span className="badge badge-info">Pilotage global</span> • Rapports, prix, produits, fournisseurs, achats et organisation des dépôts</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700 }}>Responsable Stock</td>
@@ -64,11 +64,11 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
               </tr>
               <tr>
                 <td style={{ fontWeight: 700 }}>Responsable POS</td>
-                <td><span className="badge badge-purple">Vue Point de Vente</span> • Visualisation exclusive du stock affecté à son point de vente / dépôt associé</td>
+                <td><span className="badge badge-purple">Vue Point de Vente</span> • Consultation des ventes, tarifs et stocks opérationnels des points de vente</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: 700 }}>Auditeur</td>
-                <td><span className="badge-secondary badge">Audit Seul</span> • Consultation en lecture seule du grand livre des écritures comptables</td>
+                <td><span className="badge-secondary badge">Audit seul</span> • Consultation en lecture seule du journal des mouvements de stock</td>
               </tr>
             </tbody>
           </table>

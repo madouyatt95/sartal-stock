@@ -509,6 +509,18 @@ export const receiveSupplierOrder = (
 
   itemsReceived.forEach(receiptItem => {
     const orderItem = order.items.find(item => item.productId === receiptItem.productId);
+    if (!orderItem) throw new Error(`Produit absent de la commande : ${receiptItem.productId}`);
+    if (!Number.isFinite(receiptItem.quantityReceived) || receiptItem.quantityReceived <= 0) {
+      throw new Error("La quantité reçue doit être supérieure à zéro");
+    }
+    const remaining = orderItem.quantityOrdered - orderItem.quantityReceived;
+    if (receiptItem.quantityReceived > remaining) {
+      throw new Error(`La quantité reçue dépasse le solde commandé (${remaining} ${orderItem.unit})`);
+    }
+  });
+
+  itemsReceived.forEach(receiptItem => {
+    const orderItem = order.items.find(item => item.productId === receiptItem.productId);
     if (!orderItem) return;
 
     if (receiptItem.quantityReceived <= 0) return;
@@ -573,6 +585,14 @@ export const executeTransfer = (
   const sourceWh = db.warehouses.find(w => w.id === sourceWarehouseId);
   const destWh = db.warehouses.find(w => w.id === destinationWarehouseId);
   if (!sourceWh || !destWh) throw new Error("Dépôt source ou destination introuvable");
+  if (sourceWarehouseId === destinationWarehouseId) throw new Error("Les dépôts source et destination doivent être différents");
+  if (items.length === 0) throw new Error("Aucun produit à transférer");
+
+  items.forEach(item => {
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new Error("Chaque quantité transférée doit être supérieure à zéro");
+    }
+  });
 
   const transferId = genId('trans');
 
@@ -663,6 +683,12 @@ export const executeInventoryAdjustment = (
   const warehouse = db.warehouses.find(w => w.id === warehouseId);
   if (!warehouse) throw new Error("Dépôt introuvable");
 
+  items.forEach(item => {
+    if (!Number.isFinite(item.realQty) || item.realQty < 0) {
+      throw new Error("Les quantités comptées doivent être positives ou nulles");
+    }
+  });
+
   const inventoryId = genId('inv');
   const inventoryItems: Array<{ productId: string; theoreticalQty: number; realQty: number; gap: number }> = [];
 
@@ -749,6 +775,9 @@ export const declareLoss = (
 
   const warehouse = db.warehouses.find(w => w.id === warehouseId);
   if (!warehouse) throw new Error("Dépôt introuvable");
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("La quantité perdue doit être supérieure à zéro");
+  }
 
   // FIFO Deduct
   const { movements } = deductStockFIFO(

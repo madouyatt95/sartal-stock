@@ -121,6 +121,8 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
 
                         <input 
                           type="number"
+                          min="0.01"
+                          step="any"
                           placeholder="Qté"
                           value={item.quantity || ''}
                           onChange={(e) => {
@@ -179,7 +181,7 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
             <li>Les lots les plus anciens sont prélevés en premier dans le dépôt source.</li>
             <li>Le coût d'achat unitaire d'origine est intégralement conservé et transféré.</li>
             <li>Les numéros de lots et dates de péremption associés sont également reconduits vers le dépôt cible.</li>
-            <li>Un mouvement de type <code>transfer_out</code> (négatif) est loggé pour la source et un <code>transfer_in</code> (positif) pour la cible.</li>
+            <li>La sortie du dépôt source et l'entrée dans le dépôt destinataire sont enregistrées séparément.</li>
           </ul>
         </div>
 

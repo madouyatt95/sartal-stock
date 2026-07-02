@@ -143,6 +143,9 @@ export const Receiving: React.FC<ReceivingProps> = ({ state }) => {
                             <label className="form-label" style={{ fontSize: '0.75rem' }}>Qté Reçue</label>
                             <input 
                               type="number" 
+                              min="0.01"
+                              step="any"
+                              max={item.quantityOrdered - item.quantityReceived}
                               value={fields.qty || ''} 
                               onChange={(e) => setReceiptFields({
                                 ...receiptFields,

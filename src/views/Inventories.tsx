@@ -105,6 +105,8 @@ export const Inventories: React.FC<InventoriesProps> = ({ state }) => {
                           <td>
                             <input 
                               type="number"
+                              min="0"
+                              step="any"
                               value={real}
                               onChange={(e) => setAuditFields({
                                 ...auditFields,

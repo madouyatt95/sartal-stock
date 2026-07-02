@@ -215,7 +215,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Rapports de pilotage</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Restitution gérant : valeur stock, ventes POS, pertes, PMS et exports exploitables.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Valeur du stock, ventes par point de vente, pertes, chambres et exports exploitables.</p>
       </div>
 
       <div className="grid-4">
@@ -330,7 +330,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Restitution par point de vente</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Synthèse par point de vente</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
               Chaque POS garde son chiffre, son dépôt de sortie et sa traçabilité.
             </p>
