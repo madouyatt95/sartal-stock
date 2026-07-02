@@ -72,7 +72,7 @@ const initialDB = (): DatabaseState => {
   ];
 
   const posList: POS[] = [
-    { id: 'pos-1', siteId: 'site-1', name: 'Restaurant Le Jardin', type: 'restaurant', defaultWarehouseId: 'wh-restaurant', authorizedRoles: ['admin', 'director', 'pos_manager'] },
+    { id: 'pos-1', siteId: 'site-1', name: 'Restaurant La Terrasse', type: 'restaurant', defaultWarehouseId: 'wh-restaurant', authorizedRoles: ['admin', 'director', 'pos_manager'] },
     { id: 'pos-2', siteId: 'site-1', name: 'Bar des Machines à Sous', type: 'casino', defaultWarehouseId: 'wh-bar-casino', authorizedRoles: ['admin', 'director', 'pos_manager'] },
     { id: 'pos-3', siteId: 'site-1', name: 'Night Club', type: 'night_club', defaultWarehouseId: 'wh-nightclub', authorizedRoles: ['admin', 'director', 'pos_manager'] },
     { id: 'pos-4', siteId: 'site-1', name: 'Room Service', type: 'room_service', defaultWarehouseId: 'wh-central', authorizedRoles: ['admin', 'director', 'pos_manager'] }
@@ -359,11 +359,15 @@ const initialDB = (): DatabaseState => {
 };
 
 const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
+  const posList = (state.posList || []).map(pos => (
+    pos.name === 'Restaurant Le Jardin' ? { ...pos, name: 'Restaurant La Terrasse' } : pos
+  ));
+
   return {
     ...state,
     companies: state.companies || [],
     sites: state.sites || [],
-    posList: state.posList || [],
+    posList,
     warehouses: state.warehouses || [],
     products: state.products || [],
     posProductAliases: state.posProductAliases || [],

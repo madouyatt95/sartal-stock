@@ -17,7 +17,7 @@ interface MappingControlProps {
 }
 
 const discoveredPOS = [
-  { externalCode: 'Restaurant Le Jardin', detectedRows: 3 },
+  { externalCode: 'Restaurant La Terrasse', detectedRows: 3 },
   { externalCode: 'Bar des Machines à Sous', detectedRows: 2 },
   { externalCode: 'Night Club', detectedRows: 3 },
   { externalCode: 'Piscine Lounge', detectedRows: 4 },

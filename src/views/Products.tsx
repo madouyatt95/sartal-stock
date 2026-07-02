@@ -69,7 +69,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Catalogue Produits</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Produits & recettes</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Gérez vos articles, tarifs POS et fiches techniques (BOM)</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddProd(true)}>

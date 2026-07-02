@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
+  PlayCircle,
   ShieldCheck,
   FileSearch,
   GitBranch,
@@ -30,6 +31,7 @@ import {
 
 // Subviews
 import Dashboard from './views/Dashboard';
+import BehaviorSimulation from './views/BehaviorSimulation';
 import StockControl from './views/StockControl';
 import StockAudit from './views/StockAudit';
 import MappingControl from './views/MappingControl';
@@ -52,7 +54,7 @@ import Exports from './views/Exports';
 export const App: React.FC = () => {
   const state = useStockState();
   const { db } = state;
-  const [view, setView] = useState<string>('stock-control');
+  const [view, setView] = useState<string>('simulation');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -67,25 +69,26 @@ export const App: React.FC = () => {
 
   // Navigation visible par role, avec des libelles orientes demo terrain.
   const sidebarLinks = [
-    { id: 'dashboard', label: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'dashboard', label: 'Synthèse', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage', mobileHidden: true },
+    { id: 'simulation', label: 'Simulation comportement', mobileLabel: 'Simulation', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
     { id: 'stock-control', label: 'Pilotage stock', mobileLabel: 'Stock réel', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
     { id: 'mapping-control', label: 'Mise en ordre', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
     { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
     { id: 'pos-imports', label: 'Imports ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'stocks', label: 'Stocks & lots', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Operations' },
-    { id: 'receiving', label: 'Entrées dépôt', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Operations' },
-    { id: 'transfers', label: 'Transferts dépôt', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations' },
-    { id: 'inventories', label: 'Comptages', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations' },
-    { id: 'losses', label: 'Casses & pertes', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Operations' },
-    { id: 'products', label: 'Catalogue', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
-    { id: 'warehouses', label: 'Sites & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
-    { id: 'purchases', label: 'Achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
-    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
-    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel' },
-    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Avance' },
-    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Avance' },
-    { id: 'exports', label: 'Exports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Avance' },
-    { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Avance' }
+    { id: 'stocks', label: 'Stocks & lots', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Operations', mobileHidden: true },
+    { id: 'receiving', label: 'Réceptions fournisseur', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Operations', mobileHidden: true },
+    { id: 'transfers', label: 'Déplacements stock', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations', mobileHidden: true },
+    { id: 'inventories', label: 'Comptages', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Operations', mobileHidden: true },
+    { id: 'losses', label: 'Casses & pertes', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Operations', mobileHidden: true },
+    { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
+    { id: 'warehouses', label: 'Sites & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
+    { id: 'purchases', label: 'Achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
+    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
+    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Referentiel', mobileHidden: true },
+    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Avance', mobileHidden: true },
+    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Avance', mobileHidden: true },
+    { id: 'exports', label: 'Exports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Avance', mobileHidden: true },
+    { id: 'settings', label: 'Administration', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Avance', mobileHidden: true }
   ];
 
   const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
@@ -95,7 +98,7 @@ export const App: React.FC = () => {
     { id: 'Referentiel', label: 'Données métier' },
     { id: 'Avance', label: 'Avancé' }
   ];
-  const mobilePrimaryOrder = ['stock-control', 'pos-imports', 'mapping-control', 'stock-audit'];
+  const mobilePrimaryOrder = ['simulation', 'stock-control', 'mapping-control', 'stock-audit'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -118,6 +121,8 @@ export const App: React.FC = () => {
     switch (view) {
       case 'dashboard':
         return <Dashboard state={state} setView={setView} />;
+      case 'simulation':
+        return <BehaviorSimulation state={state} setView={setView} />;
       case 'stock-control':
         return <StockControl state={state} setView={setView} />;
       case 'mapping-control':
@@ -204,7 +209,7 @@ export const App: React.FC = () => {
             if (sectionLinks.length === 0) return null;
 
             return (
-              <div className="sidebar-section" key={section.id}>
+              <div className={`sidebar-section ${sectionLinks.every(link => link.mobileHidden) ? 'mobile-hidden-section' : ''}`} key={section.id}>
                 <span className="sidebar-section-title">{section.label}</span>
                 {sectionLinks.map(link => {
                   const isActive = view === link.id;
@@ -215,7 +220,7 @@ export const App: React.FC = () => {
                         setView(link.id);
                         setMobileMenuOpen(false);
                       }}
-                      className="sidebar-link"
+                      className={`sidebar-link ${link.mobileHidden ? 'mobile-hidden-link' : ''}`}
                       style={{
                         backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                         color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',

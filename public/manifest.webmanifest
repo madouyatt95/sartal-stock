@@ -2,8 +2,8 @@
   "name": "Sartal Stock",
   "short_name": "Sartal",
   "description": "Pilotage stock multi-sites pour restaurants, bars, depots et points de vente.",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f8fafc",
@@ -11,7 +11,7 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "./favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

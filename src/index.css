@@ -422,6 +422,11 @@ button, input, select, textarea {
     transform: translateX(0);
   }
 
+  .mobile-hidden-link,
+  .mobile-hidden-section {
+    display: none;
+  }
+
   .mobile-sidebar-backdrop {
     display: block;
     position: fixed;
