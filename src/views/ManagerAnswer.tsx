@@ -40,7 +40,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => setView('pricing')}>
-            Prix par POS
+            Prix par canal
           </button>
           <button className="btn btn-primary" onClick={() => setView('simulation')}>
             Lancer la démo <ArrowRight size={17} />

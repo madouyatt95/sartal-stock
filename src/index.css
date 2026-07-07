@@ -121,6 +121,13 @@ button, input, select, textarea {
   gap: 4px;
 }
 
+.sidebar-section-business {
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .sidebar-section-title {
   padding: 0 14px 4px;
   color: rgba(255, 255, 255, 0.42);
@@ -128,6 +135,10 @@ button, input, select, textarea {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.sidebar-section-business .sidebar-section-title {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .sidebar-link {
@@ -142,6 +153,35 @@ button, input, select, textarea {
   text-align: left;
   font-size: 0.875rem;
   transition: all var(--transition-fast);
+}
+
+.nav-current-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.nav-current-view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.nav-current-view span {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.nav-current-view strong {
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(42vw, 420px);
 }
 
 .proof-card {

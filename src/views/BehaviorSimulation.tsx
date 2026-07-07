@@ -208,7 +208,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button className="btn btn-secondary" onClick={() => setView('pricing')}>
-            Prix par POS
+            Prix par canal
           </button>
           <button className="btn btn-primary" onClick={() => setView('stock-control')}>
             Voir stock réel
@@ -378,7 +378,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
             <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Résultat attendu</h3>
           </div>
           {[
-            ['Prix POS', 'Prix appliqué selon le point de vente'],
+            ['Prix', 'Prix appliqué selon le point de vente'],
             ['Dépôt', 'Sortie stock sur le dépôt associé'],
             ['Produit', 'Référentiel unique Coca-Cola 33 cl'],
             ['Traçabilité', 'Chaque sortie reste consultable'],

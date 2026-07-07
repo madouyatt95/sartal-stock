@@ -70,47 +70,54 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
-  // Navigation visible par role, structuree comme un produit metier complet.
+  // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
   const sidebarLinks = [
-    { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'answer', label: 'Restaurant / POS', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'simulation', label: 'Démo restaurant', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'delivery', label: 'Épicerie / Livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
-    { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Ventes' },
-    { id: 'pos-imports', label: 'Reprendre les ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
-    { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Stock' },
-    { id: 'stock-audit', label: 'Audit écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Stock' },
-    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Stock' },
-    { id: 'transfers', label: 'Transferts inter-dépôts', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Stock' },
-    { id: 'losses', label: 'Pertes & casses', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Stock' },
-    { id: 'stocks', label: 'Lots & stocks', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Stock' },
-    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
-    { id: 'purchases', label: 'Commandes achats', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
-    { id: 'receiving', label: 'Réceptions', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Approvisionnement' },
-    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
-    { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
-    { id: 'pricing', label: 'Prix par canal', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
-    { id: 'warehouses', label: 'Points de vente & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
-    { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Référentiel' },
-    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Analyse' },
-    { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Analyse' },
-    { id: 'settings', label: 'Paramétrage', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Paramétrage' }
+    { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
+
+    { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
+    { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
+    { id: 'connectors', label: 'Caisse & PMS hôtel', icon: <Network size={18} />, roles: ['admin'], section: 'Restaurant' },
+    { id: 'pos-imports', label: 'Reprendre ventes caisse', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Restaurant' },
+
+    { id: 'delivery', label: 'Parcours livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Livraison' },
+
+    { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Socle stock' },
+    { id: 'products', label: 'Catalogue & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
+    { id: 'pricing', label: 'Prix par canal', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
+    { id: 'warehouses', label: 'Canaux & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
+    { id: 'stocks', label: 'Lots de stock', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Socle stock' },
+
+    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
+    { id: 'purchases', label: 'Achats fournisseurs', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
+    { id: 'receiving', label: 'Réceptions stock', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Opérations' },
+    { id: 'transfers', label: 'Transferts dépôts', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Opérations' },
+    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Opérations' },
+    { id: 'losses', label: 'Pertes & casses', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Opérations' },
+    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
+
+    { id: 'stock-audit', label: 'Audit des écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
+    { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
+    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Contrôle' },
+    { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Contrôle' },
+    { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Réglages' }
   ];
 
   const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
   const sidebarSections = [
-    { id: 'Pilotage', label: 'Pilotage' },
-    { id: 'Ventes', label: 'Ventes & caisse' },
-    { id: 'Stock', label: 'Stock & contrôle' },
-    { id: 'Approvisionnement', label: 'Approvisionnement' },
-    { id: 'Référentiel', label: 'Référentiel' },
-    { id: 'Analyse', label: 'Analyse' },
-    { id: 'Paramétrage', label: 'Paramétrage' }
+    { id: 'Accueil', label: 'Accueil' },
+    { id: 'Restaurant', label: 'Parcours restaurant' },
+    { id: 'Livraison', label: 'Parcours livraison' },
+    { id: 'Socle stock', label: 'Socle stock commun' },
+    { id: 'Opérations', label: 'Opérations stock' },
+    { id: 'Contrôle', label: 'Contrôle & rapports' },
+    { id: 'Réglages', label: 'Réglages' }
   ];
   const mobilePrimaryOrder = ['dashboard', 'answer', 'delivery', 'stock-control', 'exports'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
+  const currentNavLink = sidebarLinks.find(link => link.id === view);
+  const currentSection = sidebarSections.find(section => section.id === currentNavLink?.section);
 
   const renderView = () => {
     // Role checks fallback
@@ -222,7 +229,10 @@ export const App: React.FC = () => {
             if (sectionLinks.length === 0) return null;
 
             return (
-              <div className="sidebar-section" key={section.id}>
+              <div
+                className={`sidebar-section ${['Restaurant', 'Livraison'].includes(section.id) ? 'sidebar-section-business' : ''}`}
+                key={section.id}
+              >
                 <span className="sidebar-section-title">{section.label}</span>
                 {sectionLinks.map(link => {
                   const isActive = view === link.id;
@@ -303,15 +313,22 @@ export const App: React.FC = () => {
           boxShadow: 'var(--shadow-sm)',
           transition: 'background-color var(--transition-normal), border-color var(--transition-normal)'
         }}>
-          
-          {/* Menu button for mobile */}
-          <button 
-            className="mobile-menu-toggle"
-            onClick={() => setMobileMenuOpen(true)}
-            style={{ display: 'none', background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}
-          >
-            <Menu size={24} />
-          </button>
+
+          <div className="nav-current-wrapper">
+            {/* Menu button for mobile */}
+            <button
+              className="mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(true)}
+              style={{ display: 'none', background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}
+            >
+              <Menu size={24} />
+            </button>
+
+            <div className="nav-current-view">
+              <span>{currentSection?.label || 'Sartal Stock'}</span>
+              <strong>{currentNavLink?.label || 'Accueil'}</strong>
+            </div>
+          </div>
 
           {/* Org & Info filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
