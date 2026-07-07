@@ -9,7 +9,11 @@ import {
   ArrowRightLeft, 
   ClipboardList, 
   ChevronRight,
+  Database,
+  FileSearch,
   Package,
+  PlayCircle,
+  ShieldCheck,
   Truck,
   Utensils
 } from 'lucide-react';
@@ -137,13 +141,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Sartal Stock
+            Choisir une démonstration
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Un socle stock commun, puis des parcours adaptés au métier : restaurant/POS ou épicerie en ligne/livraison.
+            Sélectionnez le contexte à présenter. Le moteur stock reste commun, le parcours s'adapte au métier.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn btn-primary" onClick={() => setView('guided-demo')}>
+            <PlayCircle size={17} /> Présentation guidée
+          </button>
+          <button className="btn btn-secondary" onClick={() => setView('business-problems')}>
+            <FileSearch size={17} /> Problèmes métier
+          </button>
           <select 
             value={db.currentUser.id} 
             onChange={(e) => state.changeCurrentUser(e.target.value)}
@@ -157,7 +167,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="grid-3 demo-choice-grid">
         <button
           className="card business-entry-card"
           onClick={() => setView('answer')}
@@ -195,6 +205,50 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             Simuler une commande <ChevronRight size={17} />
           </span>
         </button>
+
+        <button
+          className="card business-entry-card"
+          onClick={() => setView('stock-control')}
+          style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--warning-light)', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.2rem' }}>Stock commun</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+              Catalogue unique, stocks par dépôt, réservations, mouvements, pertes, inventaires et rapports.
+            </p>
+          </div>
+          <span style={{ color: 'var(--warning)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Voir le stock réel <ChevronRight size={17} />
+          </span>
+        </button>
+      </div>
+
+      <div className="card demo-mode-strip">
+        <div>
+          <Database size={20} color="var(--primary)" />
+          <strong>Données de démonstration</strong>
+          <span>Vous pouvez cliquer, simuler et modifier sans conséquence réelle.</span>
+        </div>
+        <div>
+          <PlayCircle size={20} color="var(--success)" />
+          <strong>Parcours guidé</strong>
+          <span>Le prospect peut suivre une séquence simple sans explication à côté.</span>
+        </div>
+        <div>
+          <Package size={20} color="var(--warning)" />
+          <strong>Passage au réel</strong>
+          <span>Catalogue, dépôts, prix et exports pourront être remplacés par des données client.</span>
+        </div>
+      </div>
+
+      <div>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Vue de gestion du stock commun</h2>
+        <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
+          Ces indicateurs servent aux deux parcours : restaurant comme livraison.
+        </p>
       </div>
 
       {/* KPI Section */}
@@ -266,7 +320,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       </div>
 
       {/* Charts Section */}
-      <div className="grid-3" style={{ gridTemplateColumns: '1fr 1fr 280px' }}>
+      <div className="grid-3 dashboard-analytics-grid" style={{ gridTemplateColumns: '1fr 1fr 280px' }}>
         
         {/* Consommation par POS */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -393,7 +447,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid-3" style={{ gridTemplateColumns: '1.2fr 0.8fr 1fr' }}>
+      <div className="grid-3 dashboard-bottom-grid" style={{ gridTemplateColumns: '1.2fr 0.8fr 1fr' }}>
         
         {/* Recent Movements */}
         <div className="card" style={{ overflow: 'hidden', paddingBottom: '12px' }}>

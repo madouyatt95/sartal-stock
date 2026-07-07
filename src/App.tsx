@@ -53,6 +53,8 @@ import POSImports from './views/POSImports';
 import Exports from './views/Exports';
 import POSPricing from './views/POSPricing';
 import DeliveryDemo from './views/DeliveryDemo';
+import GuidedDemo from './views/GuidedDemo';
+import BusinessProblems from './views/BusinessProblems';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -73,6 +75,8 @@ export const App: React.FC = () => {
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
   const sidebarLinks = [
     { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
+    { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
+    { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
 
     { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
@@ -137,6 +141,10 @@ export const App: React.FC = () => {
     switch (view) {
       case 'dashboard':
         return <Dashboard state={state} setView={setView} />;
+      case 'guided-demo':
+        return <GuidedDemo state={state} setView={setView} />;
+      case 'business-problems':
+        return <BusinessProblems state={state} setView={setView} />;
       case 'answer':
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
@@ -332,6 +340,7 @@ export const App: React.FC = () => {
 
           {/* Org & Info filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <span className="demo-mode-pill">Données démo</span>
             
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-company-details">
               <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Entreprise</span>

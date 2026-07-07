@@ -184,6 +184,19 @@ button, input, select, textarea {
   max-width: min(42vw, 420px);
 }
 
+.demo-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--success-light);
+  color: var(--success);
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .proof-card {
   gap: 10px;
 }
@@ -360,6 +373,150 @@ button, input, select, textarea {
   transform: translateY(-2px);
 }
 
+.demo-choice-grid {
+  align-items: stretch;
+}
+
+.demo-mode-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.demo-mode-strip > div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+}
+
+.demo-mode-strip span {
+  grid-column: 2;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.demo-page-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.demo-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.demo-switcher button {
+  min-height: 52px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.demo-switcher button.active {
+  border-color: var(--primary);
+  background: var(--primary-lightest);
+  color: var(--primary);
+}
+
+.guided-steps {
+  display: grid;
+  gap: 12px;
+}
+
+.guided-step-card {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+}
+
+.guided-step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary-lightest);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+}
+
+.demo-mode-card {
+  display: grid;
+  gap: 14px;
+}
+
+.demo-mode-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.problem-card {
+  display: grid;
+  gap: 12px;
+}
+
+.problem-card p {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.problem-label {
+  color: var(--text-primary) !important;
+  font-size: 0.72rem !important;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.problem-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-lightest);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deployment-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.deployment-list > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
 .delivery-step {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr);
@@ -532,6 +689,15 @@ button, input, select, textarea {
     z-index: 40;
   }
 
+  .demo-mode-pill {
+    display: none;
+  }
+
+  .nav-current-view strong {
+    max-width: 62vw;
+    font-size: 0.88rem;
+  }
+
   .main-view-scroll {
     height: calc(100dvh - 56px);
     padding-bottom: calc(92px + env(safe-area-inset-bottom));
@@ -571,6 +737,66 @@ button, input, select, textarea {
   .grid-2, .grid-3, .grid-4 {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .demo-choice-grid,
+  .demo-mode-strip,
+  .problem-grid,
+  .deployment-list,
+  .dashboard-analytics-grid,
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .demo-mode-strip {
+    gap: 12px;
+  }
+
+  .demo-page-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .demo-page-header .btn {
+    width: 100%;
+  }
+
+  .demo-switcher {
+    grid-template-columns: 1fr;
+  }
+
+  .guided-step-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .guided-step-card .btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .problem-card {
+    gap: 10px;
+  }
+
+  .entity-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .entity-row > div {
+    text-align: left !important;
+  }
+
+  .entity-row-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .entity-row-actions .btn {
+    width: 100%;
   }
 
   .delivery-layout,
