@@ -129,7 +129,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Liste des Articles</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -190,6 +190,58 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {db.products.map(p => (
+              <div
+                key={p.id}
+                className={`mobile-data-card ${selectedProduct === p.id ? 'is-selected' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedProduct(p.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') setSelectedProduct(p.id);
+                }}
+              >
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{p.name}</div>
+                    <div className="mobile-data-subtitle">{p.sku} • {p.category}</div>
+                  </div>
+                  <span className={`badge ${p.isStockable ? 'badge-green' : 'badge-purple'}`}>
+                    {p.isStockable ? 'Stockable' : 'Recette'}
+                  </span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Unité</span>
+                  <strong>{p.baseUnit}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Seuil d'alerte</span>
+                  <strong>{p.globalAlertThreshold}</strong>
+                </div>
+                <div className="mobile-card-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openEditProduct(p.id);
+                    }}
+                  >
+                    <Pencil size={14} /> Modifier
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDeleteProduct(p.id);
+                    }}
+                  >
+                    <Trash2 size={14} /> Supprimer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Right Side: recipe config */}
@@ -235,7 +287,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 {selectedRecipe ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Ingrédients nécessaires pour faire 1 {selectedProdObj.baseUnit} de produit fini :</p>
-                    <table className="custom-table" style={{ fontSize: '0.825rem' }}>
+                    <table className="custom-table compact-table" style={{ fontSize: '0.825rem' }}>
                       <thead>
                         <tr>
                           <th>Ingrédient</th>

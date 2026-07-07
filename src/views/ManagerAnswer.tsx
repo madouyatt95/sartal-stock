@@ -79,7 +79,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
               Le même Coca-Cola est vendu dans trois points de vente, sans dupliquer le produit.
             </p>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -102,6 +102,27 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {proofRows.map(row => (
+              <div key={row.pos.id} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{row.pos.name}</div>
+                    <div className="mobile-data-subtitle">{row.warehouse?.name || 'Dépôt non configuré'}</div>
+                  </div>
+                  <span className="badge badge-blue">{formatFCFA(row.pricing?.salePrice || 0)}</span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>TVA</span>
+                  <strong>{row.pricing?.taxRate || 0}%</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Stock actuel</span>
+                  <strong>{formatQty(row.stock?.quantityAvailable || 0)} {coca?.baseUnit || 'unité'}</strong>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

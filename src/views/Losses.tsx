@@ -171,7 +171,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Historique des pertes</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -216,6 +216,42 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {db.losses.map(loss => {
+              const prod = db.products.find(p => p.id === loss.productId);
+              const wh = db.warehouses.find(w => w.id === loss.warehouseId);
+              return (
+                <div key={loss.id} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{prod?.name || 'Produit inconnu'}</div>
+                      <div className="mobile-data-subtitle">{new Date(loss.date).toLocaleDateString()} • {wh?.name || 'Dépôt inconnu'}</div>
+                    </div>
+                    <span className="badge badge-red">{getReasonLabel(loss.reason)}</span>
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Quantité</span>
+                    <strong style={{ color: 'var(--danger)' }}>-{loss.quantity} {prod?.baseUnit}</strong>
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Déclarant</span>
+                    <strong>{loss.userName}</strong>
+                  </div>
+                  {loss.note && (
+                    <div className="mobile-data-row">
+                      <span>Note</span>
+                      <strong>{loss.note}</strong>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {db.losses.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucune perte déclarée ce mois-ci.
+              </div>
+            )}
           </div>
         </div>
 

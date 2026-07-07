@@ -96,7 +96,7 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        <div className="card" style={{ padding: 0 }}>
+        <div className="card desktop-table-only" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <CircleDollarSign size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Matrice prix / dépôts</h3>
@@ -204,6 +204,30 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
           <button className="btn btn-primary" onClick={savePricing}>
             <Save size={18} /> Enregistrer
           </button>
+        </div>
+
+        <div className="mobile-card-list no-padding">
+          {productsWithPricing.map(row => (
+            <div key={row.product.id} className={`mobile-data-card ${row.product.id === selectedProductId ? 'is-selected' : ''}`} onClick={() => loadProduct(row.product.id)} role="button" tabIndex={0}>
+              <div className="mobile-data-header">
+                <div>
+                  <div className="mobile-data-title">{row.product.name}</div>
+                  <div className="mobile-data-subtitle">{row.product.category}</div>
+                </div>
+                <span className={`badge ${row.hasMultiPrice ? 'badge-green' : 'badge-blue'}`}>
+                  {row.hasMultiPrice ? 'Prix multiples' : 'Prix unique'}
+                </span>
+              </div>
+              {row.prices.map(price => (
+                <div key={price.pos.id} className="mobile-data-row">
+                  <span>{price.pos.name}</span>
+                  <strong>
+                    {price.pricing ? `${formatFCFA(price.pricing.salePrice)} · ${price.warehouse?.name || 'Dépôt'}` : 'Non vendu'}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </div>

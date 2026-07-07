@@ -225,6 +225,30 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       underThreshold: stocks.filter(stock => stock.quantityAvailable <= stock.alertThreshold).length
     };
   }).filter(row => row.positionCount > 0);
+  const gapSummaryRows = [
+    ...inventoryGapRows.map(row => ({
+      id: row.id,
+      source: row.source,
+      productName: row.product?.name || 'Produit inconnu',
+      warehouseName: row.warehouse?.name || 'Dépôt inconnu',
+      quantity: row.quantity,
+      value: row.value
+    })),
+    ...db.losses.map(loss => {
+      const product = db.products.find(item => item.id === loss.productId);
+      const warehouse = db.warehouses.find(item => item.id === loss.warehouseId);
+      const stock = db.stocks.find(item => item.productId === loss.productId && item.warehouseId === loss.warehouseId);
+      const value = loss.quantity * (stock?.averageCost || 0);
+      return {
+        id: loss.id,
+        source: 'Perte / casse',
+        productName: product?.name || 'Produit inconnu',
+        warehouseName: warehouse?.name || 'Dépôt inconnu',
+        quantity: -loss.quantity,
+        value
+      };
+    })
+  ];
 
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -261,7 +285,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
               Vision immédiate des stocks séparés par restaurant, bar, night-club, réserve et dépôt livraison.
             </p>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -283,6 +307,25 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {warehouseSummary.map(row => (
+              <div key={row.warehouse.id} className="mobile-data-card">
+                <div className="mobile-data-title">{row.warehouse.name}</div>
+                <div className="mobile-data-row">
+                  <span>Positions</span>
+                  <strong>{row.positionCount}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Sous seuil</span>
+                  <strong>{row.underThreshold}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Valeur stock</span>
+                  <strong>{formatFCFA(row.value)}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
@@ -292,7 +335,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
               Pertes déclarées et écarts d'inventaire convertis en valeur.
             </p>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -304,31 +347,16 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {inventoryGapRows.map(row => (
+                {gapSummaryRows.map(row => (
                   <tr key={row.id}>
                     <td>{row.source}</td>
-                    <td style={{ fontWeight: 800 }}>{row.product?.name}</td>
-                    <td>{row.warehouse?.name}</td>
+                    <td style={{ fontWeight: 800 }}>{row.productName}</td>
+                    <td>{row.warehouseName}</td>
                     <td>{row.quantity}</td>
                     <td style={{ fontWeight: 800 }}>{formatFCFA(row.value)}</td>
                   </tr>
                 ))}
-                {db.losses.map(loss => {
-                  const product = db.products.find(item => item.id === loss.productId);
-                  const warehouse = db.warehouses.find(item => item.id === loss.warehouseId);
-                  const stock = db.stocks.find(item => item.productId === loss.productId && item.warehouseId === loss.warehouseId);
-                  const value = loss.quantity * (stock?.averageCost || 0);
-                  return (
-                    <tr key={loss.id}>
-                      <td>Perte / casse</td>
-                      <td style={{ fontWeight: 800 }}>{product?.name}</td>
-                      <td>{warehouse?.name}</td>
-                      <td>-{loss.quantity}</td>
-                      <td style={{ fontWeight: 800 }}>{formatFCFA(value)}</td>
-                    </tr>
-                  );
-                })}
-                {inventoryGapRows.length === 0 && db.losses.length === 0 && (
+                {gapSummaryRows.length === 0 && (
                   <tr>
                     <td>Aucun écart saisi</td>
                     <td>Inventaire à lancer</td>
@@ -339,6 +367,28 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {gapSummaryRows.map(row => (
+              <div key={row.id} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{row.productName}</div>
+                    <div className="mobile-data-subtitle">{row.source} • {row.warehouseName}</div>
+                  </div>
+                  <span className="badge badge-red">{formatFCFA(row.value)}</span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Écart</span>
+                  <strong>{row.quantity}</strong>
+                </div>
+              </div>
+            ))}
+            {gapSummaryRows.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucun écart saisi.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -351,7 +401,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
               Chaque canal garde son chiffre, son dépôt de sortie et sa traçabilité.
             </p>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -372,6 +422,25 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {posSummary.map(row => (
+              <div key={row.pos.id} className="mobile-data-card">
+                <div className="mobile-data-title">{row.pos.name}</div>
+                <div className="mobile-data-row">
+                  <span>Dépôt</span>
+                  <strong>{row.warehouse?.name || 'Non relié'}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Tickets</span>
+                  <strong>{row.ticketCount}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Montant</span>
+                  <strong>{formatFCFA(row.amount)}</strong>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

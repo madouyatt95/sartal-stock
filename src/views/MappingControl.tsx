@@ -141,7 +141,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
             <GitBranch size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>POS détectés dans les exports</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -167,6 +167,31 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {discoveredPOS.map(item => {
+              const pos = db.posList.find(p => p.id === item.externalCode || p.name.toLowerCase() === item.externalCode.toLowerCase());
+              const warehouse = db.warehouses.find(w => w.id === pos?.defaultWarehouseId);
+              return (
+                <div key={item.externalCode} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{item.externalCode}</div>
+                      <div className="mobile-data-subtitle">{item.detectedRows} ligne(s) détectée(s)</div>
+                    </div>
+                    {statusBadge(!!pos && !!warehouse)}
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>POS Sartal</span>
+                    <strong>{pos?.name || 'Non relié'}</strong>
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Dépôt</span>
+                    <strong>{warehouse?.name || 'Dépôt inconnu'}</strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
@@ -174,7 +199,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
             <Package size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Produits externes à rapprocher</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -202,6 +227,29 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {discoveredProducts.map(item => {
+              const alias = db.posProductAliases.find(mapping => mapping.externalSku.toLowerCase() === item.externalSku.toLowerCase());
+              const product = alias
+                ? db.products.find(p => p.id === alias.productId)
+                : db.products.find(p => p.sku.toLowerCase() === item.externalSku.toLowerCase());
+              return (
+                <div key={item.externalSku} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{item.label}</div>
+                      <div className="mobile-data-subtitle">{item.externalSku} • {item.count} ligne(s)</div>
+                    </div>
+                    {statusBadge(!!product)}
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Produit Sartal</span>
+                    <strong>{product?.name || 'Suggestion requise'}</strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -211,7 +259,7 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
             <Puzzle size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Recettes qui expliquent le stock</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -234,6 +282,23 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {db.recipes.map(recipe => {
+              const product = db.products.find(p => p.id === recipe.productId);
+              const missing = recipe.ingredients.filter(ingredient => !db.products.some(p => p.id === ingredient.productId));
+              return (
+                <div key={recipe.id} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{product?.name || recipe.name}</div>
+                      <div className="mobile-data-subtitle">{recipe.ingredients.length} ingrédient(s)</div>
+                    </div>
+                    {statusBadge(missing.length === 0)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

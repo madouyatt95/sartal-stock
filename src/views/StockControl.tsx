@@ -218,7 +218,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               Réappro
             </button>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -249,6 +249,36 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {criticalStocks.slice(0, 7).map(row => (
+              <div key={`${row.stock.productId}-${row.stock.warehouseId}`} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{row.product?.name || 'Produit inconnu'}</div>
+                    <div className="mobile-data-subtitle">{row.warehouse?.name || 'Dépôt inconnu'}</div>
+                  </div>
+                  <span className={`badge ${row.status === 'rupture' ? 'badge-red' : 'badge-yellow'}`}>
+                    {row.status === 'rupture' ? 'Rupture' : 'Sous seuil'}
+                  </span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Stock disponible</span>
+                  <strong style={{ color: row.status === 'rupture' ? 'var(--danger)' : 'var(--warning)' }}>
+                    {formatQty(row.stock.quantityAvailable)} {row.product?.baseUnit}
+                  </strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Seuil</span>
+                  <strong>{formatQty(row.stock.alertThreshold)} {row.product?.baseUnit}</strong>
+                </div>
+              </div>
+            ))}
+            {criticalStocks.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucun produit sous seuil.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -257,7 +287,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Lots proches péremption</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -297,6 +327,35 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {nearExpiryBatches.slice(0, 7).map(batch => {
+              const product = getProduct(batch.productId);
+              const warehouse = getWarehouse(batch.warehouseId);
+              const isExpired = batch.expiryDate && new Date(batch.expiryDate) < today;
+              return (
+                <div key={batch.id} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{product?.name || 'Produit inconnu'}</div>
+                      <div className="mobile-data-subtitle">{warehouse?.name || 'Dépôt inconnu'} • Lot {batch.batchNumber}</div>
+                    </div>
+                    <span className={`badge ${isExpired ? 'badge-red' : 'badge-yellow'}`}>
+                      {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Quantité</span>
+                    <strong>{formatQty(batch.quantity)} {product?.baseUnit}</strong>
+                  </div>
+                </div>
+              );
+            })}
+            {nearExpiryBatches.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucun lot critique sur les 30 prochains jours.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
@@ -304,7 +363,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
             <ReceiptText size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Traçabilité des mouvements</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -338,6 +397,31 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {recentMovements.map(movement => {
+              const product = getProduct(movement.productId);
+              const warehouse = getWarehouse(movement.warehouseId);
+              return (
+                <div key={movement.id} className="mobile-data-card">
+                  <div className="mobile-data-header">
+                    <div>
+                      <div className="mobile-data-title">{product?.name || 'Produit inconnu'}</div>
+                      <div className="mobile-data-subtitle">{new Date(movement.date).toLocaleDateString()} • {warehouse?.name || 'Dépôt inconnu'}</div>
+                    </div>
+                    <span className={`badge ${movement.quantity < 0 ? 'badge-blue' : 'badge-green'}`}>
+                      {getMovementLabel(movement.type)}
+                    </span>
+                  </div>
+                  <div className="mobile-data-row">
+                    <span>Quantité</span>
+                    <strong style={{ color: movement.quantity < 0 ? 'var(--danger)' : 'var(--success)' }}>
+                      {movement.quantity > 0 ? '+' : ''}{formatQty(movement.quantity)} {movement.unit}
+                    </strong>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -353,7 +437,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
             Tester une vente
           </button>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">
             <thead>
               <tr>
@@ -400,6 +484,45 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-card-list">
+          {latestSales.map(sale => {
+            const pos = db.posList.find(p => p.id === sale.posId);
+            const relatedMovements = db.movements.filter(m => m.externalReference === sale.externalSaleId);
+            return (
+              <div key={sale.id} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{sale.externalSaleId}</div>
+                    <div className="mobile-data-subtitle">{pos?.name || 'Canal inconnu'}</div>
+                  </div>
+                  <span className="badge badge-blue">{PAYMENT_TYPE_LABELS[sale.paymentContext.type]}</span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Produits</span>
+                  <strong>
+                    {sale.items.map(item => {
+                      const product = getProduct(item.productId);
+                      return `${item.quantity} x ${product?.name || item.productId}`;
+                    }).join(', ')}
+                  </strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Mouvements stock</span>
+                  <strong>{relatedMovements.length}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Montant</span>
+                  <strong>{formatFCFA(sale.paymentContext.amount)}</strong>
+                </div>
+              </div>
+            );
+          })}
+          {latestSales.length === 0 && (
+            <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+              Aucune vente encore enregistrée. Lancez une vente ou une livraison pour montrer la déduction automatique du dépôt.
+            </div>
+          )}
         </div>
       </div>
     </div>

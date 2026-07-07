@@ -203,7 +203,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
           </button>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">
             <thead>
               <tr>
@@ -241,6 +241,52 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
             </tbody>
           </table>
         </div>
+        <div className="mobile-card-list">
+          {auditRows.map(row => {
+            const product = getProduct(row.productId);
+            const warehouse = getWarehouse(row.warehouseId);
+            return (
+              <div key={`${row.productId}-${row.warehouseId}`} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{product?.name || 'Produit inconnu'}</div>
+                    <div className="mobile-data-subtitle">{warehouse?.name || 'Dépôt inconnu'}</div>
+                  </div>
+                  <span className={`badge ${row.severity === 'critical' ? 'badge-red' : 'badge-yellow'}`}>
+                    {row.severity === 'critical' ? 'Critique' : 'À vérifier'}
+                  </span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Stock attendu</span>
+                  <strong>{formatQty(row.theoreticalQty)} {product?.baseUnit}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Compté réel</span>
+                  <strong>{formatQty(row.countedQty)} {product?.baseUnit}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Écart</span>
+                  <strong style={{ color: row.gap < 0 ? 'var(--danger)' : 'var(--warning)' }}>
+                    {row.gap > 0 ? '+' : ''}{formatQty(row.gap)} {product?.baseUnit}
+                  </strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Valeur</span>
+                  <strong>{formatFCFA(Math.abs(row.valueGap))}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Cause probable</span>
+                  <strong>{row.probableCause}</strong>
+                </div>
+              </div>
+            );
+          })}
+          {auditRows.length === 0 && (
+            <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+              Aucun écart détecté sur le comptage de contrôle.
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -268,7 +314,7 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Anomalies de connexion</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -292,6 +338,26 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {unmappedAliases.slice(0, 6).map(issue => (
+              <div key={`${issue.rowNumber}-${issue.ticketId}-${issue.message}`} className="mobile-data-card">
+                <div className="mobile-data-title">{issue.ticketId}</div>
+                <div className="mobile-data-row">
+                  <span>Ligne</span>
+                  <strong>{issue.rowNumber}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Anomalie</span>
+                  <strong style={{ color: 'var(--danger)' }}>{issue.message}</strong>
+                </div>
+              </div>
+            ))}
+            {unmappedAliases.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucune vente non reconnue pour le moment.
+              </div>
+            )}
           </div>
         </div>
       </div>

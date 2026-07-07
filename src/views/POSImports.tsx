@@ -178,7 +178,7 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
             <Network size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Rapprochement avant import</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -216,6 +216,38 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
               </tbody>
             </table>
           </div>
+          <div className="mobile-card-list">
+            {mappedRows.map((item, index) => (
+              <div key={`${item.row.ticketId}-${item.row.externalSku}-${index}`} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{item.row.ticketId}</div>
+                    <div className="mobile-data-subtitle">{item.pos?.name || item.row.posCode}</div>
+                  </div>
+                  <span className={`badge ${item.product ? 'badge-green' : 'badge-red'}`}>
+                    {item.product ? 'Reconnu' : 'À identifier'}
+                  </span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Dépôt</span>
+                  <strong>{item.warehouse?.name || 'Non trouvé'}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Code export</span>
+                  <strong>{item.row.externalSku}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Produit Sartal</span>
+                  <strong>{item.product?.name || 'À identifier'}</strong>
+                </div>
+              </div>
+            ))}
+            {mappedRows.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucun export à prévisualiser.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -225,7 +257,7 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
             <FileSpreadsheet size={20} color="var(--primary)" />
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Derniers imports</h3>
           </div>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -253,6 +285,30 @@ export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="mobile-card-list">
+            {db.externalPOSImportRuns.slice().sort((a, b) => b.importedAt.localeCompare(a.importedAt)).slice(0, 6).map(run => (
+              <div key={run.id} className="mobile-data-card">
+                <div className="mobile-data-title">{run.sourceName}</div>
+                <div className="mobile-data-row">
+                  <span>Tickets OK</span>
+                  <strong>{run.successCount}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Rejets</span>
+                  <strong style={{ color: run.rejectedCount > 0 ? 'var(--danger)' : 'var(--success)' }}>{run.rejectedCount}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Date</span>
+                  <strong>{new Date(run.importedAt).toLocaleString()}</strong>
+                </div>
+              </div>
+            ))}
+            {db.externalPOSImportRuns.length === 0 && (
+              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
+                Aucun import encore lancé.
+              </div>
+            )}
           </div>
         </div>
 

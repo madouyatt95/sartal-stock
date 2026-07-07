@@ -10,7 +10,6 @@ import {
   ClipboardList, 
   ChevronRight,
   Database,
-  FileSearch,
   Package,
   PlayCircle,
   ShieldCheck,
@@ -141,19 +140,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Choisir une démonstration
+            Choisir le contexte à présenter
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Sélectionnez le contexte à présenter. Le moteur stock reste commun, le parcours s'adapte au métier.
+            Restaurant, hôtel, bar ou plateforme de livraison : le stock reste commun, la présentation s'adapte au métier.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn btn-primary" onClick={() => setView('guided-demo')}>
-            <PlayCircle size={17} /> Présentation guidée
-          </button>
-          <button className="btn btn-secondary" onClick={() => setView('business-problems')}>
-            <FileSearch size={17} /> Problèmes métier
-          </button>
           <select 
             value={db.currentUser.id} 
             onChange={(e) => state.changeCurrentUser(e.target.value)}
@@ -183,7 +176,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             </p>
           </div>
           <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Voir le parcours <ChevronRight size={17} />
+            Ouvrir la réponse <ChevronRight size={17} />
           </span>
         </button>
 
@@ -202,7 +195,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             </p>
           </div>
           <span style={{ color: 'var(--success)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            Simuler une commande <ChevronRight size={17} />
+            Ouvrir la livraison <ChevronRight size={17} />
           </span>
         </button>
 
@@ -234,8 +227,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
         <div>
           <PlayCircle size={20} color="var(--success)" />
-          <strong>Parcours guidé</strong>
-          <span>Le prospect peut suivre une séquence simple sans explication à côté.</span>
+          <strong>Guide autonome</strong>
+          <span>La page Présentation guidée donne le pas-à-pas complet quand le prospect navigue seul.</span>
         </div>
         <div>
           <Package size={20} color="var(--warning)" />

@@ -322,6 +322,7 @@ button, input, select, textarea {
 .badge-yellow { background-color: var(--warning-light); color: var(--warning); }
 .badge-purple { background-color: var(--purple-light); color: var(--purple); }
 .badge-info { background-color: var(--info-light); color: var(--info); }
+.badge-secondary { background-color: var(--bg-app); color: var(--text-secondary); border: 1px solid var(--border-color); }
 
 /* Buttons */
 .btn {
@@ -566,6 +567,84 @@ button, input, select, textarea {
   border-radius: var(--radius-sm);
   padding: 16px;
   background: var(--bg-card);
+}
+
+.mobile-card-list,
+.mobile-only {
+  display: none;
+}
+
+.mobile-data-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  background: var(--bg-card);
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-data-card.is-selected {
+  border-color: var(--primary);
+  background: var(--primary-lightest);
+}
+
+.mobile-data-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.mobile-data-title {
+  font-weight: 850;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.mobile-data-subtitle {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  margin-top: 3px;
+}
+
+.mobile-data-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.mobile-data-row strong {
+  color: var(--text-primary);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.4fr) repeat(5, minmax(130px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.mobile-filter-grid .form-group {
+  margin-bottom: 0;
+}
+
+.compact-table {
+  min-width: 0;
 }
 
 /* Table styles */
@@ -963,6 +1042,59 @@ button, input, select, textarea {
 
   .manager-mobile-page .card[style*="padding: 0"] {
     padding: 0 !important;
+  }
+
+  .desktop-table-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .mobile-card-list {
+    display: grid !important;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .mobile-card-list.no-padding {
+    padding: 0;
+  }
+
+  .mobile-data-card {
+    box-shadow: none;
+  }
+
+  .mobile-data-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .mobile-data-row {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+    align-items: start;
+  }
+
+  .mobile-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mobile-card-actions .btn {
+    width: 100%;
+  }
+
+  .mobile-filter-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .compact-table,
+  .manager-mobile-page .compact-table {
+    min-width: 0 !important;
   }
 
   .manager-mobile-page .card[style*="grid-template-columns"],
