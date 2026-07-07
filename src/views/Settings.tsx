@@ -82,7 +82,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
           </div>
 
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Si vous souhaitez purger l'historique de vos simulations et restaurer le catalogue de produits de départ (Coca-Cola 33 cl, recette Steak Frites, stocks initiaux et prix POS) :
+            Si vous souhaitez purger l'historique de vos simulations et restaurer le catalogue de produits de départ, les stocks initiaux, les commandes livraison et les prix par canal :
           </p>
 
           <button className="btn btn-danger" onClick={handleReset} style={{ gap: '8px', width: '100%' }}>

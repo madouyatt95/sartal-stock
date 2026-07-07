@@ -70,9 +70,9 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Prix par point de vente</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Prix par canal</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Un produit unique peut avoir un prix, une TVA et un dépôt de sortie différent selon le restaurant, le bar ou le night-club.
+            Un produit unique peut avoir un prix, une TVA et un dépôt de sortie différent selon le restaurant, le bar, le night-club ou la plateforme en ligne.
           </p>
         </div>
         <button className="btn btn-primary" onClick={savePricing}>
@@ -82,7 +82,7 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
 
       <div className="grid-3">
         <div className="card">
-          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Points de vente</p>
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Canaux de vente</p>
           <h2 style={{ marginTop: '8px' }}>{db.posList.length}</h2>
         </div>
         <div className="card">
@@ -139,7 +139,7 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
             <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.78rem', marginBottom: '4px' }}>RÉGLAGE DES PRIX</p>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>{selectedProduct?.name || 'Produit'}</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
-              Réglez le prix par POS. Le dépôt affiché vient du point de vente ou d'une règle spécifique produit/POS.
+              Réglez le prix par canal. Le dépôt affiché vient du point de vente, de la plateforme ou d'une règle spécifique produit/canal.
             </p>
           </div>
 

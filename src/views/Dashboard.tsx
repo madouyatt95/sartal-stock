@@ -9,7 +9,9 @@ import {
   ArrowRightLeft, 
   ClipboardList, 
   ChevronRight,
-  Package
+  Package,
+  Truck,
+  Utensils
 } from 'lucide-react';
 import { StockMovement } from '../types';
 
@@ -119,7 +121,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
   const getMovementLabel = (type: StockMovement['type']) => {
     switch (type) {
       case 'purchase_received': return 'Réception';
-      case 'sale_consumption': return 'Vente (POS)';
+      case 'sale_consumption': return 'Vente / livraison';
       case 'transfer_out': return 'Transfert Sortant';
       case 'transfer_in': return 'Transfert Entrant';
       case 'inventory_adjustment': return 'Inventaire';
@@ -135,10 +137,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Bonjour {db.currentUser.name}
+            Sartal Stock
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Voici la vue d'ensemble du stock pour {db.companies[0]?.name}
+            Un socle stock commun, puis des parcours adaptés au métier : restaurant/POS ou épicerie en ligne/livraison.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -153,6 +155,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="grid-2">
+        <button
+          className="card business-entry-card"
+          onClick={() => setView('answer')}
+          style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Utensils size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.2rem' }}>Restaurant / POS</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+              Même produit, prix différent par point de vente, dépôt différent, caisse, paiements et PMS hôtel.
+            </p>
+          </div>
+          <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Voir le parcours <ChevronRight size={17} />
+          </span>
+        </button>
+
+        <button
+          className="card business-entry-card"
+          onClick={() => setView('delivery')}
+          style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--success-light)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Truck size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.2rem' }}>Épicerie en ligne / Livraison</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+              Commande client, stock disponible, réservation, préparation, substitution et sortie stock à la livraison.
+            </p>
+          </div>
+          <span style={{ color: 'var(--success)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Simuler une commande <ChevronRight size={17} />
+          </span>
+        </button>
       </div>
 
       {/* KPI Section */}
@@ -228,7 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         
         {/* Consommation par POS */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ventes par POS (ce mois)</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ventes par canal (ce mois)</h3>
           <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexGrow: 1 }}>
             
             {/* Custom SVG Donut Chart */}
@@ -304,7 +346,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center', flexGrow: 1 }}>
             {(() => {
               const maxVal = Math.max(...Object.values(depotSalesMap), 1);
-              return db.warehouses.slice(0, 4).map(w => {
+              return db.warehouses.map(w => {
                 const sales = depotSalesMap[w.id] || 0;
                 const pct = (sales / maxVal) * 100;
                 return (
@@ -340,9 +382,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               <span style={{ fontWeight: 800, color: 'var(--danger)' }}>{nearExpiryBatches.length}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', fontSize: '0.875rem' }}>
-              <span style={{ fontWeight: 600, color: 'var(--primary)' }}>Commandes en cours</span>
+              <span style={{ fontWeight: 600, color: 'var(--primary)' }}>Commandes livraison</span>
               <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                {db.supplierOrders.filter(o => o.status === 'ordered').length}
+                {db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready'].includes(order.status)).length}
               </span>
             </div>
           </div>
@@ -369,7 +411,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
                   <th>Produit</th>
                   <th>Dépôt</th>
                   <th>Qté</th>
-                  <th>User</th>
+                  <th>Utilisateur</th>
                 </tr>
               </thead>
               <tbody>

@@ -3,6 +3,7 @@ import {
   Batch,
   StockMovement,
   ExternalSale,
+  DeliveryOrder,
   Transfer,
   Inventory,
   Loss,
@@ -482,6 +483,213 @@ export const processExternalSale = (
     return { success: true, movements: createdMovements };
   } catch (error: any) {
     console.error("Sale process error: ", error.message);
+    return { success: false, error: error.message, movements: [] };
+  }
+};
+
+const getDeliveryOrderTotal = (order: DeliveryOrder): number => (
+  order.items.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0) + order.deliveryFee
+);
+
+const assertDeliveryOrderCanUseStock = (db: DatabaseState, order: DeliveryOrder): void => {
+  const warehouse = db.warehouses.find(item => item.id === order.warehouseId);
+  if (!warehouse) throw new Error("Dépôt de préparation introuvable");
+
+  order.items.forEach(item => {
+    const product = db.products.find(entry => entry.id === item.productId);
+    if (!product) throw new Error(`Produit introuvable : ${item.productId}`);
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new Error(`Quantité invalide pour "${product.name}"`);
+    }
+    if (!product.isStockable) return;
+
+    const stock = db.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === order.warehouseId);
+    const availableForNewReservation = (stock?.quantityAvailable || 0) - (stock?.quantityReserved || 0);
+    if (availableForNewReservation < item.quantity) {
+      throw new Error(
+        `Stock disponible insuffisant pour "${product.name}" dans "${warehouse.name}". Requis: ${item.quantity} ${product.baseUnit}, disponible non réservé: ${availableForNewReservation} ${product.baseUnit}`
+      );
+    }
+  });
+};
+
+export const reserveDeliveryOrder = (
+  orderId: string,
+  userId: string,
+  userName: string
+): { success: boolean; error?: string } => {
+  const db = getDB();
+
+  try {
+    const order = db.deliveryOrders.find(item => item.id === orderId);
+    if (!order) throw new Error("Commande introuvable");
+    if (order.status !== 'confirmed') {
+      throw new Error("Seule une commande confirmée peut être réservée");
+    }
+
+    assertDeliveryOrderCanUseStock(db, order);
+
+    order.items.forEach(item => {
+      const product = db.products.find(entry => entry.id === item.productId);
+      if (!product?.isStockable) return;
+
+      const stock = db.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === order.warehouseId);
+      if (!stock) throw new Error(`Stock introuvable pour "${product.name}"`);
+      stock.quantityReserved += item.quantity;
+      stock.lastUpdated = new Date().toISOString();
+    });
+
+    order.status = 'reserved';
+    order.reservedAt = new Date().toISOString();
+    order.updatedAt = order.reservedAt;
+    order.note = order.note || `Stock réservé par ${userName} (${userId})`;
+
+    saveDB(db);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delivery reservation error: ", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const updateDeliveryOrderStatus = (
+  orderId: string,
+  status: 'preparing' | 'ready' | 'cancelled',
+  userId: string,
+  userName: string
+): { success: boolean; error?: string } => {
+  const db = getDB();
+
+  try {
+    const order = db.deliveryOrders.find(item => item.id === orderId);
+    if (!order) throw new Error("Commande introuvable");
+    if (order.status === 'delivered') throw new Error("Cette commande est déjà livrée");
+
+    if (status === 'preparing' && !['reserved', 'preparing'].includes(order.status)) {
+      throw new Error("Le stock doit être réservé avant la préparation");
+    }
+    if (status === 'ready' && !['reserved', 'preparing', 'ready'].includes(order.status)) {
+      throw new Error("La commande doit être réservée avant d'être prête");
+    }
+
+    if (status === 'cancelled') {
+      if (['reserved', 'preparing', 'ready'].includes(order.status)) {
+        order.items.forEach(item => {
+          const product = db.products.find(entry => entry.id === item.productId);
+          if (!product?.isStockable) return;
+
+          const stock = db.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === order.warehouseId);
+          if (stock) {
+            stock.quantityReserved = Math.max(0, stock.quantityReserved - item.quantity);
+            stock.lastUpdated = new Date().toISOString();
+          }
+        });
+      }
+      order.note = `Commande annulée par ${userName} (${userId})`;
+    }
+
+    order.status = status;
+    order.updatedAt = new Date().toISOString();
+    if (status === 'ready') order.preparedAt = order.updatedAt;
+
+    saveDB(db);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Delivery status error: ", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const deliverDeliveryOrder = (
+  orderId: string,
+  userId: string,
+  userName: string
+): { success: boolean; error?: string; movements: StockMovement[] } => {
+  const db = getDB();
+
+  try {
+    const order = db.deliveryOrders.find(item => item.id === orderId);
+    if (!order) throw new Error("Commande introuvable");
+    if (!['reserved', 'preparing', 'ready'].includes(order.status)) {
+      throw new Error("La commande doit être réservée avant la livraison");
+    }
+
+    const channel = db.posList.find(item => item.id === order.channelId);
+    if (!channel) throw new Error("Canal de vente introuvable");
+
+    const warehouse = db.warehouses.find(item => item.id === order.warehouseId);
+    if (!warehouse) throw new Error("Dépôt de préparation introuvable");
+
+    order.items.forEach(item => {
+      const product = db.products.find(entry => entry.id === item.productId);
+      if (!product) throw new Error(`Produit introuvable : ${item.productId}`);
+      if (!product.isStockable) return;
+
+      const stock = db.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === order.warehouseId);
+      if (!stock || stock.quantityReserved < item.quantity) {
+        throw new Error(`Stock réservé insuffisant pour "${product.name}"`);
+      }
+      if (stock.quantityAvailable < item.quantity) {
+        throw new Error(`Stock physique insuffisant pour "${product.name}"`);
+      }
+    });
+
+    const createdMovements: StockMovement[] = [];
+
+    order.items.forEach(item => {
+      const product = db.products.find(entry => entry.id === item.productId)!;
+      if (!product.isStockable) return;
+
+      const stock = db.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === order.warehouseId)!;
+      stock.quantityReserved = Math.max(0, stock.quantityReserved - item.quantity);
+
+      const { movements } = deductStockFIFO(
+        db,
+        item.productId,
+        order.warehouseId,
+        item.quantity,
+        'sale_consumption',
+        `Commande livraison ${order.id} - ${channel.name}`,
+        userId,
+        userName,
+        channel.id,
+        order.id
+      );
+      createdMovements.push(...movements);
+    });
+
+    const deliveredAt = new Date().toISOString();
+    const saleItems = order.items.map(item => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      salePrice: item.salePrice
+    }));
+    const calculatedAmount = getDeliveryOrderTotal(order);
+
+    const saleLog: ExternalSale = {
+      id: genId('sale'),
+      externalSaleId: order.id,
+      siteId: channel.siteId,
+      posId: channel.id,
+      items: saleItems,
+      paymentContext: {
+        type: order.paymentType,
+        amount: calculatedAmount
+      },
+      exportedToPms: false,
+      date: deliveredAt
+    };
+
+    db.externalSales.push(saleLog);
+    order.status = 'delivered';
+    order.paymentStatus = order.paymentStatus === 'pending' ? 'paid' : order.paymentStatus;
+    order.deliveredAt = deliveredAt;
+    order.updatedAt = deliveredAt;
+
+    saveDB(db);
+    return { success: true, movements: createdMovements };
+  } catch (error: any) {
+    console.error("Delivery completion error: ", error.message);
     return { success: false, error: error.message, movements: [] };
   }
 };

@@ -15,6 +15,7 @@ export type POSType =
   | 'night_club'
   | 'casino'
   | 'room_service'
+  | 'online_grocery'
   | 'spa'
   | 'boutique'
   | 'mini_bar'
@@ -260,6 +261,44 @@ export interface ExternalSale {
   };
   exportedToPms: boolean;
   date: string;
+}
+
+export type DeliveryOrderStatus =
+  | 'confirmed'
+  | 'reserved'
+  | 'preparing'
+  | 'ready'
+  | 'delivered'
+  | 'cancelled';
+
+export type DeliveryPaymentStatus = 'pending' | 'paid' | 'failed';
+
+export interface DeliveryOrderItem {
+  productId: string;
+  quantity: number;
+  salePrice: number;
+  substitutionProductId?: string;
+  note?: string;
+}
+
+export interface DeliveryOrder {
+  id: string;
+  customerName: string;
+  phone: string;
+  address: string;
+  channelId: string;
+  warehouseId: string;
+  status: DeliveryOrderStatus;
+  paymentType: PaymentType;
+  paymentStatus: DeliveryPaymentStatus;
+  items: DeliveryOrderItem[];
+  deliveryFee: number;
+  createdAt: string;
+  updatedAt: string;
+  reservedAt?: string;
+  preparedAt?: string;
+  deliveredAt?: string;
+  note?: string;
 }
 
 export interface ExternalPOSSaleRow {

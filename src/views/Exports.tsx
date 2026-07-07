@@ -26,17 +26,33 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
     document.body.removeChild(link);
   };
 
+  const getMovementLabel = (type: string) => {
+    switch (type) {
+      case 'purchase_received': return 'Réception';
+      case 'sale_consumption': return 'Vente / livraison';
+      case 'transfer_out': return 'Transfert sortant';
+      case 'transfer_in': return 'Transfert entrant';
+      case 'inventory_adjustment': return 'Inventaire';
+      case 'loss': return 'Perte';
+      case 'production': return 'Préparation';
+      default: return 'Correction';
+    }
+  };
+
   const exportInventory = () => {
-    const headers = ["Produit", "Code article", "Categorie", "Depot", "Quantite Disponible", "Unite", "Cout moyen", "Valeur Totale", "Seuil d'Alerte"];
+    const headers = ["Produit", "Code article", "Categorie", "Depot", "Stock physique", "Quantite reservee", "Disponible a vendre", "Unite", "Cout moyen", "Valeur Totale", "Seuil d'Alerte"];
     const rows = db.stocks.map(s => {
       const prod = db.products.find(p => p.id === s.productId)!;
       const wh = db.warehouses.find(w => w.id === s.warehouseId)!;
+      const sellableQty = Math.max(0, s.quantityAvailable - s.quantityReserved);
       return [
         prod.name,
         prod.sku,
         prod.category,
         wh.name,
         s.quantityAvailable.toString(),
+        s.quantityReserved.toString(),
+        sellableQty.toString(),
         prod.baseUnit,
         s.averageCost.toString(),
         (s.quantityAvailable * s.averageCost).toString(),
@@ -53,7 +69,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       const wh = db.warehouses.find(w => w.id === m.warehouseId);
       return [
         new Date(m.date).toLocaleString(),
-        m.type,
+        getMovementLabel(m.type),
         prod?.name || '',
         prod?.sku || '',
         wh?.name || '',
@@ -136,7 +152,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
 
   const exportPOSConsumption = () => {
     const headers = [
-      "Point de Vente (POS)",
+      "Canal de vente",
       "Nombre de ventes",
       "Montant Total (FCFA)",
       ...PAYMENT_TYPES.map(type => `Paiement ${PAYMENT_TYPE_LABELS[type]} (FCFA)`),
@@ -157,7 +173,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
         wh?.name || ''
       ];
     });
-    triggerCSVDownload("sartal_consommations_pos", headers, rows);
+    triggerCSVDownload("sartal_ventes_par_canal", headers, rows);
   };
 
   const formatFCFA = (value: number) => (
@@ -215,7 +231,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Rapports de pilotage</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Valeur du stock, ventes par point de vente, pertes, chambres et exports exploitables.</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Valeur du stock, ventes par canal, réservations livraison, pertes, chambres et exports exploitables.</p>
       </div>
 
       <div className="grid-4">
@@ -242,7 +258,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Stock par dépôt</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
-              Vision immédiate des stocks séparés par restaurant, bar, night-club et réserve.
+              Vision immédiate des stocks séparés par restaurant, bar, night-club, réserve et dépôt livraison.
             </p>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -330,16 +346,16 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Synthèse par point de vente</h3>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Synthèse par canal de vente</h3>
             <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '0.85rem' }}>
-              Chaque POS garde son chiffre, son dépôt de sortie et sa traçabilité.
+              Chaque canal garde son chiffre, son dépôt de sortie et sa traçabilité.
             </p>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
-                  <th>Point de vente</th>
+                  <th>Canal</th>
                   <th>Dépôt</th>
                   <th>Tickets</th>
                   <th>Montant</th>
@@ -363,7 +379,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Synthèse de gestion</h3>
           {[
             ['Stock', `${db.stocks.length} positions produit/dépôt suivies`],
-            ['Ventes', `${db.externalSales.length} tickets ou imports caisse intégrés`],
+            ['Ventes', `${db.externalSales.length} tickets, commandes livrées ou imports caisse intégrés`],
             ['Traçabilité', `${db.movements.length} mouvements stock historisés`],
             ['PMS', `${pendingPmsCharges.length} consommation(s) chambre en attente d'export`]
           ].map(row => (
@@ -400,7 +416,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
             <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Journal des mouvements</h3>
           </div>
           <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-            Journal comptable chronologique de toutes les entrées, sorties, pertes, inventaires et transferts.
+            Journal chronologique de toutes les entrées, sorties, pertes, inventaires et transferts.
           </p>
           <button className="btn btn-secondary" onClick={exportMovements} style={{ gap: '6px', width: '100%', marginTop: 'auto' }}>
             <Download size={16} /> Télécharger
@@ -453,10 +469,10 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <FileSpreadsheet size={24} color="var(--purple)" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Consommations par point de vente</h3>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Ventes par canal</h3>
           </div>
           <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-            Chiffre de sortie d'inventaire valorisé par point de vente (Restaurant, Casino, Bar, Room Service).
+            Chiffre d'affaires par restaurant, bar, room service ou plateforme de livraison, avec moyens de paiement.
           </p>
           <button className="btn btn-secondary" onClick={exportPOSConsumption} style={{ gap: '6px', width: '100%', marginTop: 'auto' }}>
             <Download size={16} /> Télécharger

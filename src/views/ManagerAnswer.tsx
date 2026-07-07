@@ -33,7 +33,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Réponse à la demande</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Restaurant / POS</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
             Démonstration ciblée : un seul produit dans le catalogue, plusieurs prix de vente, plusieurs dépôts de sortie et une imputation chambre possible.
           </p>

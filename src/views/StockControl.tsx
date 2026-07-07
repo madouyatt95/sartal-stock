@@ -94,7 +94,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
   const getMovementLabel = (type: StockMovement['type']) => {
     switch (type) {
       case 'purchase_received': return 'Réception';
-      case 'sale_consumption': return 'Vente POS';
+      case 'sale_consumption': return 'Vente / livraison';
       case 'transfer_out': return 'Transfert sortant';
       case 'transfer_in': return 'Transfert entrant';
       case 'inventory_adjustment': return 'Inventaire';
@@ -350,7 +350,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
             </p>
           </div>
           <button className="btn btn-secondary" onClick={() => setView('connectors')}>
-            Tester une vente POS
+            Tester une vente
           </button>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -394,7 +394,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               {latestSales.length === 0 && (
                 <tr>
 	                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '36px' }}>
-                    Aucune vente POS encore enregistrée. Lancez une vente depuis la caisse pour montrer la déduction automatique du dépôt.
+                    Aucune vente encore enregistrée. Lancez une vente ou une livraison pour montrer la déduction automatique du dépôt.
                   </td>
                 </tr>
               )}

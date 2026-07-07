@@ -15,6 +15,18 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
   const [showAddPOS, setShowAddPOS] = useState(false);
   const [editingPOSId, setEditingPOSId] = useState<string | null>(null);
   const [newPOS, setNewPOS] = useState({ name: '', type: 'restaurant' as POSType, defaultWarehouseId: '' });
+  const posTypeLabels: Record<POSType, string> = {
+    restaurant: 'Restaurant',
+    bar: 'Bar',
+    night_club: 'Night Club',
+    casino: 'Casino',
+    room_service: 'Room Service',
+    online_grocery: 'Épicerie en ligne',
+    spa: 'Spa',
+    boutique: 'Boutique',
+    mini_bar: 'Mini-bar',
+    other: 'Autre'
+  };
 
   const closeWarehouseModal = () => {
     setShowAddWh(false);
@@ -89,7 +101,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Points de vente & dépôts</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Configurez la cartographie de stockage et d'écoulement de votre complexe</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Configurez les canaux de vente et les dépôts qui sortent le stock.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn btn-secondary" onClick={() => {
@@ -97,7 +109,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
             setNewPOS({ name: '', type: 'restaurant', defaultWarehouseId: db.warehouses[0]?.id || '' });
             setShowAddPOS(true);
           }}>
-            <Plus size={18} /> Nouveau POS
+            <Plus size={18} /> Nouveau canal
           </button>
           <button className="btn btn-primary" onClick={() => {
             setEditingWarehouseId(null);
@@ -158,7 +170,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Landmark size={20} color="var(--success)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Points de Vente / POS</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Points de vente / canaux</h3>
           </div>
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {db.posList.map(pos => {
@@ -171,7 +183,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                     </div>
                     <div>
                       <h4 style={{ fontWeight: 700 }}>{pos.name}</h4>
-                      <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>Type: <strong style={{ textTransform: 'capitalize' }}>{pos.type.replace('_', ' ')}</strong></p>
+                      <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>Type : <strong>{posTypeLabels[pos.type]}</strong></p>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -233,10 +245,10 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
       {showAddPOS && (
         <div className="modal-overlay">
           <div className="card modal-card">
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editingPOSId ? 'Modifier le point de vente' : 'Nouveau point de vente'}</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{editingPOSId ? 'Modifier le canal' : 'Nouveau canal'}</h3>
             <form onSubmit={handleSavePOS} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="form-group">
-                <label className="form-label">Nom du POS</label>
+                <label className="form-label">Nom du canal</label>
                 <input 
                   type="text" 
                   value={newPOS.name} 
@@ -248,7 +260,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
               </div>
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Type de Point de Vente</label>
+                  <label className="form-label">Type de canal</label>
                   <select 
                     value={newPOS.type} 
                     onChange={(e) => setNewPOS({ ...newPOS, type: e.target.value as POSType })}
@@ -259,6 +271,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                     <option value="night_club">Night Club</option>
                     <option value="casino">Casino</option>
                     <option value="room_service">Room Service</option>
+                    <option value="online_grocery">Épicerie en ligne</option>
                     <option value="spa">Spa</option>
                     <option value="boutique">Boutique</option>
                     <option value="mini_bar">Mini-bar</option>
@@ -282,7 +295,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={closePOSModal}>Annuler</button>
-                <button type="submit" className="btn btn-primary">{editingPOSId ? 'Enregistrer' : 'Créer le point de vente'}</button>
+                <button type="submit" className="btn btn-primary">{editingPOSId ? 'Enregistrer' : 'Créer le canal'}</button>
               </div>
             </form>
           </div>

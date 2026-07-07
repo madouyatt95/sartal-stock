@@ -33,7 +33,7 @@ export const Movements: React.FC<MovementsProps> = ({ state }) => {
   const getMovementLabel = (type: StockMovement['type']) => {
     switch (type) {
       case 'purchase_received': return 'Réception';
-      case 'sale_consumption': return 'Vente (POS)';
+      case 'sale_consumption': return 'Vente / livraison';
       case 'transfer_out': return 'Transfert Sortant';
       case 'transfer_in': return 'Transfert Entrant';
       case 'inventory_adjustment': return 'Inventaire';
@@ -96,7 +96,7 @@ export const Movements: React.FC<MovementsProps> = ({ state }) => {
           >
             <option value="all">Tous les types</option>
             <option value="purchase_received">Réception Fournisseur</option>
-            <option value="sale_consumption">Consommation Vente POS</option>
+            <option value="sale_consumption">Vente / livraison</option>
             <option value="transfer_in">Transfert Entrant</option>
             <option value="transfer_out">Transfert Sortant</option>
             <option value="inventory_adjustment">Ajustement Inventaire</option>

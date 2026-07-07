@@ -18,6 +18,7 @@ import {
   Loss,
   ExternalSale,
   ExternalPOSImportRun,
+  DeliveryOrder,
   CashSession,
   PMSRoom,
   PMSFolio,
@@ -45,6 +46,7 @@ export interface DatabaseState {
   losses: Loss[];
   externalSales: ExternalSale[];
   externalPOSImportRuns: ExternalPOSImportRun[];
+  deliveryOrders: DeliveryOrder[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -53,7 +55,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v3';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v4';
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -69,6 +71,7 @@ const initialDB = (): DatabaseState => {
     { id: 'wh-bar-casino', siteId: 'site-1', name: 'Dépôt Bar Casino', isColdStorage: false },
     { id: 'wh-nightclub', siteId: 'site-1', name: 'Dépôt Night Club', isColdStorage: false },
     { id: 'wh-central', siteId: 'site-1', name: 'Dépôt Central', isColdStorage: false },
+    { id: 'wh-delivery', siteId: 'site-1', name: 'Dépôt Préparation Livraison', isColdStorage: false },
     { id: 'wh-cold', siteId: 'site-1', name: 'Chambre Froide', isColdStorage: true },
     { id: 'wh-cave', siteId: 'site-1', name: 'Cave', isColdStorage: false }
   ];
@@ -77,7 +80,8 @@ const initialDB = (): DatabaseState => {
     { id: 'pos-1', siteId: 'site-1', name: 'Restaurant La Terrasse', type: 'restaurant', defaultWarehouseId: 'wh-restaurant', authorizedRoles: ['admin', 'director', 'pos_manager'] },
     { id: 'pos-2', siteId: 'site-1', name: 'Bar des Machines à Sous', type: 'casino', defaultWarehouseId: 'wh-bar-casino', authorizedRoles: ['admin', 'director', 'pos_manager'] },
     { id: 'pos-3', siteId: 'site-1', name: 'Night Club', type: 'night_club', defaultWarehouseId: 'wh-nightclub', authorizedRoles: ['admin', 'director', 'pos_manager'] },
-    { id: 'pos-4', siteId: 'site-1', name: 'Room Service', type: 'room_service', defaultWarehouseId: 'wh-central', authorizedRoles: ['admin', 'director', 'pos_manager'] }
+    { id: 'pos-4', siteId: 'site-1', name: 'Room Service', type: 'room_service', defaultWarehouseId: 'wh-central', authorizedRoles: ['admin', 'director', 'pos_manager'] },
+    { id: 'pos-5', siteId: 'site-1', name: 'Plateforme Épicerie en ligne', type: 'online_grocery', defaultWarehouseId: 'wh-delivery', authorizedRoles: ['admin', 'director', 'stock_manager'] }
   ];
 
   const products: Product[] = [
@@ -106,7 +110,14 @@ const initialDB = (): DatabaseState => {
     { id: 'prod-gin-tonic', name: 'Gin Tonic', sku: 'GINTONIC', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-mojito', name: 'Mojito maison', sku: 'MOJITO', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-thieb-signature', name: 'Thieboudienne signature', sku: 'THIEB', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
-    { id: 'prod-creme', name: 'Crème liquide 1L', sku: 'CREM1L', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true }
+    { id: 'prod-creme', name: 'Crème liquide 1L', sku: 'CREM1L', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true },
+    { id: 'prod-riz-5kg', name: 'Riz parfumé 5 kg', sku: 'RIZ5KG', category: 'Épicerie', baseUnit: 'sac', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-eau-pack', name: 'Pack eau minérale 1,5 L x6', sku: 'EAUPACK6', category: 'Épicerie', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 25, isActive: true },
+    { id: 'prod-lait-poudre', name: 'Lait en poudre 400 g', sku: 'LAIT400', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 18, isActive: true },
+    { id: 'prod-huile-1l', name: 'Huile végétale 1 L', sku: 'HUILE1L', category: 'Épicerie', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 24, isActive: true },
+    { id: 'prod-oignon-1kg', name: 'Oignons filet 1 kg', sku: 'OIGNON1KG', category: 'Épicerie', baseUnit: 'filet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-sucre-1kg', name: 'Sucre blanc 1 kg', sku: 'SUCRE1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-jus-bissap', name: 'Jus bissap 50 cl', sku: 'BISSAP50', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 30, isActive: true }
   ];
 
   const posProductAliases: POSProductAlias[] = [
@@ -119,7 +130,14 @@ const initialDB = (): DatabaseState => {
     { externalSku: 'EAU50', externalLabel: 'Eau minérale 50 cl', productId: 'prod-eau-50' },
     { externalSku: 'CHAMPBRUT75', externalLabel: 'Champagne brut 75 cl', productId: 'prod-champagne-brut' },
     { externalSku: 'MOJITO', externalLabel: 'Mojito maison', productId: 'prod-mojito' },
-    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' }
+    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' },
+    { externalSku: 'RIZ5KG', externalLabel: 'Riz parfumé 5 kg', posId: 'pos-5', productId: 'prod-riz-5kg' },
+    { externalSku: 'EAUPACK6', externalLabel: 'Pack eau 1,5 L x6', posId: 'pos-5', productId: 'prod-eau-pack' },
+    { externalSku: 'LAIT400', externalLabel: 'Lait en poudre 400 g', posId: 'pos-5', productId: 'prod-lait-poudre' },
+    { externalSku: 'HUILE1L', externalLabel: 'Huile végétale 1 L', posId: 'pos-5', productId: 'prod-huile-1l' },
+    { externalSku: 'OIGNON1KG', externalLabel: 'Oignons filet 1 kg', posId: 'pos-5', productId: 'prod-oignon-1kg' },
+    { externalSku: 'SUCRE1KG', externalLabel: 'Sucre blanc 1 kg', posId: 'pos-5', productId: 'prod-sucre-1kg' },
+    { externalSku: 'BISSAP50', externalLabel: 'Jus bissap 50 cl', posId: 'pos-5', productId: 'prod-jus-bissap' }
   ];
 
   const posPricing: POSPricing[] = [
@@ -154,7 +172,16 @@ const initialDB = (): DatabaseState => {
     { productId: 'prod-mojito', posId: 'pos-2', salePrice: 5000, taxRate: 18, isAvailable: true },
     { productId: 'prod-mojito', posId: 'pos-3', salePrice: 7000, taxRate: 20, isAvailable: true },
     { productId: 'prod-thieb-signature', posId: 'pos-1', salePrice: 9500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true }
+    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true },
+    // Online grocery channel pricing
+    { productId: 'prod-coca', posId: 'pos-5', salePrice: 1200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-riz-5kg', posId: 'pos-5', salePrice: 4500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-pack', posId: 'pos-5', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-lait-poudre', posId: 'pos-5', salePrice: 3500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-huile-1l', posId: 'pos-5', salePrice: 1600, taxRate: 18, isAvailable: true },
+    { productId: 'prod-oignon-1kg', posId: 'pos-5', salePrice: 900, taxRate: 18, isAvailable: true },
+    { productId: 'prod-sucre-1kg', posId: 'pos-5', salePrice: 850, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-bissap', posId: 'pos-5', salePrice: 1000, taxRate: 18, isAvailable: true }
   ];
 
   const suppliers: Supplier[] = [
@@ -289,7 +316,16 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-legumes-central-1', productId: 'prod-legumes-mix', warehouseId: 'wh-central', batchNumber: 'LOT-LEG-CENT-01', expiryDate: '2026-07-09', quantity: 15000, initialQuantity: 15000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt: dateStr },
 
     // Crème liquide 1L in Cold storage: 15 units (near expiry!)
-    { id: 'lot-creme-1', productId: 'prod-creme', warehouseId: 'wh-cold', batchNumber: 'LOT-CREME-01', expiryDate: '2026-07-04', quantity: 15, initialQuantity: 15, supplierId: 'sup-market', purchaseCost: 1200, createdAt: dateStr }
+    { id: 'lot-creme-1', productId: 'prod-creme', warehouseId: 'wh-cold', batchNumber: 'LOT-CREME-01', expiryDate: '2026-07-04', quantity: 15, initialQuantity: 15, supplierId: 'sup-market', purchaseCost: 1200, createdAt: dateStr },
+    // Online grocery preparation depot
+    { id: 'lot-coca-delivery-1', productId: 'prod-coca', warehouseId: 'wh-delivery', batchNumber: 'LOT-COCA-LIV-01', expiryDate: '2026-11-30', quantity: 96, initialQuantity: 96, supplierId: 'sup-drinks', purchaseCost: 390, createdAt: dateStr },
+    { id: 'lot-riz5-delivery-1', productId: 'prod-riz-5kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-RIZ5-LIV-01', expiryDate: '2027-02-28', quantity: 45, initialQuantity: 45, supplierId: 'sup-market', purchaseCost: 3000, createdAt: dateStr },
+    { id: 'lot-eaupack-delivery-1', productId: 'prod-eau-pack', warehouseId: 'wh-delivery', batchNumber: 'LOT-EAUPACK-LIV-01', expiryDate: '2027-04-30', quantity: 60, initialQuantity: 60, supplierId: 'sup-drinks', purchaseCost: 1500, createdAt: dateStr },
+    { id: 'lot-lait-delivery-1', productId: 'prod-lait-poudre', warehouseId: 'wh-delivery', batchNumber: 'LOT-LAIT-LIV-01', expiryDate: '2027-01-31', quantity: 36, initialQuantity: 36, supplierId: 'sup-market', purchaseCost: 2400, createdAt: dateStr },
+    { id: 'lot-huile1-delivery-1', productId: 'prod-huile-1l', warehouseId: 'wh-delivery', batchNumber: 'LOT-HUILE1-LIV-01', expiryDate: '2027-06-30', quantity: 48, initialQuantity: 48, supplierId: 'sup-market', purchaseCost: 1050, createdAt: dateStr },
+    { id: 'lot-oignon-delivery-1', productId: 'prod-oignon-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-OIGNON-LIV-01', expiryDate: '2026-07-20', quantity: 32, initialQuantity: 32, supplierId: 'sup-market', purchaseCost: 520, createdAt: dateStr },
+    { id: 'lot-sucre1-delivery-1', productId: 'prod-sucre-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-SUCRE1-LIV-01', expiryDate: '2027-05-31', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 550, createdAt: dateStr },
+    { id: 'lot-bissap-delivery-1', productId: 'prod-jus-bissap', warehouseId: 'wh-delivery', batchNumber: 'LOT-BISSAP-LIV-01', expiryDate: '2026-08-15', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 420, createdAt: dateStr }
   ];
 
   // Initialize stocks based on batches
@@ -355,7 +391,7 @@ const initialDB = (): DatabaseState => {
     unit: products.find(p => p.id === b.productId)?.baseUnit || 'unité',
     cost: b.purchaseCost,
     userId: 'user-system',
-    userName: 'Système Seeding',
+    userName: 'Données de départ',
     date: dateStr,
     reason: 'Initialisation de stock de départ'
   }));
@@ -409,6 +445,49 @@ const initialDB = (): DatabaseState => {
     }
   ];
 
+  const deliveryOrders: DeliveryOrder[] = [
+    {
+      id: 'CMD-1024',
+      customerName: 'Awa Diop',
+      phone: '+221 77 200 14 14',
+      address: 'Point E, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'wave',
+      paymentStatus: 'paid',
+      deliveryFee: 1000,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: 'Commande exemple pour démontrer réservation, préparation puis sortie stock.',
+      items: [
+        { productId: 'prod-riz-5kg', quantity: 2, salePrice: 4500 },
+        { productId: 'prod-eau-pack', quantity: 3, salePrice: 2500 },
+        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' }
+      ]
+    },
+    {
+      id: 'CMD-1025',
+      customerName: 'Moussa Ndiaye',
+      phone: '+221 78 500 30 20',
+      address: 'Mermoz, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'orange_money',
+      paymentStatus: 'paid',
+      deliveryFee: 1000,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items: [
+        { productId: 'prod-lait-poudre', quantity: 2, salePrice: 3500 },
+        { productId: 'prod-huile-1l', quantity: 4, salePrice: 1600 },
+        { productId: 'prod-oignon-1kg', quantity: 3, salePrice: 900 },
+        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 }
+      ]
+    }
+  ];
+
   return {
     companies,
     sites,
@@ -429,6 +508,7 @@ const initialDB = (): DatabaseState => {
     losses: [],
     externalSales: [],
     externalPOSImportRuns: [],
+    deliveryOrders,
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -446,6 +526,21 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
   seedDate.setMonth(seedDate.getMonth() - 1);
   const createdAt = seedDate.toISOString();
 
+  if (!state.warehouses.some(item => item.id === 'wh-delivery')) {
+    state.warehouses.push({ id: 'wh-delivery', siteId: 'site-1', name: 'Dépôt Préparation Livraison', isColdStorage: false });
+  }
+
+  if (!state.posList.some(item => item.id === 'pos-5')) {
+    state.posList.push({
+      id: 'pos-5',
+      siteId: 'site-1',
+      name: 'Plateforme Épicerie en ligne',
+      type: 'online_grocery',
+      defaultWarehouseId: 'wh-delivery',
+      authorizedRoles: ['admin', 'director', 'stock_manager']
+    });
+  }
+
   const demoProducts: Product[] = [
     { id: 'prod-eau-50', name: 'Eau minérale 50 cl', sku: 'EAU50', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 60, isActive: true },
     { id: 'prod-champagne-brut', name: 'Champagne brut 75 cl', sku: 'CHAMPBRUT75', category: 'Boissons premium', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 8, isActive: true },
@@ -457,7 +552,14 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'prod-poisson-dorade', name: 'Dorade portion', sku: 'DORADE', category: 'Alimentation', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 12, isActive: true },
     { id: 'prod-legumes-mix', name: 'Légumes garniture', sku: 'LEGMIX', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 15000, isActive: true },
     { id: 'prod-mojito', name: 'Mojito maison', sku: 'MOJITO', category: 'Cocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
-    { id: 'prod-thieb-signature', name: 'Thieboudienne signature', sku: 'THIEB', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true }
+    { id: 'prod-thieb-signature', name: 'Thieboudienne signature', sku: 'THIEB', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-riz-5kg', name: 'Riz parfumé 5 kg', sku: 'RIZ5KG', category: 'Épicerie', baseUnit: 'sac', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-eau-pack', name: 'Pack eau minérale 1,5 L x6', sku: 'EAUPACK6', category: 'Épicerie', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 25, isActive: true },
+    { id: 'prod-lait-poudre', name: 'Lait en poudre 400 g', sku: 'LAIT400', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 18, isActive: true },
+    { id: 'prod-huile-1l', name: 'Huile végétale 1 L', sku: 'HUILE1L', category: 'Épicerie', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 24, isActive: true },
+    { id: 'prod-oignon-1kg', name: 'Oignons filet 1 kg', sku: 'OIGNON1KG', category: 'Épicerie', baseUnit: 'filet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-sucre-1kg', name: 'Sucre blanc 1 kg', sku: 'SUCRE1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-jus-bissap', name: 'Jus bissap 50 cl', sku: 'BISSAP50', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 30, isActive: true }
   ];
 
   demoProducts.forEach(product => {
@@ -470,7 +572,14 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { externalSku: 'EAU50', externalLabel: 'Eau minérale 50 cl', productId: 'prod-eau-50' },
     { externalSku: 'CHAMPBRUT75', externalLabel: 'Champagne brut 75 cl', productId: 'prod-champagne-brut' },
     { externalSku: 'MOJITO', externalLabel: 'Mojito maison', productId: 'prod-mojito' },
-    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' }
+    { externalSku: 'THIEB', externalLabel: 'Thieboudienne signature', productId: 'prod-thieb-signature' },
+    { externalSku: 'RIZ5KG', externalLabel: 'Riz parfumé 5 kg', posId: 'pos-5', productId: 'prod-riz-5kg' },
+    { externalSku: 'EAUPACK6', externalLabel: 'Pack eau 1,5 L x6', posId: 'pos-5', productId: 'prod-eau-pack' },
+    { externalSku: 'LAIT400', externalLabel: 'Lait en poudre 400 g', posId: 'pos-5', productId: 'prod-lait-poudre' },
+    { externalSku: 'HUILE1L', externalLabel: 'Huile végétale 1 L', posId: 'pos-5', productId: 'prod-huile-1l' },
+    { externalSku: 'OIGNON1KG', externalLabel: 'Oignons filet 1 kg', posId: 'pos-5', productId: 'prod-oignon-1kg' },
+    { externalSku: 'SUCRE1KG', externalLabel: 'Sucre blanc 1 kg', posId: 'pos-5', productId: 'prod-sucre-1kg' },
+    { externalSku: 'BISSAP50', externalLabel: 'Jus bissap 50 cl', posId: 'pos-5', productId: 'prod-jus-bissap' }
   ];
 
   aliases.forEach(alias => {
@@ -493,7 +602,15 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { productId: 'prod-mojito', posId: 'pos-2', salePrice: 5000, taxRate: 18, isAvailable: true },
     { productId: 'prod-mojito', posId: 'pos-3', salePrice: 7000, taxRate: 20, isAvailable: true },
     { productId: 'prod-thieb-signature', posId: 'pos-1', salePrice: 9500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true }
+    { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-coca', posId: 'pos-5', salePrice: 1200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-riz-5kg', posId: 'pos-5', salePrice: 4500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-pack', posId: 'pos-5', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-lait-poudre', posId: 'pos-5', salePrice: 3500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-huile-1l', posId: 'pos-5', salePrice: 1600, taxRate: 18, isAvailable: true },
+    { productId: 'prod-oignon-1kg', posId: 'pos-5', salePrice: 900, taxRate: 18, isAvailable: true },
+    { productId: 'prod-sucre-1kg', posId: 'pos-5', salePrice: 850, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-bissap', posId: 'pos-5', salePrice: 1000, taxRate: 18, isAvailable: true }
   ];
 
   pricingRules.forEach(rule => {
@@ -563,7 +680,15 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'lot-salt-central-1', productId: 'prod-sel', warehouseId: 'wh-central', batchNumber: 'LOT-SEL-CENT-01', expiryDate: '2027-12-31', quantity: 2000, initialQuantity: 2000, supplierId: 'sup-market', purchaseCost: 0.1, createdAt },
     { id: 'lot-riz-central-1', productId: 'prod-riz-parfume', warehouseId: 'wh-central', batchNumber: 'LOT-RIZ-CENT-01', expiryDate: '2027-01-31', quantity: 20000, initialQuantity: 20000, supplierId: 'sup-market', purchaseCost: 0.45, createdAt },
     { id: 'lot-dorade-central-1', productId: 'prod-poisson-dorade', warehouseId: 'wh-central', batchNumber: 'LOT-DORADE-CENT-01', expiryDate: '2026-07-08', quantity: 20, initialQuantity: 20, supplierId: 'sup-market', purchaseCost: 1800, createdAt },
-    { id: 'lot-legumes-central-1', productId: 'prod-legumes-mix', warehouseId: 'wh-central', batchNumber: 'LOT-LEG-CENT-01', expiryDate: '2026-07-09', quantity: 15000, initialQuantity: 15000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt }
+    { id: 'lot-legumes-central-1', productId: 'prod-legumes-mix', warehouseId: 'wh-central', batchNumber: 'LOT-LEG-CENT-01', expiryDate: '2026-07-09', quantity: 15000, initialQuantity: 15000, supplierId: 'sup-market', purchaseCost: 0.35, createdAt },
+    { id: 'lot-coca-delivery-1', productId: 'prod-coca', warehouseId: 'wh-delivery', batchNumber: 'LOT-COCA-LIV-01', expiryDate: '2026-11-30', quantity: 96, initialQuantity: 96, supplierId: 'sup-drinks', purchaseCost: 390, createdAt },
+    { id: 'lot-riz5-delivery-1', productId: 'prod-riz-5kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-RIZ5-LIV-01', expiryDate: '2027-02-28', quantity: 45, initialQuantity: 45, supplierId: 'sup-market', purchaseCost: 3000, createdAt },
+    { id: 'lot-eaupack-delivery-1', productId: 'prod-eau-pack', warehouseId: 'wh-delivery', batchNumber: 'LOT-EAUPACK-LIV-01', expiryDate: '2027-04-30', quantity: 60, initialQuantity: 60, supplierId: 'sup-drinks', purchaseCost: 1500, createdAt },
+    { id: 'lot-lait-delivery-1', productId: 'prod-lait-poudre', warehouseId: 'wh-delivery', batchNumber: 'LOT-LAIT-LIV-01', expiryDate: '2027-01-31', quantity: 36, initialQuantity: 36, supplierId: 'sup-market', purchaseCost: 2400, createdAt },
+    { id: 'lot-huile1-delivery-1', productId: 'prod-huile-1l', warehouseId: 'wh-delivery', batchNumber: 'LOT-HUILE1-LIV-01', expiryDate: '2027-06-30', quantity: 48, initialQuantity: 48, supplierId: 'sup-market', purchaseCost: 1050, createdAt },
+    { id: 'lot-oignon-delivery-1', productId: 'prod-oignon-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-OIGNON-LIV-01', expiryDate: '2026-07-20', quantity: 32, initialQuantity: 32, supplierId: 'sup-market', purchaseCost: 520, createdAt },
+    { id: 'lot-sucre1-delivery-1', productId: 'prod-sucre-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-SUCRE1-LIV-01', expiryDate: '2027-05-31', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 550, createdAt },
+    { id: 'lot-bissap-delivery-1', productId: 'prod-jus-bissap', warehouseId: 'wh-delivery', batchNumber: 'LOT-BISSAP-LIV-01', expiryDate: '2026-08-15', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 420, createdAt }
   ];
 
   batches.forEach(batch => {
@@ -606,10 +731,59 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
         unit: product?.baseUnit || 'unité',
         cost: batch.purchaseCost,
         userId: 'user-system',
-        userName: 'Système Seeding',
+        userName: 'Données de départ',
         date: createdAt,
-        reason: 'Ajout exemples métier hospitality'
+        reason: 'Ajout exemples métier'
       });
+    }
+  });
+
+  const deliveryOrders: DeliveryOrder[] = [
+    {
+      id: 'CMD-1024',
+      customerName: 'Awa Diop',
+      phone: '+221 77 200 14 14',
+      address: 'Point E, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'wave',
+      paymentStatus: 'paid',
+      deliveryFee: 1000,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: 'Commande exemple pour démontrer réservation, préparation puis sortie stock.',
+      items: [
+        { productId: 'prod-riz-5kg', quantity: 2, salePrice: 4500 },
+        { productId: 'prod-eau-pack', quantity: 3, salePrice: 2500 },
+        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' }
+      ]
+    },
+    {
+      id: 'CMD-1025',
+      customerName: 'Moussa Ndiaye',
+      phone: '+221 78 500 30 20',
+      address: 'Mermoz, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'orange_money',
+      paymentStatus: 'paid',
+      deliveryFee: 1000,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      items: [
+        { productId: 'prod-lait-poudre', quantity: 2, salePrice: 3500 },
+        { productId: 'prod-huile-1l', quantity: 4, salePrice: 1600 },
+        { productId: 'prod-oignon-1kg', quantity: 3, salePrice: 900 },
+        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 }
+      ]
+    }
+  ];
+
+  deliveryOrders.forEach(order => {
+    if (!state.deliveryOrders.some(item => item.id === order.id)) {
+      state.deliveryOrders.push(order);
     }
   });
 
@@ -651,6 +825,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     losses: state.losses || [],
     externalSales: state.externalSales || [],
     externalPOSImportRuns: state.externalPOSImportRuns || [],
+    deliveryOrders: state.deliveryOrders || [],
     cashSessions,
     pmsRooms: state.pmsRooms || [],
     pmsFolios: state.pmsFolios || [],

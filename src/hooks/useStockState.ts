@@ -585,6 +585,36 @@ export const useStockState = () => {
     refresh();
   };
 
+  const reserveDeliveryOrder = (orderId: string) => {
+    const result = stockEngine.reserveDeliveryOrder(orderId, db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
+  const startDeliveryPreparation = (orderId: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'preparing', db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
+  const markDeliveryReady = (orderId: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'ready', db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
+  const cancelDeliveryOrder = (orderId: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'cancelled', db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
+  const deliverDeliveryOrder = (orderId: string) => {
+    const result = stockEngine.deliverDeliveryOrder(orderId, db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
   return {
     db,
     changeCurrentUser,
@@ -612,6 +642,11 @@ export const useStockState = () => {
     importExternalPOSSales,
     openCashSession,
     closeCashSession,
+    reserveDeliveryOrder,
+    startDeliveryPreparation,
+    markDeliveryReady,
+    cancelDeliveryOrder,
+    deliverDeliveryOrder,
     resetAllData
   };
 };

@@ -25,7 +25,8 @@ import {
   Sun,
   Menu,
   X,
-  User
+  User,
+  Truck
 } from 'lucide-react';
 
 // Subviews
@@ -51,11 +52,12 @@ import Connectors from './views/Connectors';
 import POSImports from './views/POSImports';
 import Exports from './views/Exports';
 import POSPricing from './views/POSPricing';
+import DeliveryDemo from './views/DeliveryDemo';
 
 export const App: React.FC = () => {
   const state = useStockState();
   const { db } = state;
-  const [view, setView] = useState<string>('answer');
+  const [view, setView] = useState<string>('dashboard');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
@@ -71,8 +73,9 @@ export const App: React.FC = () => {
   // Navigation visible par role, structuree comme un produit metier complet.
   const sidebarLinks = [
     { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'answer', label: 'Réponse à la demande', mobileLabel: 'Réponse', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
-    { id: 'simulation', label: 'Démo multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'answer', label: 'Restaurant / POS', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'simulation', label: 'Démo restaurant', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Pilotage' },
+    { id: 'delivery', label: 'Épicerie / Livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Pilotage' },
     { id: 'connectors', label: 'Caisse & PMS', icon: <Network size={18} />, roles: ['admin'], section: 'Ventes' },
     { id: 'pos-imports', label: 'Reprendre les ventes', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Ventes' },
     { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Stock' },
@@ -86,7 +89,7 @@ export const App: React.FC = () => {
     { id: 'receiving', label: 'Réceptions', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Approvisionnement' },
     { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Approvisionnement' },
     { id: 'products', label: 'Produits & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
-    { id: 'pricing', label: 'Prix par POS', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
+    { id: 'pricing', label: 'Prix par canal', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
     { id: 'warehouses', label: 'Points de vente & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Référentiel' },
     { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Référentiel' },
     { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Analyse' },
@@ -104,7 +107,7 @@ export const App: React.FC = () => {
     { id: 'Analyse', label: 'Analyse' },
     { id: 'Paramétrage', label: 'Paramétrage' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'answer', 'simulation', 'stock-control', 'exports'];
+  const mobilePrimaryOrder = ['dashboard', 'answer', 'delivery', 'stock-control', 'exports'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -131,6 +134,8 @@ export const App: React.FC = () => {
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
         return <BehaviorSimulation state={state} setView={setView} />;
+      case 'delivery':
+        return <DeliveryDemo state={state} setView={setView} />;
       case 'stock-control':
         return <StockControl state={state} setView={setView} />;
       case 'mapping-control':
