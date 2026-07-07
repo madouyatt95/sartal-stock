@@ -30,10 +30,10 @@ interface AuditRow {
 
 const forcedCountGaps: Record<string, number> = {
   'prod-coca-wh-bar-casino': -15,
-  'prod-heineken-wh-nightclub': -8,
+  'prod-jus-gingembre-wh-nightclub': -8,
   'prod-pain-burger-wh-restaurant': -6,
   'prod-creme-wh-cold': 3,
-  'prod-vin-rouge-wh-nightclub': -2
+  'prod-jus-bouye-wh-nightclub': -2
 };
 
 export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {

@@ -12,10 +12,10 @@ const SAMPLE_EXPORT = `date;posCode;ticketId;externalSku;label;quantity;amount;p
 2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;COCA33;Coca-Cola 33 cl;2;3000;cash;
 2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;STEAKFRITES;Steak frites;1;6500;cash;
 2026-07-02T12:44:00;Restaurant La Terrasse;REST-1002;BURGER;Burger maison;2;11000;orange_money;
-2026-07-02T21:10:00;Bar des Machines à Sous;CAS-2201;GINTONIC;Gin tonic;3;13500;wave;
+2026-07-02T21:10:00;Bar des Machines à Sous;CAS-2201;TONICCITRON;Tonic citron;3;13500;wave;
 2026-07-02T21:30:00;Bar des Machines à Sous;CAS-2202;COCA33;Coca-Cola 33 cl;4;8000;room_charge;204
-2026-07-02T23:40:00;Night Club;NC-3301;VINROUGE75;Vin rouge maison;1;18000;card;
-2026-07-02T23:45:00;Night Club;NC-3302;HEIN33;Heineken 33 cl;6;21000;cash;
+2026-07-02T23:40:00;Night Club;NC-3301;BOUYE75;Jus bouye;1;18000;card;
+2026-07-02T23:45:00;Night Club;NC-3302;GINGEMBRE33;Jus gingembre 33 cl;6;21000;cash;
 2026-07-02T23:55:00;Night Club;NC-3303;UNKNOWN01;Produit inconnu caisse;1;5000;cash;`;
 
 export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {

@@ -218,7 +218,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                   value={newWh.name} 
                   onChange={(e) => setNewWh({ ...newWh, name: e.target.value })} 
                   className="form-control"
-                  placeholder="Ex: Cave Centrale"
+                  placeholder="Ex: Réserve sèche"
                   required
                 />
               </div>

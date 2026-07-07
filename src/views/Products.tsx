@@ -14,7 +14,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
     'Boissons premium',
     'Alimentation',
     'Plats',
-    'Cocktails',
+    'Mocktails',
     'Services',
     ...db.products.map(product => product.category).filter(Boolean)
   ]));

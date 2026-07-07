@@ -28,10 +28,10 @@ const discoveredProducts = [
   { externalSku: 'COCA33', label: 'Coca-Cola 33 cl', count: 6 },
   { externalSku: 'STEAKFRITES', label: 'Steak frites', count: 1 },
   { externalSku: 'BURGER', label: 'Burger maison', count: 2 },
-  { externalSku: 'GINTONIC', label: 'Gin tonic', count: 3 },
-  { externalSku: 'VINROUGE75', label: 'Vin rouge maison', count: 1 },
+  { externalSku: 'TONICCITRON', label: 'Tonic citron', count: 3 },
+  { externalSku: 'BOUYE75', label: 'Jus bouye', count: 1 },
   { externalSku: 'UNKNOWN01', label: 'Produit inconnu caisse', count: 1 },
-  { externalSku: 'MOJITO', label: 'Mojito classique', count: 5 },
+  { externalSku: 'MOCKMENTHE', label: 'Mocktail menthe citron', count: 5 },
   { externalSku: 'EAUMIN', label: 'Eau minérale 50 cl', count: 12 }
 ];
 

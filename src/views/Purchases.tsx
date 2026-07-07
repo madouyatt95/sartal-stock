@@ -140,7 +140,8 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                         newItems[idx].unit = prod?.baseUnit || 'unité';
                         // Pre-fill estimate cost
                         if (e.target.value === 'prod-coca') newItems[idx].purchasePrice = 380;
-                        else if (e.target.value === 'prod-heineken') newItems[idx].purchasePrice = 580;
+                        else if (e.target.value === 'prod-jus-gingembre') newItems[idx].purchasePrice = 600;
+                        else if (e.target.value === 'prod-petillant-premium') newItems[idx].purchasePrice = 2200;
                         else if (e.target.value === 'prod-steak') newItems[idx].purchasePrice = 1500;
                         else if (e.target.value === 'prod-pdt') newItems[idx].purchasePrice = 0.5;
                         setOrderItems(newItems);
