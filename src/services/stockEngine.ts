@@ -554,9 +554,10 @@ export const reserveDeliveryOrder = (
 
 export const updateDeliveryOrderStatus = (
   orderId: string,
-  status: 'preparing' | 'ready' | 'cancelled',
+  status: 'preparing' | 'ready' | 'out_for_delivery' | 'failed' | 'returned' | 'cancelled',
   userId: string,
-  userName: string
+  userName: string,
+  issue?: string
 ): { success: boolean; error?: string } => {
   const db = getDB();
 
@@ -564,6 +565,7 @@ export const updateDeliveryOrderStatus = (
     const order = db.deliveryOrders.find(item => item.id === orderId);
     if (!order) throw new Error("Commande introuvable");
     if (order.status === 'delivered') throw new Error("Cette commande est déjà livrée");
+    if (order.status === 'returned') throw new Error("Cette commande est déjà retournée");
 
     if (status === 'preparing' && !['reserved', 'preparing'].includes(order.status)) {
       throw new Error("Le stock doit être réservé avant la préparation");
@@ -571,9 +573,18 @@ export const updateDeliveryOrderStatus = (
     if (status === 'ready' && !['reserved', 'preparing', 'ready'].includes(order.status)) {
       throw new Error("La commande doit être réservée avant d'être prête");
     }
+    if (status === 'out_for_delivery' && !['ready', 'out_for_delivery'].includes(order.status)) {
+      throw new Error("La commande doit être prête avant de partir en livraison");
+    }
+    if (status === 'failed' && !['out_for_delivery', 'failed'].includes(order.status)) {
+      throw new Error("Seule une commande en livraison peut être déclarée non livrée");
+    }
+    if (status === 'returned' && order.status !== 'failed') {
+      throw new Error("Seule une commande non livrée peut revenir au dépôt");
+    }
 
-    if (status === 'cancelled') {
-      if (['reserved', 'preparing', 'ready'].includes(order.status)) {
+    if (status === 'cancelled' || status === 'returned') {
+      if (['reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)) {
         order.items.forEach(item => {
           const product = db.products.find(entry => entry.id === item.productId);
           if (!product?.isStockable) return;
@@ -585,12 +596,26 @@ export const updateDeliveryOrderStatus = (
           }
         });
       }
-      order.note = `Commande annulée par ${userName} (${userId})`;
+      if (status === 'cancelled') {
+        order.note = `Commande annulée par ${userName} (${userId})`;
+      } else {
+        order.returnedAt = new Date().toISOString();
+        order.returnAction = 'restocked';
+        order.note = `Retour dépôt validé par ${userName} (${userId})`;
+      }
+    }
+
+    if (status === 'failed') {
+      order.failedAt = new Date().toISOString();
+      order.deliveryIssue = issue || 'Livraison non aboutie';
+      order.returnAction = 'pending_manager_review';
+      order.note = order.deliveryIssue;
     }
 
     order.status = status;
     order.updatedAt = new Date().toISOString();
     if (status === 'ready') order.preparedAt = order.updatedAt;
+    if (status === 'out_for_delivery') order.dispatchedAt = order.updatedAt;
 
     saveDB(db);
     return { success: true };
@@ -610,7 +635,7 @@ export const deliverDeliveryOrder = (
   try {
     const order = db.deliveryOrders.find(item => item.id === orderId);
     if (!order) throw new Error("Commande introuvable");
-    if (!['reserved', 'preparing', 'ready'].includes(order.status)) {
+    if (!['reserved', 'preparing', 'ready', 'out_for_delivery'].includes(order.status)) {
       throw new Error("La commande doit être réservée avant la livraison");
     }
 
@@ -683,6 +708,7 @@ export const deliverDeliveryOrder = (
     db.externalSales.push(saleLog);
     order.status = 'delivered';
     order.paymentStatus = order.paymentStatus === 'pending' ? 'paid' : order.paymentStatus;
+    order.amountCollected = calculatedAmount;
     order.deliveredAt = deliveredAt;
     order.updatedAt = deliveredAt;
 

@@ -55,13 +55,19 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
     },
     {
       title: 'Traiter une commande',
-      detail: 'Commande client, paiement Wave ou Orange Money, réservation puis préparation.',
+      detail: 'Commande client, zone Dakar, frais de livraison, paiement Wave, Orange Money ou espèces, réservation puis préparation.',
       view: 'delivery',
       action: 'Ouvrir livraison'
     },
     {
+      title: 'Suivre le livreur',
+      detail: 'Départ livreur, délai cible, paiement à encaisser et incident possible si le client est absent.',
+      view: 'delivery',
+      action: 'Voir le suivi'
+    },
+    {
       title: 'Valider la sortie stock',
-      detail: 'À la livraison, le stock réservé devient une vraie sortie tracée dans le dépôt préparation.',
+      detail: 'À la livraison, le stock réservé devient une vraie sortie tracée dans le dépôt préparation. En cas d’échec, le retour dépôt est visible.',
       view: 'delivery',
       action: 'Valider livraison'
     },

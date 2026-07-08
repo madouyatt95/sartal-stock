@@ -603,6 +603,24 @@ export const useStockState = () => {
     return result;
   };
 
+  const dispatchDeliveryOrder = (orderId: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'out_for_delivery', db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
+  const failDeliveryOrder = (orderId: string, issue?: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'failed', db.currentUser.id, db.currentUser.name, issue);
+    refresh();
+    return result;
+  };
+
+  const returnDeliveryOrder = (orderId: string) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'returned', db.currentUser.id, db.currentUser.name);
+    refresh();
+    return result;
+  };
+
   const cancelDeliveryOrder = (orderId: string) => {
     const result = stockEngine.updateDeliveryOrderStatus(orderId, 'cancelled', db.currentUser.id, db.currentUser.name);
     refresh();
@@ -645,6 +663,9 @@ export const useStockState = () => {
     reserveDeliveryOrder,
     startDeliveryPreparation,
     markDeliveryReady,
+    dispatchDeliveryOrder,
+    failDeliveryOrder,
+    returnDeliveryOrder,
     cancelDeliveryOrder,
     deliverDeliveryOrder,
     resetAllData

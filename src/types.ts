@@ -268,7 +268,10 @@ export type DeliveryOrderStatus =
   | 'reserved'
   | 'preparing'
   | 'ready'
+  | 'out_for_delivery'
   | 'delivered'
+  | 'failed'
+  | 'returned'
   | 'cancelled';
 
 export type DeliveryPaymentStatus = 'pending' | 'paid' | 'failed';
@@ -293,11 +296,21 @@ export interface DeliveryOrder {
   paymentStatus: DeliveryPaymentStatus;
   items: DeliveryOrderItem[];
   deliveryFee: number;
+  zone?: string;
+  estimatedMinutes?: number;
+  driverName?: string;
+  driverPhone?: string;
+  amountCollected?: number;
+  deliveryIssue?: string;
+  returnAction?: 'restocked' | 'loss_declared' | 'pending_manager_review';
   createdAt: string;
   updatedAt: string;
   reservedAt?: string;
   preparedAt?: string;
+  dispatchedAt?: string;
   deliveredAt?: string;
+  failedAt?: string;
+  returnedAt?: string;
   note?: string;
 }
 

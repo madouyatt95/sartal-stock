@@ -55,7 +55,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v7';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v8';
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -647,6 +647,10 @@ const initialDB = (): DatabaseState => {
       paymentType: 'wave',
       paymentStatus: 'paid',
       deliveryFee: 1000,
+      zone: 'Point E / Fann',
+      estimatedMinutes: 45,
+      driverName: 'Mamadou Ba',
+      driverPhone: '+221 77 420 10 10',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       note: 'Commande exemple pour démontrer réservation, préparation puis sortie stock.',
@@ -667,7 +671,11 @@ const initialDB = (): DatabaseState => {
       status: 'confirmed',
       paymentType: 'orange_money',
       paymentStatus: 'paid',
-      deliveryFee: 1000,
+      deliveryFee: 1200,
+      zone: 'Mermoz / Sacré-Coeur',
+      estimatedMinutes: 50,
+      driverName: 'Aïcha Fall',
+      driverPhone: '+221 78 311 02 02',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       items: [
@@ -689,6 +697,10 @@ const initialDB = (): DatabaseState => {
       paymentType: 'wave',
       paymentStatus: 'paid',
       deliveryFee: 1200,
+      zone: 'Mermoz / Sacré-Coeur',
+      estimatedMinutes: 55,
+      driverName: 'Aïcha Fall',
+      driverPhone: '+221 78 311 02 02',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       note: 'Panier familial typique pour montrer un catalogue livraison plus réaliste.',
@@ -707,9 +719,13 @@ const initialDB = (): DatabaseState => {
       channelId: 'pos-5',
       warehouseId: 'wh-delivery',
       status: 'confirmed',
-      paymentType: 'wave',
-      paymentStatus: 'paid',
-      deliveryFee: 1000,
+      paymentType: 'cash',
+      paymentStatus: 'pending',
+      deliveryFee: 1500,
+      zone: 'Ouakam / Almadies',
+      estimatedMinutes: 65,
+      driverName: 'Cheikh Ndiaye',
+      driverPhone: '+221 76 980 12 12',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       note: 'Commande snacking local stockable pour tester la réservation et la sortie livraison.',
@@ -718,6 +734,33 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-thon-boite', quantity: 4, salePrice: 900 },
         { productId: 'prod-jus-bissap', quantity: 4, salePrice: 1000 },
         { productId: 'prod-jus-ditakh', quantity: 4, salePrice: 1000 }
+      ]
+    },
+    {
+      id: 'CMD-1028',
+      customerName: 'Fatou Kane',
+      phone: '+221 77 881 22 10',
+      address: 'Parcelles Assainies U17, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'failed',
+      paymentType: 'cash',
+      paymentStatus: 'pending',
+      deliveryFee: 2000,
+      zone: 'Parcelles / Grand Yoff',
+      estimatedMinutes: 80,
+      driverName: 'Mamadou Ba',
+      driverPhone: '+221 77 420 10 10',
+      deliveryIssue: 'Client injoignable après trois appels.',
+      returnAction: 'pending_manager_review',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      failedAt: new Date().toISOString(),
+      note: 'Cas réel pour montrer les commandes non livrées et le suivi retour.',
+      items: [
+        { productId: 'prod-lait-poudre', quantity: 1, salePrice: 3500 },
+        { productId: 'prod-eau-kirene', quantity: 6, salePrice: 600 },
+        { productId: 'prod-jus-bissap', quantity: 2, salePrice: 1000 }
       ]
     }
   ];
@@ -1177,13 +1220,18 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
       paymentType: 'wave',
       paymentStatus: 'paid',
       deliveryFee: 1000,
+      zone: 'Point E / Fann',
+      estimatedMinutes: 45,
+      driverName: 'Mamadou Ba',
+      driverPhone: '+221 77 420 10 10',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       note: 'Commande exemple pour démontrer réservation, préparation puis sortie stock.',
       items: [
         { productId: 'prod-riz-5kg', quantity: 2, salePrice: 4500 },
         { productId: 'prod-eau-pack', quantity: 3, salePrice: 2500 },
-        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' }
+        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' },
+        { productId: 'prod-eau-kirene', quantity: 12, salePrice: 600 }
       ]
     },
     {
@@ -1196,20 +1244,105 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
       status: 'confirmed',
       paymentType: 'orange_money',
       paymentStatus: 'paid',
-      deliveryFee: 1000,
+      deliveryFee: 1200,
+      zone: 'Mermoz / Sacré-Coeur',
+      estimatedMinutes: 50,
+      driverName: 'Aïcha Fall',
+      driverPhone: '+221 78 311 02 02',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       items: [
         { productId: 'prod-lait-poudre', quantity: 2, salePrice: 3500 },
         { productId: 'prod-huile-1l', quantity: 4, salePrice: 1600 },
         { productId: 'prod-oignon-1kg', quantity: 3, salePrice: 900 },
-        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 }
+        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 },
+        { productId: 'prod-jus-ditakh', quantity: 6, salePrice: 1000 }
+      ]
+    },
+    {
+      id: 'CMD-1026',
+      customerName: 'Mariama Sène',
+      phone: '+221 77 450 45 45',
+      address: 'Sacré-Coeur 3, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'wave',
+      paymentStatus: 'paid',
+      deliveryFee: 1200,
+      zone: 'Mermoz / Sacré-Coeur',
+      estimatedMinutes: 55,
+      driverName: 'Aïcha Fall',
+      driverPhone: '+221 78 311 02 02',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: 'Panier familial typique pour montrer un catalogue livraison plus réaliste.',
+      items: [
+        { productId: 'prod-cafe-touba', quantity: 3, salePrice: 1800 },
+        { productId: 'prod-tomate-concentre', quantity: 6, salePrice: 650 },
+        { productId: 'prod-savon-lessive', quantity: 4, salePrice: 500 },
+        { productId: 'prod-couches-bebe', quantity: 1, salePrice: 4200 }
+      ]
+    },
+    {
+      id: 'CMD-1027',
+      customerName: 'Ibrahima Sarr',
+      phone: '+221 76 300 18 44',
+      address: 'Ouakam, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'cash',
+      paymentStatus: 'pending',
+      deliveryFee: 1500,
+      zone: 'Ouakam / Almadies',
+      estimatedMinutes: 65,
+      driverName: 'Cheikh Ndiaye',
+      driverPhone: '+221 76 980 12 12',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: 'Commande snacking local stockable pour tester la réservation et la sortie livraison.',
+      items: [
+        { productId: 'prod-baguette', quantity: 6, salePrice: 150 },
+        { productId: 'prod-thon-boite', quantity: 4, salePrice: 900 },
+        { productId: 'prod-jus-bissap', quantity: 4, salePrice: 1000 },
+        { productId: 'prod-jus-ditakh', quantity: 4, salePrice: 1000 }
+      ]
+    },
+    {
+      id: 'CMD-1028',
+      customerName: 'Fatou Kane',
+      phone: '+221 77 881 22 10',
+      address: 'Parcelles Assainies U17, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'failed',
+      paymentType: 'cash',
+      paymentStatus: 'pending',
+      deliveryFee: 2000,
+      zone: 'Parcelles / Grand Yoff',
+      estimatedMinutes: 80,
+      driverName: 'Mamadou Ba',
+      driverPhone: '+221 77 420 10 10',
+      deliveryIssue: 'Client injoignable après trois appels.',
+      returnAction: 'pending_manager_review',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      failedAt: new Date().toISOString(),
+      note: 'Cas réel pour montrer les commandes non livrées et le suivi retour.',
+      items: [
+        { productId: 'prod-lait-poudre', quantity: 1, salePrice: 3500 },
+        { productId: 'prod-eau-kirene', quantity: 6, salePrice: 600 },
+        { productId: 'prod-jus-bissap', quantity: 2, salePrice: 1000 }
       ]
     }
   ];
 
   deliveryOrders.forEach(order => {
-    if (!state.deliveryOrders.some(item => item.id === order.id)) {
+    const index = state.deliveryOrders.findIndex(item => item.id === order.id);
+    if (index >= 0) {
+      state.deliveryOrders[index] = { ...state.deliveryOrders[index], ...order };
+    } else {
       state.deliveryOrders.push(order);
     }
   });

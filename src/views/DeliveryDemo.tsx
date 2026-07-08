@@ -6,11 +6,14 @@ import {
   CircleDollarSign,
   ClipboardCheck,
   CreditCard,
+  MapPin,
   Package,
   PackageCheck,
+  Phone,
   RefreshCcw,
   ShoppingBag,
   Truck,
+  Undo2,
   Warehouse
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
@@ -26,7 +29,10 @@ const STATUS_LABELS: Record<DeliveryOrderStatus, string> = {
   reserved: 'Stock réservé',
   preparing: 'En préparation',
   ready: 'Prête à livrer',
+  out_for_delivery: 'En livraison',
   delivered: 'Livrée',
+  failed: 'Non livrée',
+  returned: 'Retour dépôt',
   cancelled: 'Annulée'
 };
 
@@ -35,7 +41,10 @@ const STATUS_BADGES: Record<DeliveryOrderStatus, string> = {
   reserved: 'badge-purple',
   preparing: 'badge-yellow',
   ready: 'badge-green',
+  out_for_delivery: 'badge-blue',
   delivered: 'badge-green',
+  failed: 'badge-red',
+  returned: 'badge-yellow',
   cancelled: 'badge-red'
 };
 
@@ -44,9 +53,25 @@ const STATUS_RANK: Record<DeliveryOrderStatus, number> = {
   reserved: 2,
   preparing: 3,
   ready: 4,
-  delivered: 5,
+  out_for_delivery: 5,
+  delivered: 6,
+  failed: 5,
+  returned: 0,
   cancelled: 0
 };
+
+const PAYMENT_STATUS_LABELS = {
+  pending: 'À encaisser',
+  paid: 'Payé',
+  failed: 'Échec paiement'
+};
+
+const BASKET_TYPES = [
+  { name: 'Panier famille', detail: 'Riz, eau, lait, huile, sucre', fee: '1 000 - 1 500 FCFA' },
+  { name: 'Petit-déjeuner', detail: 'Café Touba, pain, lait, sucre', fee: '1 000 FCFA' },
+  { name: 'Boissons soft', detail: 'Kirène, bissap, ditakh, Coca', fee: 'Selon quartier' },
+  { name: 'Urgence hôtel', detail: 'Dépannage chambre ou room service', fee: 'Prioritaire' }
+];
 
 export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) => {
   const {
@@ -54,6 +79,9 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
     reserveDeliveryOrder,
     startDeliveryPreparation,
     markDeliveryReady,
+    dispatchDeliveryOrder,
+    failDeliveryOrder,
+    returnDeliveryOrder,
     deliverDeliveryOrder,
     cancelDeliveryOrder,
     resetAllData
@@ -61,7 +89,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
   const deliveryChannel = db.posList.find(pos => pos.id === 'pos-5') || db.posList.find(pos => pos.type === 'online_grocery');
   const deliveryWarehouse = db.warehouses.find(warehouse => warehouse.id === deliveryChannel?.defaultWarehouseId) || db.warehouses.find(warehouse => warehouse.id === 'wh-delivery');
   const orders = db.deliveryOrders.filter(order => order.channelId === deliveryChannel?.id);
-  const activeOrderFallback = orders.find(order => !['delivered', 'cancelled'].includes(order.status)) || orders[0];
+  const activeOrderFallback = orders.find(order => !['delivered', 'returned', 'cancelled'].includes(order.status)) || orders[0];
   const [selectedOrderId, setSelectedOrderId] = useState(activeOrderFallback?.id || '');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -91,13 +119,17 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
         .filter(stock => stock.warehouseId === deliveryWarehouse.id)
         .reduce((sum, stock) => sum + stock.quantityReserved, 0)
     : 0;
-  const pendingOrders = orders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready'].includes(order.status)).length;
+  const pendingOrders = orders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)).length;
   const deliveredOrders = orders.filter(order => order.status === 'delivered').length;
+  const issueOrders = orders.filter(order => ['failed', 'returned', 'cancelled'].includes(order.status)).length;
+  const cashToCollect = orders
+    .filter(order => !['delivered', 'returned', 'cancelled'].includes(order.status) && order.paymentStatus === 'pending')
+    .reduce((sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + (item.quantity * item.salePrice), 0) + order.deliveryFee, 0);
 
   const orderTotal = selectedOrder
     ? selectedOrder.items.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0) + selectedOrder.deliveryFee
     : 0;
-  const reservedBySelectedOrder = selectedOrder && ['reserved', 'preparing', 'ready'].includes(selectedOrder.status);
+  const reservedBySelectedOrder = selectedOrder && ['reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(selectedOrder.status);
 
   const itemRows = selectedOrder.items.map(item => {
     const product = getProduct(item.productId);
@@ -158,7 +190,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
     { label: 'Commande confirmée', detail: 'Le client a payé ou confirmé son panier.', rank: 1 },
     { label: 'Stock réservé', detail: 'Les quantités ne sont plus vendables ailleurs.', rank: 2 },
     { label: 'Préparation', detail: "L'équipe prépare le panier sur mobile.", rank: 3 },
-    { label: 'Livraison', detail: 'Le stock sort réellement du dépôt.', rank: 5 }
+    { label: 'Départ livreur', detail: 'Le livreur prend la commande et le suivi démarre.', rank: 5 },
+    { label: 'Livraison', detail: 'Le stock sort réellement du dépôt.', rank: 6 }
   ];
 
   return (
@@ -200,6 +233,29 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           <Truck size={22} color="var(--purple)" />
           <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Commandes livrées</p>
           <h2>{deliveredOrders}</h2>
+        </div>
+      </div>
+
+      <div className="grid-3">
+        <div className="card" style={{ display: 'grid', gap: '10px' }}>
+          <MapPin size={22} color="var(--primary)" />
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Zone sélectionnée</p>
+          <h3 style={{ fontSize: '1.05rem' }}>{selectedOrder.zone || 'Zone non définie'}</h3>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+            Frais: {formatFCFA(selectedOrder.deliveryFee)} • délai cible {selectedOrder.estimatedMinutes || 45} min
+          </span>
+        </div>
+        <div className="card" style={{ display: 'grid', gap: '10px' }}>
+          <Phone size={22} color="var(--success)" />
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Livreur</p>
+          <h3 style={{ fontSize: '1.05rem' }}>{selectedOrder.driverName || 'Non affecté'}</h3>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{selectedOrder.driverPhone || 'Aucun téléphone'}</span>
+        </div>
+        <div className="card" style={{ display: 'grid', gap: '10px' }}>
+          <CircleDollarSign size={22} color="var(--warning)" />
+          <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>À encaisser</p>
+          <h3 style={{ fontSize: '1.05rem' }}>{formatFCFA(cashToCollect)}</h3>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{issueOrders} commande(s) avec incident ou retour.</span>
         </div>
       </div>
 
@@ -248,13 +304,26 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
               </div>
               <div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700 }}>Paiement</p>
-                <strong>{PAYMENT_TYPE_LABELS[selectedOrder.paymentType]}</strong>
+                <strong>{PAYMENT_TYPE_LABELS[selectedOrder.paymentType]} • {PAYMENT_STATUS_LABELS[selectedOrder.paymentStatus]}</strong>
               </div>
               <div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700 }}>Total</p>
                 <strong>{formatFCFA(orderTotal)}</strong>
               </div>
+              <div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700 }}>Zone</p>
+                <strong>{selectedOrder.zone || 'Non définie'}</strong>
+              </div>
+              <div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 700 }}>Livreur</p>
+                <strong>{selectedOrder.driverName || 'Non affecté'}</strong>
+              </div>
             </div>
+            {selectedOrder.deliveryIssue && (
+              <div className="badge badge-red" style={{ justifyContent: 'flex-start', whiteSpace: 'normal', lineHeight: 1.4 }}>
+                Incident : {selectedOrder.deliveryIssue}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -304,14 +373,35 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             </button>
             <button
               className="btn btn-primary"
-              disabled={!['reserved', 'preparing', 'ready'].includes(selectedOrder.status)}
+              disabled={selectedOrder.status !== 'ready'}
+              onClick={() => runAction('Départ livreur', () => dispatchDeliveryOrder(selectedOrder.id))}
+            >
+              Départ livreur <Truck size={16} />
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={!['reserved', 'preparing', 'ready', 'out_for_delivery'].includes(selectedOrder.status)}
               onClick={() => runAction('Livraison validée', () => deliverDeliveryOrder(selectedOrder.id))}
             >
               Valider livraison <ArrowRight size={16} />
             </button>
             <button
               className="btn btn-secondary"
-              disabled={['delivered', 'cancelled'].includes(selectedOrder.status)}
+              disabled={selectedOrder.status !== 'out_for_delivery'}
+              onClick={() => runAction('Livraison non aboutie', () => failDeliveryOrder(selectedOrder.id, 'Client absent ou injoignable'))}
+            >
+              Client absent
+            </button>
+            <button
+              className="btn btn-secondary"
+              disabled={selectedOrder.status !== 'failed'}
+              onClick={() => runAction('Retour dépôt', () => returnDeliveryOrder(selectedOrder.id))}
+            >
+              <Undo2 size={16} /> Retour dépôt
+            </button>
+            <button
+              className="btn btn-secondary"
+              disabled={['delivered', 'returned', 'cancelled'].includes(selectedOrder.status)}
               onClick={() => runAction('Annulation', () => cancelDeliveryOrder(selectedOrder.id))}
             >
               Annuler
@@ -329,6 +419,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             ['Disponibilité', 'Le stock vendable tient compte des quantités déjà réservées.'],
             ['Réservation', 'Une commande confirmée bloque le stock sans le sortir physiquement.'],
             ['Préparation', "L'équipe sait quoi prendre dans le dépôt de livraison."],
+            ['Zones', 'Les frais, délais et livreurs changent selon le quartier.'],
+            ['Incidents', 'Une commande non livrée garde sa trace et peut revenir au dépôt.'],
             ['Livraison', 'La validation crée la sortie stock et la vente dans les rapports.']
           ].map(item => (
             <div key={item[0]} className="proof-row">
@@ -382,6 +474,10 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
                   <strong>{formatQty(row.stock?.quantityReserved || 0)} {row.product?.baseUnit}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
+                  <span>Disponible à vendre</span>
+                  <strong>{formatQty(Math.max(0, (row.stock?.quantityAvailable || 0) - (row.stock?.quantityReserved || 0)))} {row.product?.baseUnit}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
                   <span>Après livraison</span>
                   <strong>{formatQty(row.projectedAfterDelivery)} {row.product?.baseUnit}</strong>
                 </div>
@@ -423,6 +519,24 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
               Le prix en ligne peut être différent du prix restaurant.
             </p>
           </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ display: 'grid', gap: '16px' }}>
+        <div>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Paniers types à démontrer</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
+            Exemples commerciaux pour montrer que le module peut s'adapter aux habitudes de commande locales.
+          </p>
+        </div>
+        <div className="grid-4">
+          {BASKET_TYPES.map(basket => (
+            <div key={basket.name} className="delivery-item-card">
+              <strong>{basket.name}</strong>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '6px' }}>{basket.detail}</p>
+              <span className="badge badge-blue" style={{ marginTop: '12px' }}>{basket.fee}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -431,7 +431,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', fontSize: '0.875rem' }}>
               <span style={{ fontWeight: 600, color: 'var(--primary)' }}>Commandes livraison</span>
               <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
-                {db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready'].includes(order.status)).length}
+                {db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)).length}
               </span>
             </div>
           </div>
