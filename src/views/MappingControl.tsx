@@ -26,10 +26,13 @@ const discoveredPOS = [
 
 const discoveredProducts = [
   { externalSku: 'COCA33', label: 'Coca-Cola 33 cl', count: 6 },
-  { externalSku: 'STEAKFRITES', label: 'Steak frites', count: 1 },
-  { externalSku: 'BURGER', label: 'Burger maison', count: 2 },
+  { externalSku: 'YASSA', label: 'Yassa poulet', count: 1 },
+  { externalSku: 'MAFEBOEUF', label: 'Mafé boeuf', count: 2 },
+  { externalSku: 'THIAKRY', label: 'Thiakry maison', count: 3 },
   { externalSku: 'TONICCITRON', label: 'Tonic citron', count: 3 },
   { externalSku: 'BOUYE75', label: 'Jus bouye', count: 1 },
+  { externalSku: 'DITAKH50', label: 'Jus ditakh 50 cl', count: 6 },
+  { externalSku: 'KIRENE50', label: 'Eau Kirène 50 cl', count: 4 },
   { externalSku: 'UNKNOWN01', label: 'Produit inconnu caisse', count: 1 },
   { externalSku: 'MOCKMENTHE', label: 'Mocktail menthe citron', count: 5 },
   { externalSku: 'EAUMIN', label: 'Eau minérale 50 cl', count: 12 }

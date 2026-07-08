@@ -13,7 +13,13 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
     'Boissons',
     'Boissons premium',
     'Alimentation',
+    'Boulangerie',
+    'Produits frais',
     'Plats',
+    'Desserts',
+    'Snacking',
+    'Épicerie',
+    'Hygiène',
     'Mocktails',
     'Services',
     ...db.products.map(product => product.category).filter(Boolean)

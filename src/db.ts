@@ -55,7 +55,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v6';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v7';
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -118,6 +118,15 @@ const initialDB = (): DatabaseState => {
     { id: 'prod-oignon-1kg', name: 'Oignons filet 1 kg', sku: 'OIGNON1KG', category: 'Épicerie', baseUnit: 'filet', isStockable: true, globalAlertThreshold: 20, isActive: true },
     { id: 'prod-sucre-1kg', name: 'Sucre blanc 1 kg', sku: 'SUCRE1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 20, isActive: true },
     { id: 'prod-jus-bissap', name: 'Jus bissap 50 cl', sku: 'BISSAP50', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 30, isActive: true },
+    { id: 'prod-eau-kirene', name: 'Eau Kirène 50 cl', sku: 'KIRENE50', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 60, isActive: true },
+    { id: 'prod-jus-ditakh', name: 'Jus ditakh 50 cl', sku: 'DITAKH50', category: 'Boissons', baseUnit: 'bouteille', isStockable: true, globalAlertThreshold: 24, isActive: true },
+    { id: 'prod-baguette', name: 'Pain baguette Dakar', sku: 'BAGUETTE', category: 'Boulangerie', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 25, isActive: true },
+    { id: 'prod-thon-boite', name: 'Thon en boîte 160 g', sku: 'THON160', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 18, isActive: true },
+    { id: 'prod-mayonnaise', name: 'Mayonnaise seau 5 kg', sku: 'MAYO5KG', category: 'Épicerie', baseUnit: 'g', isStockable: true, globalAlertThreshold: 1200, isActive: true },
+    { id: 'prod-couscous-mil', name: 'Couscous de mil', sku: 'MILCOUS', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 8000, isActive: true },
+    { id: 'prod-lait-caille', name: 'Lait caillé', sku: 'LAITCAILLE', category: 'Produits frais', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 3000, isActive: true },
+    { id: 'prod-pate-arachide', name: "Pâte d'arachide", sku: 'PATEARACH', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 3000, isActive: true },
+    { id: 'prod-sucre-cuisine', name: 'Sucre cuisine', sku: 'SUCRECUIS', category: 'Alimentation', baseUnit: 'g', isStockable: true, globalAlertThreshold: 2500, isActive: true },
     { id: 'prod-sirop-cola-epice', name: 'Sirop cola épicé', sku: 'COLAEPICE', category: 'Boissons premium', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 5000, isActive: true },
     { id: 'prod-base-soda-premium', name: 'Base soda premium', sku: 'SODAPREMIUM', category: 'Boissons premium', baseUnit: 'ml', isStockable: true, globalAlertThreshold: 5000, isActive: true },
     { id: 'prod-energy-25', name: 'Boisson énergisante 25 cl', sku: 'ENERGY25', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 36, isActive: true },
@@ -131,6 +140,9 @@ const initialDB = (): DatabaseState => {
     { id: 'prod-tonic-premium', name: 'Tonic premium', sku: 'TONICPREMIUM', category: 'Mocktails', baseUnit: 'verre', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-assiette-tapas', name: 'Assiette tapas casino', sku: 'TAPAS', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-yassa-poulet', name: 'Yassa poulet', sku: 'YASSA', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-mafe-boeuf', name: 'Mafé boeuf', sku: 'MAFEBOEUF', category: 'Plats', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-thiakry', name: 'Thiakry maison', sku: 'THIAKRY', category: 'Desserts', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
+    { id: 'prod-sandwich-thon', name: 'Sandwich thon Dakar', sku: 'SANDTHON', category: 'Snacking', baseUnit: 'portion', isStockable: false, globalAlertThreshold: 0, isActive: true },
     { id: 'prod-cafe-touba', name: 'Café Touba 250 g', sku: 'CAFE250', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 18, isActive: true },
     { id: 'prod-tomate-concentre', name: 'Tomate concentrée 400 g', sku: 'TOMATE400', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 24, isActive: true },
     { id: 'prod-savon-lessive', name: 'Savon lessive 400 g', sku: 'SAVON400', category: 'Hygiène', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
@@ -155,10 +167,15 @@ const initialDB = (): DatabaseState => {
     { externalSku: 'OIGNON1KG', externalLabel: 'Oignons filet 1 kg', posId: 'pos-5', productId: 'prod-oignon-1kg' },
     { externalSku: 'SUCRE1KG', externalLabel: 'Sucre blanc 1 kg', posId: 'pos-5', productId: 'prod-sucre-1kg' },
     { externalSku: 'BISSAP50', externalLabel: 'Jus bissap 50 cl', posId: 'pos-5', productId: 'prod-jus-bissap' },
+    { externalSku: 'KIRENE50', externalLabel: 'Eau Kirène 50 cl', productId: 'prod-eau-kirene' },
+    { externalSku: 'DITAKH50', externalLabel: 'Jus ditakh 50 cl', productId: 'prod-jus-ditakh' },
     { externalSku: 'ENERGYCOLA', externalLabel: 'Energy cola', productId: 'prod-energy-cola' },
     { externalSku: 'TONICPREMIUM', externalLabel: 'Tonic premium', productId: 'prod-tonic-premium' },
     { externalSku: 'TAPAS', externalLabel: 'Assiette tapas casino', productId: 'prod-assiette-tapas' },
     { externalSku: 'YASSA', externalLabel: 'Yassa poulet', productId: 'prod-yassa-poulet' },
+    { externalSku: 'MAFEBOEUF', externalLabel: 'Mafé boeuf', productId: 'prod-mafe-boeuf' },
+    { externalSku: 'THIAKRY', externalLabel: 'Thiakry maison', productId: 'prod-thiakry' },
+    { externalSku: 'SANDTHON', externalLabel: 'Sandwich thon Dakar', productId: 'prod-sandwich-thon' },
     { externalSku: 'CAFE250', externalLabel: 'Café Touba 250 g', posId: 'pos-5', productId: 'prod-cafe-touba' },
     { externalSku: 'TOMATE400', externalLabel: 'Tomate concentrée 400 g', posId: 'pos-5', productId: 'prod-tomate-concentre' },
     { externalSku: 'SAVON400', externalLabel: 'Savon lessive 400 g', posId: 'pos-5', productId: 'prod-savon-lessive' },
@@ -176,13 +193,22 @@ const initialDB = (): DatabaseState => {
     { productId: 'prod-jus-gingembre', posId: 'pos-2', salePrice: 3000, taxRate: 18, isAvailable: true },
     { productId: 'prod-jus-gingembre', posId: 'pos-3', salePrice: 3500, taxRate: 18, isAvailable: true },
     // Jus premium pricing
-    { productId: 'prod-jus-bouye', posId: 'pos-1', salePrice: 12000, taxRate: 18, isAvailable: true },
-    { productId: 'prod-jus-bouye', posId: 'pos-3', salePrice: 18000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-bouye', posId: 'pos-1', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-bouye', posId: 'pos-3', salePrice: 4000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-ditakh', posId: 'pos-1', salePrice: 1800, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-ditakh', posId: 'pos-2', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-jus-ditakh', posId: 'pos-3', salePrice: 3000, taxRate: 20, isAvailable: true },
+    { productId: 'prod-jus-ditakh', posId: 'pos-5', salePrice: 1000, taxRate: 18, isAvailable: true, defaultWarehouseId: 'wh-delivery' },
     // Everyday product with different prices and tax setup
     { productId: 'prod-eau-50', posId: 'pos-1', salePrice: 1000, taxRate: 18, isAvailable: true },
     { productId: 'prod-eau-50', posId: 'pos-2', salePrice: 1500, taxRate: 18, isAvailable: true },
     { productId: 'prod-eau-50', posId: 'pos-3', salePrice: 2000, taxRate: 20, isAvailable: true },
     { productId: 'prod-eau-50', posId: 'pos-4', salePrice: 1200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-kirene', posId: 'pos-1', salePrice: 800, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-kirene', posId: 'pos-2', salePrice: 1200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-kirene', posId: 'pos-3', salePrice: 1500, taxRate: 20, isAvailable: true },
+    { productId: 'prod-eau-kirene', posId: 'pos-4', salePrice: 1000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-eau-kirene', posId: 'pos-5', salePrice: 600, taxRate: 18, isAvailable: true, defaultWarehouseId: 'wh-delivery' },
     // Boissons soft premium
     { productId: 'prod-petillant-premium', posId: 'pos-2', salePrice: 6000, taxRate: 18, isAvailable: true },
     { productId: 'prod-petillant-premium', posId: 'pos-3', salePrice: 8000, taxRate: 20, isAvailable: true },
@@ -198,6 +224,12 @@ const initialDB = (): DatabaseState => {
     { productId: 'prod-mocktail-menthe', posId: 'pos-3', salePrice: 7000, taxRate: 20, isAvailable: true },
     { productId: 'prod-thieb-signature', posId: 'pos-1', salePrice: 9500, taxRate: 18, isAvailable: true },
     { productId: 'prod-thieb-signature', posId: 'pos-4', salePrice: 11000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-mafe-boeuf', posId: 'pos-1', salePrice: 7500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-mafe-boeuf', posId: 'pos-4', salePrice: 9000, taxRate: 18, isAvailable: true, defaultWarehouseId: 'wh-central' },
+    { productId: 'prod-thiakry', posId: 'pos-1', salePrice: 2500, taxRate: 18, isAvailable: true },
+    { productId: 'prod-thiakry', posId: 'pos-4', salePrice: 3000, taxRate: 18, isAvailable: true, defaultWarehouseId: 'wh-central' },
+    { productId: 'prod-sandwich-thon', posId: 'pos-1', salePrice: 3000, taxRate: 18, isAvailable: true },
+    { productId: 'prod-sandwich-thon', posId: 'pos-5', salePrice: 2500, taxRate: 18, isAvailable: true, defaultWarehouseId: 'wh-delivery' },
     // Online grocery channel pricing
     { productId: 'prod-coca', posId: 'pos-5', salePrice: 1200, taxRate: 18, isAvailable: true },
     { productId: 'prod-riz-5kg', posId: 'pos-5', salePrice: 4500, taxRate: 18, isAvailable: true },
@@ -331,6 +363,38 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-moutarde', quantity: 30, unit: 'g' },
         { productId: 'prod-huile', quantity: 20, unit: 'ml' }
       ]
+    },
+    {
+      id: 'rec-mafe-boeuf',
+      productId: 'prod-mafe-boeuf',
+      name: 'Mafé boeuf',
+      ingredients: [
+        { productId: 'prod-steak', quantity: 1, unit: 'unité' },
+        { productId: 'prod-riz-parfume', quantity: 220, unit: 'g' },
+        { productId: 'prod-pate-arachide', quantity: 70, unit: 'g' },
+        { productId: 'prod-legumes-mix', quantity: 160, unit: 'g' },
+        { productId: 'prod-huile', quantity: 20, unit: 'ml' }
+      ]
+    },
+    {
+      id: 'rec-thiakry',
+      productId: 'prod-thiakry',
+      name: 'Thiakry maison',
+      ingredients: [
+        { productId: 'prod-couscous-mil', quantity: 120, unit: 'g' },
+        { productId: 'prod-lait-caille', quantity: 180, unit: 'ml' },
+        { productId: 'prod-sucre-cuisine', quantity: 25, unit: 'g' }
+      ]
+    },
+    {
+      id: 'rec-sandwich-thon',
+      productId: 'prod-sandwich-thon',
+      name: 'Sandwich thon Dakar',
+      ingredients: [
+        { productId: 'prod-baguette', quantity: 1, unit: 'unité' },
+        { productId: 'prod-thon-boite', quantity: 1, unit: 'boîte' },
+        { productId: 'prod-mayonnaise', quantity: 35, unit: 'g' }
+      ]
     }
   ];
 
@@ -407,7 +471,29 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-huile1-delivery-1', productId: 'prod-huile-1l', warehouseId: 'wh-delivery', batchNumber: 'LOT-HUILE1-LIV-01', expiryDate: '2027-06-30', quantity: 48, initialQuantity: 48, supplierId: 'sup-market', purchaseCost: 1050, createdAt: dateStr },
     { id: 'lot-oignon-delivery-1', productId: 'prod-oignon-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-OIGNON-LIV-01', expiryDate: '2026-07-20', quantity: 32, initialQuantity: 32, supplierId: 'sup-market', purchaseCost: 520, createdAt: dateStr },
     { id: 'lot-sucre1-delivery-1', productId: 'prod-sucre-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-SUCRE1-LIV-01', expiryDate: '2027-05-31', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 550, createdAt: dateStr },
+    { id: 'lot-sucre-cuisine-rest-1', productId: 'prod-sucre-cuisine', warehouseId: 'wh-restaurant', batchNumber: 'LOT-SUCRECUIS-REST-01', expiryDate: '2027-05-31', quantity: 18000, initialQuantity: 18000, supplierId: 'sup-market', purchaseCost: 0.55, createdAt: dateStr },
+    { id: 'lot-sucre-cuisine-central-1', productId: 'prod-sucre-cuisine', warehouseId: 'wh-central', batchNumber: 'LOT-SUCRECUIS-CENT-01', expiryDate: '2027-05-31', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-market', purchaseCost: 0.55, createdAt: dateStr },
     { id: 'lot-bissap-delivery-1', productId: 'prod-jus-bissap', warehouseId: 'wh-delivery', batchNumber: 'LOT-BISSAP-LIV-01', expiryDate: '2026-08-15', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 420, createdAt: dateStr },
+    { id: 'lot-kirene-rest-1', productId: 'prod-eau-kirene', warehouseId: 'wh-restaurant', batchNumber: 'LOT-KIRENE-REST-01', expiryDate: '2027-04-30', quantity: 180, initialQuantity: 180, supplierId: 'sup-drinks', purchaseCost: 220, createdAt: dateStr },
+    { id: 'lot-kirene-cas-1', productId: 'prod-eau-kirene', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-KIRENE-CAS-01', expiryDate: '2027-04-30', quantity: 144, initialQuantity: 144, supplierId: 'sup-drinks', purchaseCost: 220, createdAt: dateStr },
+    { id: 'lot-kirene-nc-1', productId: 'prod-eau-kirene', warehouseId: 'wh-nightclub', batchNumber: 'LOT-KIRENE-NC-01', expiryDate: '2027-04-30', quantity: 120, initialQuantity: 120, supplierId: 'sup-drinks', purchaseCost: 220, createdAt: dateStr },
+    { id: 'lot-kirene-delivery-1', productId: 'prod-eau-kirene', warehouseId: 'wh-delivery', batchNumber: 'LOT-KIRENE-LIV-01', expiryDate: '2027-04-30', quantity: 240, initialQuantity: 240, supplierId: 'sup-drinks', purchaseCost: 210, createdAt: dateStr },
+    { id: 'lot-ditakh-rest-1', productId: 'prod-jus-ditakh', warehouseId: 'wh-restaurant', batchNumber: 'LOT-DITAKH-REST-01', expiryDate: '2026-08-20', quantity: 60, initialQuantity: 60, supplierId: 'sup-drinks', purchaseCost: 520, createdAt: dateStr },
+    { id: 'lot-ditakh-cas-1', productId: 'prod-jus-ditakh', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-DITAKH-CAS-01', expiryDate: '2026-08-20', quantity: 48, initialQuantity: 48, supplierId: 'sup-drinks', purchaseCost: 520, createdAt: dateStr },
+    { id: 'lot-ditakh-nc-1', productId: 'prod-jus-ditakh', warehouseId: 'wh-nightclub', batchNumber: 'LOT-DITAKH-NC-01', expiryDate: '2026-08-20', quantity: 48, initialQuantity: 48, supplierId: 'sup-drinks', purchaseCost: 520, createdAt: dateStr },
+    { id: 'lot-ditakh-delivery-1', productId: 'prod-jus-ditakh', warehouseId: 'wh-delivery', batchNumber: 'LOT-DITAKH-LIV-01', expiryDate: '2026-08-20', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 500, createdAt: dateStr },
+    { id: 'lot-baguette-rest-1', productId: 'prod-baguette', warehouseId: 'wh-restaurant', batchNumber: 'LOT-BAGUETTE-R01', expiryDate: '2026-07-03', quantity: 80, initialQuantity: 80, supplierId: 'sup-market', purchaseCost: 120, createdAt: dateStr },
+    { id: 'lot-baguette-delivery-1', productId: 'prod-baguette', warehouseId: 'wh-delivery', batchNumber: 'LOT-BAGUETTE-LIV-01', expiryDate: '2026-07-03', quantity: 50, initialQuantity: 50, supplierId: 'sup-market', purchaseCost: 120, createdAt: dateStr },
+    { id: 'lot-thon-rest-1', productId: 'prod-thon-boite', warehouseId: 'wh-restaurant', batchNumber: 'LOT-THON-R01', expiryDate: '2028-09-30', quantity: 72, initialQuantity: 72, supplierId: 'sup-grocery', purchaseCost: 650, createdAt: dateStr },
+    { id: 'lot-thon-delivery-1', productId: 'prod-thon-boite', warehouseId: 'wh-delivery', batchNumber: 'LOT-THON-LIV-01', expiryDate: '2028-09-30', quantity: 48, initialQuantity: 48, supplierId: 'sup-grocery', purchaseCost: 650, createdAt: dateStr },
+    { id: 'lot-mayo-rest-1', productId: 'prod-mayonnaise', warehouseId: 'wh-restaurant', batchNumber: 'LOT-MAYO-R01', expiryDate: '2027-01-31', quantity: 6000, initialQuantity: 6000, supplierId: 'sup-grocery', purchaseCost: 2, createdAt: dateStr },
+    { id: 'lot-mayo-delivery-1', productId: 'prod-mayonnaise', warehouseId: 'wh-delivery', batchNumber: 'LOT-MAYO-LIV-01', expiryDate: '2027-01-31', quantity: 4000, initialQuantity: 4000, supplierId: 'sup-grocery', purchaseCost: 2, createdAt: dateStr },
+    { id: 'lot-mil-rest-1', productId: 'prod-couscous-mil', warehouseId: 'wh-restaurant', batchNumber: 'LOT-MIL-R01', expiryDate: '2027-02-28', quantity: 18000, initialQuantity: 18000, supplierId: 'sup-market', purchaseCost: 0.65, createdAt: dateStr },
+    { id: 'lot-mil-central-1', productId: 'prod-couscous-mil', warehouseId: 'wh-central', batchNumber: 'LOT-MIL-CENT-01', expiryDate: '2027-02-28', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-market', purchaseCost: 0.65, createdAt: dateStr },
+    { id: 'lot-laitcaille-rest-1', productId: 'prod-lait-caille', warehouseId: 'wh-restaurant', batchNumber: 'LOT-LAITCAILLE-R01', expiryDate: '2026-07-06', quantity: 12000, initialQuantity: 12000, supplierId: 'sup-fresh', purchaseCost: 1.1, createdAt: dateStr },
+    { id: 'lot-laitcaille-central-1', productId: 'prod-lait-caille', warehouseId: 'wh-central', batchNumber: 'LOT-LAITCAILLE-CENT-01', expiryDate: '2026-07-06', quantity: 7000, initialQuantity: 7000, supplierId: 'sup-fresh', purchaseCost: 1.1, createdAt: dateStr },
+    { id: 'lot-pate-arachide-rest-1', productId: 'prod-pate-arachide', warehouseId: 'wh-restaurant', batchNumber: 'LOT-PATEARACH-R01', expiryDate: '2027-05-31', quantity: 8000, initialQuantity: 8000, supplierId: 'sup-market', purchaseCost: 3.5, createdAt: dateStr },
+    { id: 'lot-pate-arachide-central-1', productId: 'prod-pate-arachide', warehouseId: 'wh-central', batchNumber: 'LOT-PATEARACH-CENT-01', expiryDate: '2027-05-31', quantity: 5000, initialQuantity: 5000, supplierId: 'sup-market', purchaseCost: 3.5, createdAt: dateStr },
     { id: 'lot-cola-epice-cas-1', productId: 'prod-sirop-cola-epice', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-COLAEPICE-CAS-01', expiryDate: '2030-12-31', quantity: 14000, initialQuantity: 14000, supplierId: 'sup-premium', purchaseCost: 32, createdAt: dateStr },
     { id: 'lot-cola-epice-nc-1', productId: 'prod-sirop-cola-epice', warehouseId: 'wh-nightclub', batchNumber: 'LOT-COLAEPICE-NC-01', expiryDate: '2030-12-31', quantity: 21000, initialQuantity: 21000, supplierId: 'sup-premium', purchaseCost: 32, createdAt: dateStr },
     { id: 'lot-soda-premium-cas-1', productId: 'prod-base-soda-premium', warehouseId: 'wh-bar-casino', batchNumber: 'LOT-SODAPREMIUM-CAS-01', expiryDate: '2030-12-31', quantity: 10500, initialQuantity: 10500, supplierId: 'sup-premium', purchaseCost: 24, createdAt: dateStr },
@@ -567,7 +653,8 @@ const initialDB = (): DatabaseState => {
       items: [
         { productId: 'prod-riz-5kg', quantity: 2, salePrice: 4500 },
         { productId: 'prod-eau-pack', quantity: 3, salePrice: 2500 },
-        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' }
+        { productId: 'prod-coca', quantity: 6, salePrice: 1200, substitutionProductId: 'prod-jus-bissap', note: 'Remplacement possible si le Coca passe sous seuil.' },
+        { productId: 'prod-eau-kirene', quantity: 12, salePrice: 600 }
       ]
     },
     {
@@ -587,7 +674,8 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-lait-poudre', quantity: 2, salePrice: 3500 },
         { productId: 'prod-huile-1l', quantity: 4, salePrice: 1600 },
         { productId: 'prod-oignon-1kg', quantity: 3, salePrice: 900 },
-        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 }
+        { productId: 'prod-sucre-1kg', quantity: 2, salePrice: 850 },
+        { productId: 'prod-jus-ditakh', quantity: 6, salePrice: 1000 }
       ]
     },
     {
@@ -609,6 +697,27 @@ const initialDB = (): DatabaseState => {
         { productId: 'prod-tomate-concentre', quantity: 6, salePrice: 650 },
         { productId: 'prod-savon-lessive', quantity: 4, salePrice: 500 },
         { productId: 'prod-couches-bebe', quantity: 1, salePrice: 4200 }
+      ]
+    },
+    {
+      id: 'CMD-1027',
+      customerName: 'Ibrahima Sarr',
+      phone: '+221 76 300 18 44',
+      address: 'Ouakam, Dakar',
+      channelId: 'pos-5',
+      warehouseId: 'wh-delivery',
+      status: 'confirmed',
+      paymentType: 'wave',
+      paymentStatus: 'paid',
+      deliveryFee: 1000,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      note: 'Commande snacking local stockable pour tester la réservation et la sortie livraison.',
+      items: [
+        { productId: 'prod-baguette', quantity: 6, salePrice: 150 },
+        { productId: 'prod-thon-boite', quantity: 4, salePrice: 900 },
+        { productId: 'prod-jus-bissap', quantity: 4, salePrice: 1000 },
+        { productId: 'prod-jus-ditakh', quantity: 4, salePrice: 1000 }
       ]
     }
   ];

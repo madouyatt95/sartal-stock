@@ -10,12 +10,13 @@ interface POSImportsProps {
 
 const SAMPLE_EXPORT = `date;posCode;ticketId;externalSku;label;quantity;amount;paymentType;roomNumber
 2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;COCA33;Coca-Cola 33 cl;2;3000;cash;
-2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;STEAKFRITES;Steak frites;1;6500;cash;
-2026-07-02T12:44:00;Restaurant La Terrasse;REST-1002;BURGER;Burger maison;2;11000;orange_money;
+2026-07-02T12:15:00;Restaurant La Terrasse;REST-1001;YASSA;Yassa poulet;1;8000;cash;
+2026-07-02T12:44:00;Restaurant La Terrasse;REST-1002;MAFEBOEUF;Mafé boeuf;2;15000;orange_money;
+2026-07-02T13:05:00;Restaurant La Terrasse;REST-1003;THIAKRY;Thiakry maison;3;7500;wave;
 2026-07-02T21:10:00;Bar des Machines à Sous;CAS-2201;TONICCITRON;Tonic citron;3;13500;wave;
-2026-07-02T21:30:00;Bar des Machines à Sous;CAS-2202;COCA33;Coca-Cola 33 cl;4;8000;room_charge;204
-2026-07-02T23:40:00;Night Club;NC-3301;BOUYE75;Jus bouye;1;18000;card;
-2026-07-02T23:45:00;Night Club;NC-3302;GINGEMBRE33;Jus gingembre 33 cl;6;21000;cash;
+2026-07-02T21:30:00;Bar des Machines à Sous;CAS-2202;KIRENE50;Eau Kirène 50 cl;4;4800;room_charge;204
+2026-07-02T23:40:00;Night Club;NC-3301;BOUYE75;Jus bouye;1;4000;card;
+2026-07-02T23:45:00;Night Club;NC-3302;DITAKH50;Jus ditakh 50 cl;6;18000;cash;
 2026-07-02T23:55:00;Night Club;NC-3303;UNKNOWN01;Produit inconnu caisse;1;5000;cash;`;
 
 export const POSImports: React.FC<POSImportsProps> = ({ state, setView }) => {
