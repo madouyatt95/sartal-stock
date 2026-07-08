@@ -55,7 +55,25 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v8';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v9';
+
+const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string => {
+  if (product.category.includes('Boissons premium')) return 'sup-premium';
+  if (
+    product.category.includes('Boissons')
+    || ['prod-coca', 'prod-jus-gingembre', 'prod-jus-bouye', 'prod-energy-25'].includes(product.id)
+  ) return 'sup-drinks';
+  if (
+    product.category.includes('Produits frais')
+    || ['prod-steak', 'prod-poulet', 'prod-poisson-dorade', 'prod-poisson-fume', 'prod-menthe'].includes(product.id)
+  ) return 'sup-fresh';
+  if (
+    product.category.includes('Épicerie')
+    || product.category.includes('Hygiène')
+    || ['prod-riz-5kg', 'prod-fonio-1kg', 'prod-niebe-1kg', 'prod-bouillon-sachet'].includes(product.id)
+  ) return 'sup-grocery';
+  return 'sup-market';
+};
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -146,8 +164,19 @@ const initialDB = (): DatabaseState => {
     { id: 'prod-cafe-touba', name: 'Café Touba 250 g', sku: 'CAFE250', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 18, isActive: true },
     { id: 'prod-tomate-concentre', name: 'Tomate concentrée 400 g', sku: 'TOMATE400', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 24, isActive: true },
     { id: 'prod-savon-lessive', name: 'Savon lessive 400 g', sku: 'SAVON400', category: 'Hygiène', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
-    { id: 'prod-couches-bebe', name: 'Couches bébé taille M', sku: 'COUCHESM', category: 'Hygiène', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 12, isActive: true }
+    { id: 'prod-couches-bebe', name: 'Couches bébé taille M', sku: 'COUCHESM', category: 'Hygiène', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 12, isActive: true },
+    { id: 'prod-fonio-1kg', name: 'Fonio précuit 1 kg', sku: 'FONIO1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 18, isActive: true },
+    { id: 'prod-niebe-1kg', name: 'Niébé local 1 kg', sku: 'NIEBE1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-attieke-500', name: 'Attiéké frais 500 g', sku: 'ATTIEKE500', category: 'Produits frais', baseUnit: 'barquette', isStockable: true, globalAlertThreshold: 16, isActive: true },
+    { id: 'prod-bouillon-sachet', name: 'Bouillon cuisine sachet', sku: 'BOUILLON', category: 'Épicerie', baseUnit: 'sachet', isStockable: true, globalAlertThreshold: 40, isActive: true },
+    { id: 'prod-poisson-fume', name: 'Poisson fumé local', sku: 'POISFUME', category: 'Produits frais', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true }
   ];
+
+  products.forEach(product => {
+    if (product.isStockable && !product.mainSupplierId) {
+      product.mainSupplierId = getDemoSupplierId(product);
+    }
+  });
 
   const posProductAliases: POSProductAlias[] = [
     { externalSku: 'COCA33', externalLabel: 'Coca-Cola 33 cl', productId: 'prod-coca' },
@@ -179,7 +208,12 @@ const initialDB = (): DatabaseState => {
     { externalSku: 'CAFE250', externalLabel: 'Café Touba 250 g', posId: 'pos-5', productId: 'prod-cafe-touba' },
     { externalSku: 'TOMATE400', externalLabel: 'Tomate concentrée 400 g', posId: 'pos-5', productId: 'prod-tomate-concentre' },
     { externalSku: 'SAVON400', externalLabel: 'Savon lessive 400 g', posId: 'pos-5', productId: 'prod-savon-lessive' },
-    { externalSku: 'COUCHESM', externalLabel: 'Couches bébé taille M', posId: 'pos-5', productId: 'prod-couches-bebe' }
+    { externalSku: 'COUCHESM', externalLabel: 'Couches bébé taille M', posId: 'pos-5', productId: 'prod-couches-bebe' },
+    { externalSku: 'FONIO1KG', externalLabel: 'Fonio précuit 1 kg', posId: 'pos-5', productId: 'prod-fonio-1kg' },
+    { externalSku: 'NIEBE1KG', externalLabel: 'Niébé local 1 kg', posId: 'pos-5', productId: 'prod-niebe-1kg' },
+    { externalSku: 'ATTIEKE500', externalLabel: 'Attiéké frais 500 g', posId: 'pos-5', productId: 'prod-attieke-500' },
+    { externalSku: 'BOUILLON', externalLabel: 'Bouillon cuisine sachet', posId: 'pos-5', productId: 'prod-bouillon-sachet' },
+    { externalSku: 'POISFUME', externalLabel: 'Poisson fumé local', posId: 'pos-5', productId: 'prod-poisson-fume' }
   ];
 
   const posPricing: POSPricing[] = [
@@ -250,7 +284,12 @@ const initialDB = (): DatabaseState => {
     { productId: 'prod-cafe-touba', posId: 'pos-5', salePrice: 1800, taxRate: 18, isAvailable: true },
     { productId: 'prod-tomate-concentre', posId: 'pos-5', salePrice: 650, taxRate: 18, isAvailable: true },
     { productId: 'prod-savon-lessive', posId: 'pos-5', salePrice: 500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-couches-bebe', posId: 'pos-5', salePrice: 4200, taxRate: 18, isAvailable: true }
+    { productId: 'prod-couches-bebe', posId: 'pos-5', salePrice: 4200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-fonio-1kg', posId: 'pos-5', salePrice: 2200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-niebe-1kg', posId: 'pos-5', salePrice: 1300, taxRate: 18, isAvailable: true },
+    { productId: 'prod-attieke-500', posId: 'pos-5', salePrice: 900, taxRate: 18, isAvailable: true },
+    { productId: 'prod-bouillon-sachet', posId: 'pos-5', salePrice: 150, taxRate: 18, isAvailable: true },
+    { productId: 'prod-poisson-fume', posId: 'pos-5', salePrice: 1800, taxRate: 18, isAvailable: true }
   ];
 
   const suppliers: Supplier[] = [
@@ -515,7 +554,12 @@ const initialDB = (): DatabaseState => {
     { id: 'lot-cafe-delivery-1', productId: 'prod-cafe-touba', warehouseId: 'wh-delivery', batchNumber: 'LOT-CAFE-LIV-01', expiryDate: '2027-03-31', quantity: 28, initialQuantity: 28, supplierId: 'sup-grocery', purchaseCost: 1100, createdAt: dateStr },
     { id: 'lot-tomate-delivery-1', productId: 'prod-tomate-concentre', warehouseId: 'wh-delivery', batchNumber: 'LOT-TOMATE-LIV-01', expiryDate: '2027-08-31', quantity: 72, initialQuantity: 72, supplierId: 'sup-grocery', purchaseCost: 390, createdAt: dateStr },
     { id: 'lot-savon-delivery-1', productId: 'prod-savon-lessive', warehouseId: 'wh-delivery', batchNumber: 'LOT-SAVON-LIV-01', expiryDate: '2028-12-31', quantity: 54, initialQuantity: 54, supplierId: 'sup-grocery', purchaseCost: 260, createdAt: dateStr },
-    { id: 'lot-couches-delivery-1', productId: 'prod-couches-bebe', warehouseId: 'wh-delivery', batchNumber: 'LOT-COUCHES-LIV-01', expiryDate: '2029-12-31', quantity: 16, initialQuantity: 16, supplierId: 'sup-grocery', purchaseCost: 3100, createdAt: dateStr }
+    { id: 'lot-couches-delivery-1', productId: 'prod-couches-bebe', warehouseId: 'wh-delivery', batchNumber: 'LOT-COUCHES-LIV-01', expiryDate: '2029-12-31', quantity: 16, initialQuantity: 16, supplierId: 'sup-grocery', purchaseCost: 3100, createdAt: dateStr },
+    { id: 'lot-fonio-delivery-1', productId: 'prod-fonio-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-FONIO-LIV-01', expiryDate: '2027-04-30', quantity: 34, initialQuantity: 34, supplierId: 'sup-grocery', purchaseCost: 1450, createdAt: dateStr },
+    { id: 'lot-niebe-delivery-1', productId: 'prod-niebe-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-NIEBE-LIV-01', expiryDate: '2027-03-31', quantity: 42, initialQuantity: 42, supplierId: 'sup-grocery', purchaseCost: 820, createdAt: dateStr },
+    { id: 'lot-attieke-delivery-1', productId: 'prod-attieke-500', warehouseId: 'wh-delivery', batchNumber: 'LOT-ATTIEKE-LIV-01', expiryDate: '2026-07-12', quantity: 22, initialQuantity: 22, supplierId: 'sup-fresh', purchaseCost: 520, createdAt: dateStr },
+    { id: 'lot-bouillon-delivery-1', productId: 'prod-bouillon-sachet', warehouseId: 'wh-delivery', batchNumber: 'LOT-BOUILLON-LIV-01', expiryDate: '2027-10-31', quantity: 120, initialQuantity: 120, supplierId: 'sup-grocery', purchaseCost: 85, createdAt: dateStr },
+    { id: 'lot-poisson-fume-delivery-1', productId: 'prod-poisson-fume', warehouseId: 'wh-delivery', batchNumber: 'LOT-POISFUME-LIV-01', expiryDate: '2026-07-14', quantity: 18, initialQuantity: 18, supplierId: 'sup-fresh', purchaseCost: 1100, createdAt: dateStr }
   ];
 
   // Initialize stocks based on batches
@@ -706,6 +750,8 @@ const initialDB = (): DatabaseState => {
       note: 'Panier familial typique pour montrer un catalogue livraison plus réaliste.',
       items: [
         { productId: 'prod-cafe-touba', quantity: 3, salePrice: 1800 },
+        { productId: 'prod-fonio-1kg', quantity: 2, salePrice: 2200 },
+        { productId: 'prod-niebe-1kg', quantity: 2, salePrice: 1300 },
         { productId: 'prod-tomate-concentre', quantity: 6, salePrice: 650 },
         { productId: 'prod-savon-lessive', quantity: 4, salePrice: 500 },
         { productId: 'prod-couches-bebe', quantity: 1, salePrice: 4200 }
@@ -732,6 +778,8 @@ const initialDB = (): DatabaseState => {
       items: [
         { productId: 'prod-baguette', quantity: 6, salePrice: 150 },
         { productId: 'prod-thon-boite', quantity: 4, salePrice: 900 },
+        { productId: 'prod-attieke-500', quantity: 3, salePrice: 900 },
+        { productId: 'prod-poisson-fume', quantity: 2, salePrice: 1800 },
         { productId: 'prod-jus-bissap', quantity: 4, salePrice: 1000 },
         { productId: 'prod-jus-ditakh', quantity: 4, salePrice: 1000 }
       ]
@@ -797,6 +845,9 @@ const initialDB = (): DatabaseState => {
       updatedAt: '2026-07-03T15:20:00.000Z',
       items: [
         { productId: 'prod-cafe-touba', quantityOrdered: 48, quantityReceived: 0, purchasePrice: 1100, unit: 'paquet' },
+        { productId: 'prod-fonio-1kg', quantityOrdered: 36, quantityReceived: 0, purchasePrice: 1450, unit: 'paquet' },
+        { productId: 'prod-niebe-1kg', quantityOrdered: 48, quantityReceived: 0, purchasePrice: 820, unit: 'paquet' },
+        { productId: 'prod-bouillon-sachet', quantityOrdered: 200, quantityReceived: 0, purchasePrice: 85, unit: 'sachet' },
         { productId: 'prod-tomate-concentre', quantityOrdered: 96, quantityReceived: 0, purchasePrice: 390, unit: 'boîte' },
         { productId: 'prod-couches-bebe', quantityOrdered: 24, quantityReceived: 0, purchasePrice: 3100, unit: 'pack' }
       ]
@@ -969,12 +1020,26 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'prod-cafe-touba', name: 'Café Touba 250 g', sku: 'CAFE250', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 18, isActive: true },
     { id: 'prod-tomate-concentre', name: 'Tomate concentrée 400 g', sku: 'TOMATE400', category: 'Épicerie', baseUnit: 'boîte', isStockable: true, globalAlertThreshold: 24, isActive: true },
     { id: 'prod-savon-lessive', name: 'Savon lessive 400 g', sku: 'SAVON400', category: 'Hygiène', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 20, isActive: true },
-    { id: 'prod-couches-bebe', name: 'Couches bébé taille M', sku: 'COUCHESM', category: 'Hygiène', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 12, isActive: true }
+    { id: 'prod-couches-bebe', name: 'Couches bébé taille M', sku: 'COUCHESM', category: 'Hygiène', baseUnit: 'pack', isStockable: true, globalAlertThreshold: 12, isActive: true },
+    { id: 'prod-fonio-1kg', name: 'Fonio précuit 1 kg', sku: 'FONIO1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 18, isActive: true },
+    { id: 'prod-niebe-1kg', name: 'Niébé local 1 kg', sku: 'NIEBE1KG', category: 'Épicerie', baseUnit: 'paquet', isStockable: true, globalAlertThreshold: 20, isActive: true },
+    { id: 'prod-attieke-500', name: 'Attiéké frais 500 g', sku: 'ATTIEKE500', category: 'Produits frais', baseUnit: 'barquette', isStockable: true, globalAlertThreshold: 16, isActive: true },
+    { id: 'prod-bouillon-sachet', name: 'Bouillon cuisine sachet', sku: 'BOUILLON', category: 'Épicerie', baseUnit: 'sachet', isStockable: true, globalAlertThreshold: 40, isActive: true },
+    { id: 'prod-poisson-fume', name: 'Poisson fumé local', sku: 'POISFUME', category: 'Produits frais', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10, isActive: true }
   ];
 
   demoProducts.forEach(product => {
     if (!state.products.some(item => item.id === product.id)) {
-      state.products.push(product);
+      state.products.push({
+        ...product,
+        mainSupplierId: product.isStockable ? getDemoSupplierId(product) : product.mainSupplierId
+      });
+    }
+  });
+
+  state.products.forEach(product => {
+    if (product.isStockable && !product.mainSupplierId) {
+      product.mainSupplierId = getDemoSupplierId(product);
     }
   });
 
@@ -997,7 +1062,12 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { externalSku: 'CAFE250', externalLabel: 'Café Touba 250 g', posId: 'pos-5', productId: 'prod-cafe-touba' },
     { externalSku: 'TOMATE400', externalLabel: 'Tomate concentrée 400 g', posId: 'pos-5', productId: 'prod-tomate-concentre' },
     { externalSku: 'SAVON400', externalLabel: 'Savon lessive 400 g', posId: 'pos-5', productId: 'prod-savon-lessive' },
-    { externalSku: 'COUCHESM', externalLabel: 'Couches bébé taille M', posId: 'pos-5', productId: 'prod-couches-bebe' }
+    { externalSku: 'COUCHESM', externalLabel: 'Couches bébé taille M', posId: 'pos-5', productId: 'prod-couches-bebe' },
+    { externalSku: 'FONIO1KG', externalLabel: 'Fonio précuit 1 kg', posId: 'pos-5', productId: 'prod-fonio-1kg' },
+    { externalSku: 'NIEBE1KG', externalLabel: 'Niébé local 1 kg', posId: 'pos-5', productId: 'prod-niebe-1kg' },
+    { externalSku: 'ATTIEKE500', externalLabel: 'Attiéké frais 500 g', posId: 'pos-5', productId: 'prod-attieke-500' },
+    { externalSku: 'BOUILLON', externalLabel: 'Bouillon cuisine sachet', posId: 'pos-5', productId: 'prod-bouillon-sachet' },
+    { externalSku: 'POISFUME', externalLabel: 'Poisson fumé local', posId: 'pos-5', productId: 'prod-poisson-fume' }
   ];
 
   aliases.forEach(alias => {
@@ -1040,7 +1110,12 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { productId: 'prod-cafe-touba', posId: 'pos-5', salePrice: 1800, taxRate: 18, isAvailable: true },
     { productId: 'prod-tomate-concentre', posId: 'pos-5', salePrice: 650, taxRate: 18, isAvailable: true },
     { productId: 'prod-savon-lessive', posId: 'pos-5', salePrice: 500, taxRate: 18, isAvailable: true },
-    { productId: 'prod-couches-bebe', posId: 'pos-5', salePrice: 4200, taxRate: 18, isAvailable: true }
+    { productId: 'prod-couches-bebe', posId: 'pos-5', salePrice: 4200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-fonio-1kg', posId: 'pos-5', salePrice: 2200, taxRate: 18, isAvailable: true },
+    { productId: 'prod-niebe-1kg', posId: 'pos-5', salePrice: 1300, taxRate: 18, isAvailable: true },
+    { productId: 'prod-attieke-500', posId: 'pos-5', salePrice: 900, taxRate: 18, isAvailable: true },
+    { productId: 'prod-bouillon-sachet', posId: 'pos-5', salePrice: 150, taxRate: 18, isAvailable: true },
+    { productId: 'prod-poisson-fume', posId: 'pos-5', salePrice: 1800, taxRate: 18, isAvailable: true }
   ];
 
   pricingRules.forEach(rule => {
@@ -1158,7 +1233,12 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     { id: 'lot-huile1-delivery-1', productId: 'prod-huile-1l', warehouseId: 'wh-delivery', batchNumber: 'LOT-HUILE1-LIV-01', expiryDate: '2027-06-30', quantity: 48, initialQuantity: 48, supplierId: 'sup-market', purchaseCost: 1050, createdAt },
     { id: 'lot-oignon-delivery-1', productId: 'prod-oignon-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-OIGNON-LIV-01', expiryDate: '2026-07-20', quantity: 32, initialQuantity: 32, supplierId: 'sup-market', purchaseCost: 520, createdAt },
     { id: 'lot-sucre1-delivery-1', productId: 'prod-sucre-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-SUCRE1-LIV-01', expiryDate: '2027-05-31', quantity: 40, initialQuantity: 40, supplierId: 'sup-market', purchaseCost: 550, createdAt },
-    { id: 'lot-bissap-delivery-1', productId: 'prod-jus-bissap', warehouseId: 'wh-delivery', batchNumber: 'LOT-BISSAP-LIV-01', expiryDate: '2026-08-15', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 420, createdAt }
+    { id: 'lot-bissap-delivery-1', productId: 'prod-jus-bissap', warehouseId: 'wh-delivery', batchNumber: 'LOT-BISSAP-LIV-01', expiryDate: '2026-08-15', quantity: 72, initialQuantity: 72, supplierId: 'sup-drinks', purchaseCost: 420, createdAt },
+    { id: 'lot-fonio-delivery-1', productId: 'prod-fonio-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-FONIO-LIV-01', expiryDate: '2027-04-30', quantity: 34, initialQuantity: 34, supplierId: 'sup-grocery', purchaseCost: 1450, createdAt },
+    { id: 'lot-niebe-delivery-1', productId: 'prod-niebe-1kg', warehouseId: 'wh-delivery', batchNumber: 'LOT-NIEBE-LIV-01', expiryDate: '2027-03-31', quantity: 42, initialQuantity: 42, supplierId: 'sup-grocery', purchaseCost: 820, createdAt },
+    { id: 'lot-attieke-delivery-1', productId: 'prod-attieke-500', warehouseId: 'wh-delivery', batchNumber: 'LOT-ATTIEKE-LIV-01', expiryDate: '2026-07-12', quantity: 22, initialQuantity: 22, supplierId: 'sup-fresh', purchaseCost: 520, createdAt },
+    { id: 'lot-bouillon-delivery-1', productId: 'prod-bouillon-sachet', warehouseId: 'wh-delivery', batchNumber: 'LOT-BOUILLON-LIV-01', expiryDate: '2027-10-31', quantity: 120, initialQuantity: 120, supplierId: 'sup-grocery', purchaseCost: 85, createdAt },
+    { id: 'lot-poisson-fume-delivery-1', productId: 'prod-poisson-fume', warehouseId: 'wh-delivery', batchNumber: 'LOT-POISFUME-LIV-01', expiryDate: '2026-07-14', quantity: 18, initialQuantity: 18, supplierId: 'sup-fresh', purchaseCost: 1100, createdAt }
   ];
 
   batches.forEach(batch => {
@@ -1279,6 +1359,8 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
       note: 'Panier familial typique pour montrer un catalogue livraison plus réaliste.',
       items: [
         { productId: 'prod-cafe-touba', quantity: 3, salePrice: 1800 },
+        { productId: 'prod-fonio-1kg', quantity: 2, salePrice: 2200 },
+        { productId: 'prod-niebe-1kg', quantity: 2, salePrice: 1300 },
         { productId: 'prod-tomate-concentre', quantity: 6, salePrice: 650 },
         { productId: 'prod-savon-lessive', quantity: 4, salePrice: 500 },
         { productId: 'prod-couches-bebe', quantity: 1, salePrice: 4200 }
@@ -1305,6 +1387,8 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
       items: [
         { productId: 'prod-baguette', quantity: 6, salePrice: 150 },
         { productId: 'prod-thon-boite', quantity: 4, salePrice: 900 },
+        { productId: 'prod-attieke-500', quantity: 3, salePrice: 900 },
+        { productId: 'prod-poisson-fume', quantity: 2, salePrice: 1800 },
         { productId: 'prod-jus-bissap', quantity: 4, salePrice: 1000 },
         { productId: 'prod-jus-ditakh', quantity: 4, salePrice: 1000 }
       ]

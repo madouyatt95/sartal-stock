@@ -3,6 +3,7 @@ import { StockState } from '../hooks/useStockState';
 import { 
   TrendingUp, 
   AlertTriangle, 
+  Bell,
   Calendar, 
   Trash2, 
   ShoppingCart, 
@@ -58,6 +59,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       .reduce((sum, s) => sum + s.quantityAvailable, 0);
     return totalQty === 0;
   });
+
+  const activeDeliveryIssues = db.deliveryOrders.filter(order => (
+    order.status === 'failed' || (order.paymentType === 'cash' && order.paymentStatus === 'pending')
+  ));
+  const productsWithoutSupplier = db.products.filter(product => product.isStockable && !product.mainSupplierId);
+  const productsWithMissingPricing = db.products.filter(product => {
+    if (!product.isActive) return false;
+    const configuredChannels = db.posPricing.filter(rule => rule.productId === product.id && rule.isAvailable).length;
+    return configuredChannels > 0 && configuredChannels < db.posList.length;
+  });
+  const smartAlertsCount = outOfStockProducts.length + underThresholdProducts.length + activeDeliveryIssues.length + productsWithoutSupplier.length + productsWithMissingPricing.length;
 
   // Losses this month
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -231,9 +243,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <span>La page Présentation guidée donne le pas-à-pas complet quand le prospect navigue seul.</span>
         </div>
         <div>
-          <Package size={20} color="var(--warning)" />
-          <strong>Passage au réel</strong>
-          <span>Catalogue, dépôts, prix et exports pourront être remplacés par des données client.</span>
+          <Bell size={20} color="var(--warning)" />
+          <strong>Alertes intelligentes</strong>
+          <span>{smartAlertsCount} point(s) à contrôler : stock, prix, livraison, fournisseurs et données.</span>
         </div>
       </div>
 
@@ -414,7 +426,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
 
         {/* Sidebar Alerts */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Alertes</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Alertes</h3>
+            <button className="btn btn-secondary" onClick={() => setView('smart-alerts')} style={{ padding: '6px 9px', fontSize: '0.76rem' }}>
+              Voir tout
+            </button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--danger-light)', fontSize: '0.875rem' }}>
               <span style={{ fontWeight: 600, color: 'var(--danger)' }}>Ruptures de stock</span>
@@ -433,6 +450,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
                 {db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)).length}
               </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)', fontSize: '0.875rem' }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Prix/fournisseurs à compléter</span>
+              <span style={{ fontWeight: 800 }}>{productsWithoutSupplier.length + productsWithMissingPricing.length}</span>
             </div>
           </div>
         </div>

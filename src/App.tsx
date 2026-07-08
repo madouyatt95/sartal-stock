@@ -26,7 +26,9 @@ import {
   Menu,
   X,
   User,
-  Truck
+  Truck,
+  Search,
+  Bell
 } from 'lucide-react';
 
 // Subviews
@@ -55,6 +57,7 @@ import POSPricing from './views/POSPricing';
 import DeliveryDemo from './views/DeliveryDemo';
 import GuidedDemo from './views/GuidedDemo';
 import BusinessProblems from './views/BusinessProblems';
+import SmartAlerts from './views/SmartAlerts';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -62,6 +65,7 @@ export const App: React.FC = () => {
   const [view, setView] = useState<string>('dashboard');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [globalSearch, setGlobalSearch] = useState('');
 
   // Apply dark mode class
   useEffect(() => {
@@ -100,6 +104,7 @@ export const App: React.FC = () => {
     { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
 
     { id: 'stock-audit', label: 'Audit des écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
+    { id: 'smart-alerts', label: 'Alertes intelligentes', mobileLabel: 'Alertes', icon: <Bell size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
     { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
     { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Contrôle' },
     { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Contrôle' },
@@ -122,6 +127,32 @@ export const App: React.FC = () => {
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
   const currentNavLink = sidebarLinks.find(link => link.id === view);
   const currentSection = sidebarSections.find(section => section.id === currentNavLink?.section);
+  const globalSearchResults = (() => {
+    const query = globalSearch.trim().toLowerCase();
+    if (!query) return [];
+    const navMatches = allowedLinks
+      .filter(link => `${link.label} ${link.section}`.toLowerCase().includes(query))
+      .map(link => ({ id: `nav-${link.id}`, label: link.label, detail: link.section, view: link.id }));
+    const productMatches = db.products
+      .filter(product => `${product.name} ${product.sku} ${product.category}`.toLowerCase().includes(query))
+      .slice(0, 5)
+      .map(product => ({ id: `product-${product.id}`, label: product.name, detail: `${product.sku} · ${product.category}`, view: 'products' }));
+    const warehouseMatches = db.warehouses
+      .filter(warehouse => warehouse.name.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map(warehouse => ({ id: `warehouse-${warehouse.id}`, label: warehouse.name, detail: 'Dépôt', view: 'warehouses' }));
+    const orderMatches = db.deliveryOrders
+      .filter(order => `${order.id} ${order.customerName} ${order.address}`.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map(order => ({ id: `order-${order.id}`, label: order.id, detail: `${order.customerName} · Livraison`, view: 'delivery' }));
+    return [...navMatches, ...productMatches, ...warehouseMatches, ...orderMatches].slice(0, 8);
+  })();
+
+  const openView = (nextView: string) => {
+    setView(nextView);
+    setMobileMenuOpen(false);
+    setGlobalSearch('');
+  };
 
   const renderView = () => {
     // Role checks fallback
@@ -157,6 +188,8 @@ export const App: React.FC = () => {
         return <MappingControl state={state} setView={setView} />;
       case 'stock-audit':
         return <StockAudit state={state} setView={setView} />;
+      case 'smart-alerts':
+        return <SmartAlerts state={state} setView={setView} />;
       case 'products':
         return <Products state={state} />;
       case 'pricing':
@@ -248,8 +281,7 @@ export const App: React.FC = () => {
                     <button
                       key={link.id}
                       onClick={() => {
-                        setView(link.id);
-                        setMobileMenuOpen(false);
+                        openView(link.id);
                       }}
                       className="sidebar-link"
                       style={{
@@ -340,6 +372,28 @@ export const App: React.FC = () => {
 
           {/* Org & Info filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div className="global-search">
+              <div className="input-with-icon">
+                <Search size={16} />
+                <input
+                  className="form-control"
+                  value={globalSearch}
+                  onChange={(event) => setGlobalSearch(event.target.value)}
+                  placeholder="Rechercher Coca, dépôt, livraison..."
+                  type="search"
+                />
+              </div>
+              {globalSearchResults.length > 0 && (
+                <div className="global-search-results">
+                  {globalSearchResults.map(result => (
+                    <button key={result.id} onClick={() => openView(result.view)}>
+                      <strong>{result.label}</strong>
+                      <span>{result.detail}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <span className="demo-mode-pill">Données démo</span>
             
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-company-details">
@@ -368,8 +422,7 @@ export const App: React.FC = () => {
             <button
               key={link.id}
               onClick={() => {
-                setView(link.id);
-                setMobileMenuOpen(false);
+                openView(link.id);
               }}
               className={view === link.id ? 'active' : ''}
             >

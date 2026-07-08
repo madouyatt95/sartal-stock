@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { FileSpreadsheet, Download } from 'lucide-react';
+import { FileSpreadsheet, Download, Filter, Search } from 'lucide-react';
 import { PAYMENT_TYPE_LABELS, PAYMENT_TYPES } from '../types';
 
 interface ExportsProps {
@@ -9,6 +9,9 @@ interface ExportsProps {
 
 export const Exports: React.FC<ExportsProps> = ({ state }) => {
   const { db } = state;
+  const [warehouseFilter, setWarehouseFilter] = useState('all');
+  const [posFilter, setPOSFilter] = useState('all');
+  const [gapSearch, setGapSearch] = useState('');
 
   const triggerCSVDownload = (filename: string, headers: string[], rows: string[][]) => {
     let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Keep Excel-compatible accents
@@ -249,6 +252,17 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
       };
     })
   ];
+  const filteredWarehouseSummary = warehouseSummary.filter(row => warehouseFilter === 'all' || row.warehouse.id === warehouseFilter);
+  const filteredPOSSummary = posSummary.filter(row => posFilter === 'all' || row.pos.id === posFilter);
+  const filteredGapSummaryRows = gapSummaryRows.filter(row => {
+    const normalizedSearch = gapSearch.trim().toLowerCase();
+    const matchesWarehouse = warehouseFilter === 'all' || db.warehouses.find(item => item.id === warehouseFilter)?.name === row.warehouseName;
+    const matchesSearch = !normalizedSearch
+      || row.productName.toLowerCase().includes(normalizedSearch)
+      || row.warehouseName.toLowerCase().includes(normalizedSearch)
+      || row.source.toLowerCase().includes(normalizedSearch);
+    return matchesWarehouse && matchesSearch;
+  });
 
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -277,6 +291,46 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
         </div>
       </div>
 
+      <div className="card product-filter-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Filtres de rapport</h3>
+        </div>
+        <div className="mobile-filter-grid report-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Dépôt</label>
+            <select className="form-control" value={warehouseFilter} onChange={(event) => setWarehouseFilter(event.target.value)}>
+              <option value="all">Tous les dépôts</option>
+              {db.warehouses.map(warehouse => (
+                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Canal de vente</label>
+            <select className="form-control" value={posFilter} onChange={(event) => setPOSFilter(event.target.value)}>
+              <option value="all">Tous les canaux</option>
+              {db.posList.map(pos => (
+                <option key={pos.id} value={pos.id}>{pos.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Rechercher un écart</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input
+                type="search"
+                className="form-control"
+                value={gapSearch}
+                onChange={(event) => setGapSearch(event.target.value)}
+                placeholder="Produit, dépôt, source"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)' }}>
@@ -296,7 +350,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {warehouseSummary.map(row => (
+                {filteredWarehouseSummary.map(row => (
                   <tr key={row.warehouse.id}>
                     <td style={{ fontWeight: 800 }}>{row.warehouse.name}</td>
                     <td>{row.positionCount}</td>
@@ -308,7 +362,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
             </table>
           </div>
           <div className="mobile-card-list">
-            {warehouseSummary.map(row => (
+            {filteredWarehouseSummary.map(row => (
               <div key={row.warehouse.id} className="mobile-data-card">
                 <div className="mobile-data-title">{row.warehouse.name}</div>
                 <div className="mobile-data-row">
@@ -325,6 +379,9 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </div>
               </div>
             ))}
+            {filteredWarehouseSummary.length === 0 && (
+              <div className="mobile-empty-state">Aucun dépôt ne correspond aux filtres.</div>
+            )}
           </div>
         </div>
 
@@ -347,7 +404,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {gapSummaryRows.map(row => (
+                {filteredGapSummaryRows.map(row => (
                   <tr key={row.id}>
                     <td>{row.source}</td>
                     <td style={{ fontWeight: 800 }}>{row.productName}</td>
@@ -356,7 +413,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                     <td style={{ fontWeight: 800 }}>{formatFCFA(row.value)}</td>
                   </tr>
                 ))}
-                {gapSummaryRows.length === 0 && (
+                {filteredGapSummaryRows.length === 0 && (
                   <tr>
                     <td>Aucun écart saisi</td>
                     <td>Inventaire à lancer</td>
@@ -369,7 +426,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
             </table>
           </div>
           <div className="mobile-card-list">
-            {gapSummaryRows.map(row => (
+            {filteredGapSummaryRows.map(row => (
               <div key={row.id} className="mobile-data-card">
                 <div className="mobile-data-header">
                   <div>
@@ -384,7 +441,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </div>
               </div>
             ))}
-            {gapSummaryRows.length === 0 && (
+            {filteredGapSummaryRows.length === 0 && (
               <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
                 Aucun écart saisi.
               </div>
@@ -412,7 +469,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {posSummary.map(row => (
+                {filteredPOSSummary.map(row => (
                   <tr key={row.pos.id}>
                     <td style={{ fontWeight: 800 }}>{row.pos.name}</td>
                     <td>{row.warehouse?.name}</td>
@@ -424,7 +481,7 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
             </table>
           </div>
           <div className="mobile-card-list">
-            {posSummary.map(row => (
+            {filteredPOSSummary.map(row => (
               <div key={row.pos.id} className="mobile-data-card">
                 <div className="mobile-data-title">{row.pos.name}</div>
                 <div className="mobile-data-row">
@@ -441,6 +498,9 @@ export const Exports: React.FC<ExportsProps> = ({ state }) => {
                 </div>
               </div>
             ))}
+            {filteredPOSSummary.length === 0 && (
+              <div className="mobile-empty-state">Aucun canal ne correspond aux filtres.</div>
+            )}
           </div>
         </div>
 
