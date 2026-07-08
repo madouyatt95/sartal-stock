@@ -93,10 +93,10 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Présentation guidée</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Un parcours simple à suivre quand un prospect parcourt l'application seul.
+            Un parcours simple pour comprendre, en autonomie, comment le stock suit les ventes et les commandes.
           </p>
         </div>
-        <span className="badge badge-blue">Données de démonstration</span>
+        <span className="badge badge-blue">Exemples réalistes</span>
       </div>
 
       <div className="demo-switcher">
@@ -143,8 +143,8 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
         <div className="card" style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
           <CheckCircle size={22} color="var(--success)" />
           <div>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 800 }}>Démonstration sans risque</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Toutes les données sont fictives.</p>
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 800 }}>Essai sans risque</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Les exemples sont isolés d'une exploitation réelle.</p>
           </div>
         </div>
         <div className="card" style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>

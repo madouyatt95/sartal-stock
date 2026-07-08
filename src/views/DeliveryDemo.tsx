@@ -176,10 +176,10 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           <AlertTriangle size={28} color="var(--warning)" />
           <h1>Épicerie / Livraison</h1>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Les données de démonstration livraison ne sont pas encore disponibles. Réinitialisez la démo pour recharger les exemples.
+            Les exemples livraison ne sont pas encore disponibles. Réinitialisez les exemples pour les recharger.
           </p>
           <button className="btn btn-primary" onClick={resetAllData}>
-            Recharger les données démo
+            Recharger les exemples
           </button>
         </div>
       </div>
@@ -430,7 +430,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             </div>
           ))}
           <button className="btn btn-secondary" onClick={resetAllData}>
-            <RefreshCcw size={16} /> Réinitialiser la démo
+            <RefreshCcw size={16} /> Réinitialiser les exemples
           </button>
         </div>
       </div>
@@ -524,9 +524,9 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
 
       <div className="card" style={{ display: 'grid', gap: '16px' }}>
         <div>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Paniers types à démontrer</h3>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Paniers types</h3>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
-            Exemples commerciaux pour montrer que le module peut s'adapter aux habitudes de commande locales.
+            Exemples de commandes locales pour vérifier les prix, la disponibilité et la préparation.
           </p>
         </div>
         <div className="grid-4">

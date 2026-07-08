@@ -41,7 +41,7 @@ export const BusinessProblems: React.FC<BusinessProblemsProps> = ({ setView }) =
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Problèmes métier</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Les cas concrets que Sartal Stock doit rendre compréhensibles en quelques minutes.
+            Les situations terrain que Sartal Stock permet de clarifier et de contrôler rapidement.
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setView('guided-demo')}>
@@ -52,15 +52,15 @@ export const BusinessProblems: React.FC<BusinessProblemsProps> = ({ setView }) =
       <div className="card demo-mode-card">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Database size={22} color="var(--primary)" />
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Mode démonstration</h3>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Espace d'essai métier</h3>
         </div>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-          L'application contient des données fictives : produits, dépôts, ventes, commandes, paiements et rapports. Le prospect peut cliquer, simuler et explorer sans conséquence réelle.
+          L'application utilise des exemples réalistes : produits, dépôts, ventes, commandes, paiements et rapports. Vous pouvez cliquer, simuler et explorer sans modifier une exploitation réelle.
         </p>
         <div className="demo-mode-grid">
           <span className="badge badge-green">Aucun impact réel</span>
           <span className="badge badge-blue">Scénarios modifiables</span>
-          <span className="badge badge-purple">Import client possible plus tard</span>
+          <span className="badge badge-purple">Données réelles importables</span>
         </div>
       </div>
 

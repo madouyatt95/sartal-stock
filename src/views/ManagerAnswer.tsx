@@ -35,7 +35,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Restaurant / POS</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Démonstration ciblée : un seul produit dans le catalogue, plusieurs prix de vente, plusieurs dépôts de sortie et une imputation chambre possible.
+            Un seul produit dans le catalogue, plusieurs prix de vente, plusieurs dépôts de sortie et une imputation chambre possible.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -43,7 +43,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
             Prix par canal
           </button>
           <button className="btn btn-primary" onClick={() => setView('simulation')}>
-            Lancer la démo <ArrowRight size={17} />
+            Lancer le scénario <ArrowRight size={17} />
           </button>
         </div>
       </div>

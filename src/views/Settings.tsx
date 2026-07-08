@@ -82,15 +82,15 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
         <div className="card" style={{ height: 'fit-content' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <RefreshCw size={20} color="var(--danger)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Maintenance des Données</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Remettre les exemples à zéro</h3>
           </div>
 
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Si vous souhaitez purger l'historique de vos simulations et restaurer le catalogue de produits de départ, les stocks initiaux, les commandes livraison et les prix par canal :
+            Vous pouvez repartir des exemples de départ : catalogue, stocks initiaux, commandes livraison, prix par canal et historiques d'essai.
           </p>
 
           <button className="btn btn-danger" onClick={handleReset} style={{ gap: '8px', width: '100%' }}>
-            <RefreshCw size={18} /> Réinitialiser la base de démonstration
+            <RefreshCw size={18} /> Réinitialiser les exemples
           </button>
         </div>
 

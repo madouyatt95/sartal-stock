@@ -368,7 +368,7 @@ export const BehaviorSimulation: React.FC<BehaviorSimulationProps> = ({ state, s
               setScenarioResults([]);
             }}
           >
-            <RefreshCcw size={18} /> Réinitialiser la démo
+            <RefreshCcw size={18} /> Repartir des exemples
           </button>
         </div>
 

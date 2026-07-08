@@ -394,7 +394,7 @@ export const App: React.FC = () => {
                 </div>
               )}
             </div>
-            <span className="demo-mode-pill">Données démo</span>
+            <span className="demo-mode-pill">Mode découverte</span>
             
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-company-details">
               <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Entreprise</span>

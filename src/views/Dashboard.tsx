@@ -152,10 +152,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Choisir le contexte à présenter
+            Piloter vos activités depuis un seul stock
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Restaurant, hôtel, bar ou plateforme de livraison : le stock reste commun, la présentation s'adapte au métier.
+            Restaurant, hôtel, bar ou plateforme de livraison : chaque canal garde ses règles, le stock reste maîtrisé.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -234,13 +234,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div className="card demo-mode-strip">
         <div>
           <Database size={20} color="var(--primary)" />
-          <strong>Données de démonstration</strong>
-          <span>Vous pouvez cliquer, simuler et modifier sans conséquence réelle.</span>
+          <strong>Espace d'essai</strong>
+          <span>Explorez les scénarios avec des exemples réalistes, sans impact sur une exploitation réelle.</span>
         </div>
         <div>
           <PlayCircle size={20} color="var(--success)" />
-          <strong>Guide autonome</strong>
-          <span>La page Présentation guidée donne le pas-à-pas complet quand le prospect navigue seul.</span>
+          <strong>Parcours guidé</strong>
+          <span>Un responsable peut suivre le fil métier seul, écran par écran.</span>
         </div>
         <div>
           <Bell size={20} color="var(--warning)" />
