@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { AlertTriangle, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, Filter, Search, ShoppingCart } from 'lucide-react';
 
 interface ReorderProps {
   state: StockState;
@@ -9,6 +9,11 @@ interface ReorderProps {
 
 export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
   const { db, createSupplierOrder } = state;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const productCategories = Array.from(new Set(db.products.map(product => product.category).filter(Boolean)));
 
   // Formatter FCFA
   const formatFCFA = (val: number) => {
@@ -47,6 +52,26 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
     })
     .filter(item => item.isBelow);
 
+  const filteredSuggestions = reorderSuggestions.filter(item => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const severity = item.currentStock === 0 ? 'rupture' : 'below';
+    const matchesSearch = !normalizedSearch
+      || item.product.name.toLowerCase().includes(normalizedSearch)
+      || item.product.sku.toLowerCase().includes(normalizedSearch)
+      || item.product.category.toLowerCase().includes(normalizedSearch)
+      || item.supplierName.toLowerCase().includes(normalizedSearch);
+    const matchesSupplier = supplierFilter === 'all' || item.supplierId === supplierFilter;
+    const matchesCategory = categoryFilter === 'all' || item.product.category === categoryFilter;
+    const matchesSeverity = severityFilter === 'all' || severityFilter === severity;
+    return matchesSearch && matchesSupplier && matchesCategory && matchesSeverity;
+  }).sort((a, b) => {
+    if (a.currentStock === 0 && b.currentStock !== 0) return -1;
+    if (a.currentStock !== 0 && b.currentStock === 0) return 1;
+    return (b.suggestQty * b.lastPrice) - (a.suggestQty * a.lastPrice);
+  });
+
+  const suggestedValue = filteredSuggestions.reduce((sum, item) => sum + (item.suggestQty * item.lastPrice), 0);
+
   const handleCreateSuggestedOrder = (item: typeof reorderSuggestions[0]) => {
     createSupplierOrder(item.supplierId, [
       {
@@ -70,12 +95,83 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
         </p>
       </div>
 
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Suggestions</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredSuggestions.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>affichées</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Ruptures</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredSuggestions.filter(item => item.currentStock === 0).length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>prioritaires</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Valeur</p>
+          <strong style={{ fontSize: '1.25rem' }}>{formatFCFA(suggestedValue)}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>à commander</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Fournisseurs</p>
+          <strong style={{ fontSize: '1.45rem' }}>{new Set(filteredSuggestions.map(item => item.supplierId)).size}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>concernés</p>
+        </div>
+      </div>
+
+      <div className="card product-filter-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Recherche et filtres</h3>
+        </div>
+        <div className="mobile-filter-grid reorder-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Rechercher</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input
+                type="search"
+                className="form-control"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Produit, code, catégorie, fournisseur"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fournisseur</label>
+            <select className="form-control" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              {db.suppliers.map(supplier => (
+                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Catégorie</label>
+            <select className="form-control" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="all">Toutes</option>
+              {productCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Priorité</label>
+            <select className="form-control" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+              <option value="all">Toutes</option>
+              <option value="rupture">Rupture</option>
+              <option value="below">Sous seuil</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <AlertTriangle size={20} color="var(--warning)" />
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Suggestions actives</h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">
             <thead>
               <tr>
@@ -91,7 +187,7 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
               </tr>
             </thead>
             <tbody>
-              {reorderSuggestions.map(item => (
+              {filteredSuggestions.map(item => (
                 <tr key={item.product.id}>
                   <td style={{ fontWeight: 700 }}>{item.product.name}</td>
                   <td style={{ fontFamily: 'monospace' }}>{item.product.sku}</td>
@@ -118,7 +214,7 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
                   </td>
                 </tr>
               ))}
-              {reorderSuggestions.length === 0 && (
+              {filteredSuggestions.length === 0 && (
                 <tr>
                   <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
                     Aucun produit sous le seuil d'alerte. Vos niveaux de stock sont optimaux.
@@ -127,6 +223,43 @@ export const Reorder: React.FC<ReorderProps> = ({ state, setView }) => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-card-list">
+          {filteredSuggestions.map(item => (
+            <div key={item.product.id} className="mobile-data-card">
+              <div className="mobile-data-header">
+                <div>
+                  <div className="mobile-data-title">{item.product.name}</div>
+                  <div className="mobile-data-subtitle">{item.product.sku} • {item.product.category}</div>
+                </div>
+                <span className={`badge ${item.currentStock === 0 ? 'badge-red' : 'badge-yellow'}`}>
+                  {item.currentStock === 0 ? 'Rupture' : 'Sous seuil'}
+                </span>
+              </div>
+              <div className="mobile-data-row">
+                <span>Stock / seuil</span>
+                <strong>{item.currentStock} / {item.threshold} {item.product.baseUnit}</strong>
+              </div>
+              <div className="mobile-data-row">
+                <span>Fournisseur</span>
+                <strong>{item.supplierName}</strong>
+              </div>
+              <div className="mobile-data-row">
+                <span>Quantité conseillée</span>
+                <strong>{item.suggestQty} {item.product.baseUnit}</strong>
+              </div>
+              <div className="mobile-data-row">
+                <span>Coût estimé</span>
+                <strong>{formatFCFA(item.suggestQty * item.lastPrice)}</strong>
+              </div>
+              <button className="btn btn-primary" onClick={() => handleCreateSuggestedOrder(item)}>
+                <ShoppingCart size={16} /> Commander
+              </button>
+            </div>
+          ))}
+          {filteredSuggestions.length === 0 && (
+            <div className="mobile-empty-state">Aucun produit à commander selon les filtres.</div>
+          )}
         </div>
       </div>
 

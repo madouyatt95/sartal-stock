@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { ArrowRightLeft, Send } from 'lucide-react';
+import { ArrowRightLeft, Filter, Search, Send } from 'lucide-react';
 
 interface TransfersProps {
   state: StockState;
@@ -10,9 +10,31 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
   const { db, transferStock } = state;
   const [srcWhId, setSrcWhId] = useState('');
   const [destWhId, setDestWhId] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [items, setItems] = useState<Array<{ productId: string; quantity: number }>>([
     { productId: '', quantity: 1 }
   ]);
+  const productCategories = Array.from(new Set(db.products.map(product => product.category).filter(Boolean)));
+  const sourceStocks = db.stocks.filter(stock => stock.warehouseId === srcWhId && stock.quantityAvailable > 0);
+  const availableSourceStocks = sourceStocks.filter(stock => {
+    const product = db.products.find(item => item.id === stock.productId);
+    if (!product) return false;
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch
+      || product.name.toLowerCase().includes(normalizedSearch)
+      || product.sku.toLowerCase().includes(normalizedSearch)
+      || product.category.toLowerCase().includes(normalizedSearch);
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+  const selectedTransferValue = items.reduce((total, item) => {
+    const stock = db.stocks.find(stockItem => stockItem.productId === item.productId && stockItem.warehouseId === srcWhId);
+    return total + ((stock?.averageCost || 0) * item.quantity);
+  }, 0);
+  const formatFCFA = (value: number) => (
+    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
+  );
 
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +64,29 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Transferts inter-dépôts</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Déplacez des stocks entre vos dépôts (ex: Dépôt Central vers Dépôt Restaurant) en conservant la traçabilité des lots</p>
+      </div>
+
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Produits source</p>
+          <strong style={{ fontSize: '1.45rem' }}>{availableSourceStocks.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{srcWhId ? 'disponibles' : 'choisir dépôt'}</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Lignes</p>
+          <strong style={{ fontSize: '1.45rem' }}>{items.filter(item => item.productId && item.quantity > 0).length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>à transférer</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Valeur</p>
+          <strong style={{ fontSize: '1.25rem' }}>{formatFCFA(selectedTransferValue)}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>estimée</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Dépôts</p>
+          <strong style={{ fontSize: '1.45rem' }}>{db.warehouses.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>configurés</p>
+        </div>
       </div>
 
       <div className="grid-2" style={{ gridTemplateColumns: '1.2fr 0.8fr' }}>
@@ -90,13 +135,40 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
             {srcWhId && (
               <div style={{ marginTop: '10px' }}>
                 <label className="form-label">Produits à transférer</label>
+                <div className="card product-filter-panel" style={{ padding: '14px', marginTop: '10px', marginBottom: '12px', background: 'var(--bg-app)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Filter size={16} color="var(--primary)" />
+                    <strong style={{ fontSize: '0.9rem' }}>Filtrer les produits disponibles</strong>
+                  </div>
+                  <div className="mobile-filter-grid transfer-filter-grid">
+                    <div className="form-group">
+                      <label className="form-label">Rechercher</label>
+                      <div className="input-with-icon">
+                        <Search size={16} />
+                        <input
+                          type="search"
+                          className="form-control"
+                          value={productSearch}
+                          onChange={(event) => setProductSearch(event.target.value)}
+                          placeholder="Produit, code ou catégorie"
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Catégorie</label>
+                      <select className="form-control" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                        <option value="all">Toutes</option>
+                        {productCategories.map(category => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
                   {items.map((item, idx) => {
-                    // Filter products that have stock in source warehouse
-                    const sourceStocks = db.stocks.filter(s => s.warehouseId === srcWhId && s.quantityAvailable > 0);
-                    
                     return (
-                      <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div key={idx} className="modal-line">
                         <select
                           value={item.productId}
                           onChange={(e) => {
@@ -109,7 +181,7 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
                           required
                         >
                           <option value="">Sélectionner un produit...</option>
-                          {sourceStocks.map(s => {
+                          {availableSourceStocks.map(s => {
                             const prod = db.products.find(p => p.id === s.productId)!;
                             return (
                               <option key={s.productId} value={s.productId}>
@@ -146,6 +218,9 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
                       </div>
                     );
                   })}
+                  {availableSourceStocks.length === 0 && (
+                    <div className="mobile-empty-state">Aucun produit disponible avec ces filtres dans le dépôt source.</div>
+                  )}
                 </div>
 
                 <button 
@@ -157,7 +232,11 @@ export const Transfers: React.FC<TransfersProps> = ({ state }) => {
                   + Ajouter un produit
                 </button>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <div className="receiving-submit-bar">
+                  <div>
+                    <strong>{formatFCFA(selectedTransferValue)}</strong>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>valeur transférée estimée</p>
+                  </div>
                   <button type="submit" className="btn btn-primary" style={{ gap: '6px' }}>
                     <Send size={16} /> Lancer le transfert
                   </button>

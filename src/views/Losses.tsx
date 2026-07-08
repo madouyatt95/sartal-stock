@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Trash2 } from 'lucide-react';
+import { Filter, Search, Trash2 } from 'lucide-react';
 import { LossReason } from '../types';
 
 interface LossesProps {
@@ -14,6 +14,11 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
   const [qty, setQty] = useState(1);
   const [reason, setReason] = useState<LossReason>('casse');
   const [note, setNote] = useState('');
+  const [lossSearch, setLossSearch] = useState('');
+  const [lossWarehouseFilter, setLossWarehouseFilter] = useState('all');
+  const [lossReasonFilter, setLossReasonFilter] = useState('all');
+  const [periodFilter, setPeriodFilter] = useState('all');
+  const [productSearch, setProductSearch] = useState('');
 
   const handleDeclareLoss = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +53,74 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
     }
   };
 
+  const availableProducts = db.stocks.filter(stock => stock.warehouseId === warehouseId && stock.quantityAvailable > 0).filter(stock => {
+    const product = db.products.find(item => item.id === stock.productId);
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    return !normalizedSearch
+      || product?.name.toLowerCase().includes(normalizedSearch)
+      || product?.sku.toLowerCase().includes(normalizedSearch)
+      || product?.category.toLowerCase().includes(normalizedSearch);
+  });
+
+  const isInPeriod = (isoDate: string) => {
+    if (periodFilter === 'all') return true;
+    const date = new Date(isoDate).getTime();
+    const now = Date.now();
+    const days = periodFilter === 'today' ? 1 : periodFilter === '7d' ? 7 : 30;
+    return now - date <= days * 24 * 3600 * 1000;
+  };
+
+  const filteredLosses = db.losses.filter(loss => {
+    const product = db.products.find(item => item.id === loss.productId);
+    const warehouse = db.warehouses.find(item => item.id === loss.warehouseId);
+    const normalizedSearch = lossSearch.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch
+      || product?.name.toLowerCase().includes(normalizedSearch)
+      || product?.sku.toLowerCase().includes(normalizedSearch)
+      || warehouse?.name.toLowerCase().includes(normalizedSearch)
+      || loss.userName.toLowerCase().includes(normalizedSearch)
+      || loss.note.toLowerCase().includes(normalizedSearch);
+    const matchesWarehouse = lossWarehouseFilter === 'all' || loss.warehouseId === lossWarehouseFilter;
+    const matchesReason = lossReasonFilter === 'all' || loss.reason === lossReasonFilter;
+    return matchesSearch && matchesWarehouse && matchesReason && isInPeriod(loss.date);
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const filteredLossValue = filteredLosses.reduce((sum, loss) => {
+    const stock = db.stocks.find(item => item.productId === loss.productId && item.warehouseId === loss.warehouseId);
+    return sum + loss.quantity * (stock?.averageCost || 0);
+  }, 0);
+  const formatFCFA = (value: number) => (
+    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
+  );
+
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Pertes & casses</h1>
         <p style={{ color: 'var(--text-secondary)' }}>Déclarez la casse, le vol, les péremptions ou les erreurs de préparation et retirez-les immédiatement du stock</p>
+      </div>
+
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Pertes</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredLosses.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>selon filtres</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Valeur</p>
+          <strong style={{ fontSize: '1.25rem' }}>{formatFCFA(filteredLossValue)}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>estimée</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Motifs</p>
+          <strong style={{ fontSize: '1.45rem' }}>{new Set(filteredLosses.map(loss => loss.reason)).size}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>observés</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Dépôts</p>
+          <strong style={{ fontSize: '1.45rem' }}>{new Set(filteredLosses.map(loss => loss.warehouseId)).size}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>impactés</p>
+        </div>
       </div>
 
       <div className="grid-2" style={{ gridTemplateColumns: '0.8fr 1.2fr' }}>
@@ -87,6 +155,20 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
             {warehouseId && (
               <>
                 <div className="form-group">
+                  <label className="form-label">Filtrer les produits</label>
+                  <div className="input-with-icon">
+                    <Search size={16} />
+                    <input
+                      type="search"
+                      className="form-control"
+                      value={productSearch}
+                      onChange={(event) => setProductSearch(event.target.value)}
+                      placeholder="Nom, code ou catégorie"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
                   <label className="form-label">Produit perdu</label>
                   <select 
                     value={productId} 
@@ -95,8 +177,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                     required
                   >
                     <option value="">Sélectionner un produit...</option>
-                    {db.stocks
-                      .filter(s => s.warehouseId === warehouseId && s.quantityAvailable > 0)
+                    {availableProducts
                       .map(s => {
                         const prod = db.products.find(p => p.id === s.productId)!;
                         return (
@@ -106,6 +187,11 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                         );
                       })}
                   </select>
+                  {availableProducts.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '6px' }}>
+                      Aucun produit disponible avec ce filtre.
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid-2">
@@ -170,6 +256,61 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Historique des pertes</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>
+              {filteredLosses.length} déclaration{filteredLosses.length > 1 ? 's' : ''} affichée{filteredLosses.length > 1 ? 's' : ''}.
+            </p>
+          </div>
+          <div className="card product-filter-panel" style={{ margin: '16px', padding: '14px', background: 'var(--bg-app)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Filter size={16} color="var(--primary)" />
+              <strong style={{ fontSize: '0.9rem' }}>Filtrer l'historique</strong>
+            </div>
+            <div className="mobile-filter-grid loss-filter-grid">
+              <div className="form-group">
+                <label className="form-label">Rechercher</label>
+                <div className="input-with-icon">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    className="form-control"
+                    value={lossSearch}
+                    onChange={(event) => setLossSearch(event.target.value)}
+                    placeholder="Produit, dépôt, note, déclarant"
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Dépôt</label>
+                <select className="form-control" value={lossWarehouseFilter} onChange={(event) => setLossWarehouseFilter(event.target.value)}>
+                  <option value="all">Tous</option>
+                  {db.warehouses.map(warehouse => (
+                    <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Motif</label>
+                <select className="form-control" value={lossReasonFilter} onChange={(event) => setLossReasonFilter(event.target.value)}>
+                  <option value="all">Tous</option>
+                  <option value="casse">Casse</option>
+                  <option value="vol">Vol</option>
+                  <option value="peremption">Péremption</option>
+                  <option value="erreur_cuisine">Erreur préparation</option>
+                  <option value="offert">Offert</option>
+                  <option value="consommation_personnel">Personnel</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Période</label>
+                <select className="form-control" value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value)}>
+                  <option value="all">Tout</option>
+                  <option value="today">Aujourd'hui</option>
+                  <option value="7d">7 jours</option>
+                  <option value="30d">30 jours</option>
+                </select>
+              </div>
+            </div>
           </div>
           <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
@@ -184,7 +325,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {db.losses.map(loss => {
+                {filteredLosses.map(loss => {
                   const prod = db.products.find(p => p.id === loss.productId);
                   const wh = db.warehouses.find(w => w.id === loss.warehouseId);
                   return (
@@ -207,7 +348,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                     </tr>
                   );
                 })}
-                {db.losses.length === 0 && (
+                {filteredLosses.length === 0 && (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
                       Aucune perte déclarée ce mois-ci.
@@ -218,7 +359,7 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
             </table>
           </div>
           <div className="mobile-card-list">
-            {db.losses.map(loss => {
+            {filteredLosses.map(loss => {
               const prod = db.products.find(p => p.id === loss.productId);
               const wh = db.warehouses.find(w => w.id === loss.warehouseId);
               return (
@@ -247,9 +388,9 @@ export const Losses: React.FC<LossesProps> = ({ state }) => {
                 </div>
               );
             })}
-            {db.losses.length === 0 && (
-              <div className="mobile-data-card" style={{ color: 'var(--text-muted)', textAlign: 'center' }}>
-                Aucune perte déclarée ce mois-ci.
+            {filteredLosses.length === 0 && (
+              <div className="mobile-empty-state">
+                Aucune perte ne correspond aux filtres.
               </div>
             )}
           </div>

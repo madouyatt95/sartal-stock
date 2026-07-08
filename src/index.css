@@ -643,6 +643,119 @@ button, input, select, textarea {
   margin-bottom: 0;
 }
 
+.product-filter-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.product-filter-grid {
+  grid-template-columns: minmax(220px, 1.5fr) repeat(5, minmax(130px, 1fr));
+}
+
+.receiving-filter-grid {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(2, minmax(150px, 0.8fr));
+}
+
+.receiving-line-filter-grid {
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 0.45fr);
+}
+
+.stock-filter-grid {
+  grid-template-columns: minmax(220px, 1.3fr) repeat(4, minmax(135px, 0.8fr));
+}
+
+.transfer-filter-grid,
+.inventory-filter-grid {
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 0.5fr));
+}
+
+.loss-filter-grid {
+  grid-template-columns: minmax(220px, 1.3fr) repeat(3, minmax(130px, 0.75fr));
+}
+
+.purchase-filter-grid,
+.pricing-filter-grid {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(2, minmax(150px, 0.75fr));
+}
+
+.warehouse-filter-grid {
+  grid-template-columns: minmax(180px, 1fr) minmax(130px, 0.55fr) minmax(200px, 1fr) minmax(150px, 0.7fr) minmax(150px, 0.7fr);
+}
+
+.reorder-filter-grid {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(140px, 0.75fr));
+}
+
+.supplier-filter-grid {
+  grid-template-columns: minmax(240px, 1.4fr) minmax(160px, 0.65fr);
+}
+
+.receiving-submit-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg-card) 94%, transparent);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-icon svg {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.input-with-icon .form-control {
+  width: 100%;
+  padding-left: 38px;
+}
+
+.mobile-empty-state {
+  padding: 18px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--bg-app);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.mobile-nested-list {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.mobile-nested-row {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.mobile-nested-row strong {
+  color: var(--text-primary);
+}
+
 .compact-table {
   min-width: 0;
 }
@@ -1090,6 +1203,16 @@ button, input, select, textarea {
   .mobile-filter-grid {
     grid-template-columns: 1fr !important;
     gap: 10px !important;
+  }
+
+  .product-filter-panel {
+    gap: 12px;
+  }
+
+  .receiving-submit-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    bottom: calc(70px + env(safe-area-inset-bottom));
   }
 
   .compact-table,

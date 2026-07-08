@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CircleDollarSign, Save, Store, Warehouse } from 'lucide-react';
+import { CircleDollarSign, Filter, Save, Search, Store, Warehouse } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 
 interface POSPricingProps {
@@ -10,6 +10,10 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
   const { db, updateProductPricing } = state;
   const [selectedProductId, setSelectedProductId] = useState('prod-coca');
   const [pricingFields, setPricingFields] = useState<Record<string, { salePrice: number; taxRate: number }>>({});
+  const [productSearch, setProductSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [priceFilter, setPriceFilter] = useState('all');
+  const productCategories = Array.from(new Set(db.products.map(product => product.category).filter(Boolean)));
 
   const productsWithPricing = useMemo(() => {
     return db.products
@@ -25,6 +29,21 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
         return { product, prices, activePrices, hasMultiPrice: uniquePrices.size > 1 };
       });
   }, [db.posList, db.posPricing, db.products, db.warehouses]);
+
+  const filteredProductsWithPricing = productsWithPricing.filter(row => {
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    const configuredCount = row.activePrices.length;
+    const matchesSearch = !normalizedSearch
+      || row.product.name.toLowerCase().includes(normalizedSearch)
+      || row.product.sku.toLowerCase().includes(normalizedSearch)
+      || row.product.category.toLowerCase().includes(normalizedSearch);
+    const matchesCategory = categoryFilter === 'all' || row.product.category === categoryFilter;
+    const matchesPrice = priceFilter === 'all'
+      || (priceFilter === 'multi' && row.hasMultiPrice)
+      || (priceFilter === 'configured' && configuredCount > 0)
+      || (priceFilter === 'missing' && configuredCount === 0);
+    return matchesSearch && matchesCategory && matchesPrice;
+  });
 
   const selectedProduct = db.products.find(product => product.id === selectedProductId) || db.products[0];
   const selectedRows = db.posList.map(pos => {
@@ -95,6 +114,46 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
         </div>
       </div>
 
+      <div className="card product-filter-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Trouver un produit à tarifer</h3>
+        </div>
+        <div className="mobile-filter-grid pricing-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Rechercher</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input
+                type="search"
+                className="form-control"
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                placeholder="Produit, code ou catégorie"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Catégorie</label>
+            <select className="form-control" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+              <option value="all">Toutes</option>
+              {productCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Prix</label>
+            <select className="form-control" value={priceFilter} onChange={(event) => setPriceFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              <option value="multi">Prix multiples</option>
+              <option value="configured">Configuré</option>
+              <option value="missing">Non tarifé</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card desktop-table-only" style={{ padding: 0 }}>
           <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -111,7 +170,7 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
                 </tr>
               </thead>
               <tbody>
-                {productsWithPricing.map(row => (
+                {filteredProductsWithPricing.map(row => (
                   <tr key={row.product.id} style={{ cursor: 'pointer' }} onClick={() => loadProduct(row.product.id)}>
                     <td style={{ fontWeight: 800 }}>{row.product.name}</td>
                     <td>{row.product.category}</td>
@@ -129,6 +188,13 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
                     ))}
                   </tr>
                 ))}
+                {filteredProductsWithPricing.length === 0 && (
+                  <tr>
+                    <td colSpan={db.posList.length + 2} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>
+                      Aucun produit ne correspond aux filtres.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -207,7 +273,7 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
         </div>
 
         <div className="mobile-card-list no-padding">
-          {productsWithPricing.map(row => (
+          {filteredProductsWithPricing.map(row => (
             <div key={row.product.id} className={`mobile-data-card ${row.product.id === selectedProductId ? 'is-selected' : ''}`} onClick={() => loadProduct(row.product.id)} role="button" tabIndex={0}>
               <div className="mobile-data-header">
                 <div>
@@ -228,6 +294,9 @@ export const POSPricing: React.FC<POSPricingProps> = ({ state }) => {
               ))}
             </div>
           ))}
+          {filteredProductsWithPricing.length === 0 && (
+            <div className="mobile-empty-state">Aucun produit ne correspond aux filtres.</div>
+          )}
         </div>
       </div>
     </div>

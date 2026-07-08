@@ -10,7 +10,11 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
   const { db } = state;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('value');
   const [expandedProductWhKey, setExpandedProductWhKey] = useState<string | null>(null);
+  const productCategories = Array.from(new Set(db.products.map(product => product.category).filter(Boolean)));
 
   // Formatter FCFA
   const formatFCFA = (val: number) => {
@@ -27,6 +31,15 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
       return false;
     }
 
+    if (selectedCategory !== 'all' && product.category !== selectedCategory) {
+      return false;
+    }
+
+    const statusKey = stock.quantityAvailable === 0 ? 'rupture' : stock.quantityAvailable < stock.alertThreshold ? 'alerte' : 'normal';
+    if (selectedStatus !== 'all' && statusKey !== selectedStatus) {
+      return false;
+    }
+
     // Filter by search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -37,7 +50,18 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
     }
 
     return true;
+  }).sort((a, b) => {
+    const productA = db.products.find(p => p.id === a.productId);
+    const productB = db.products.find(p => p.id === b.productId);
+    if (sortBy === 'product') return (productA?.name || '').localeCompare(productB?.name || '');
+    if (sortBy === 'qty') return b.quantityAvailable - a.quantityAvailable;
+    if (sortBy === 'alert') return (a.quantityAvailable - a.alertThreshold) - (b.quantityAvailable - b.alertThreshold);
+    return (b.quantityAvailable * b.averageCost) - (a.quantityAvailable * a.averageCost);
   });
+
+  const stockValue = filteredStocks.reduce((sum, stock) => sum + (stock.quantityAvailable * stock.averageCost), 0);
+  const alertCount = filteredStocks.filter(stock => stock.quantityAvailable > 0 && stock.quantityAvailable < stock.alertThreshold).length;
+  const ruptureCount = filteredStocks.filter(stock => stock.quantityAvailable === 0).length;
 
   const getStockStatusLabel = (qty: number, threshold: number) => {
     if (qty === 0) return { text: 'Rupture', class: 'badge-red' };
@@ -53,38 +77,86 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
         <p style={{ color: 'var(--text-secondary)' }}>Visualisez les stocks réels par dépôt et examinez les lots par date de péremption</p>
       </div>
 
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Positions</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredStocks.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>selon filtres</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Valeur</p>
+          <strong style={{ fontSize: '1.25rem' }}>{formatFCFA(stockValue)}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>stock affiché</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Alertes</p>
+          <strong style={{ fontSize: '1.45rem' }}>{alertCount}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>sous seuil</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Ruptures</p>
+          <strong style={{ fontSize: '1.45rem' }}>{ruptureCount}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>à traiter</p>
+        </div>
+      </div>
+
       {/* Filters Bar */}
-      <div className="card" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', padding: '16px' }}>
-        
-        {/* Search */}
-        <div style={{ position: 'relative', flexGrow: 1, minWidth: '200px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text"
-            placeholder="Rechercher par produit, code article, catégorie..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="form-control"
-            style={{ paddingLeft: '38px', width: '100%' }}
-          />
-        </div>
-
-        {/* Warehouse Filter */}
+      <div className="card product-filter-panel">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Filter size={18} color="var(--text-secondary)" />
-          <select 
-            value={selectedWarehouseId}
-            onChange={(e) => setSelectedWarehouseId(e.target.value)}
-            className="form-control"
-            style={{ fontWeight: 600 }}
-          >
-            <option value="all">Tous les dépôts</option>
-            {db.warehouses.map(w => (
-              <option key={w.id} value={w.id}>{w.name}</option>
-            ))}
-          </select>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Recherche et filtres</h3>
         </div>
-
+        <div className="mobile-filter-grid stock-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Rechercher</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input
+                type="search"
+                placeholder="Produit, code article, catégorie"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="form-control"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Dépôt</label>
+            <select value={selectedWarehouseId} onChange={(e) => setSelectedWarehouseId(e.target.value)} className="form-control">
+              <option value="all">Tous les dépôts</option>
+              {db.warehouses.map(w => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Catégorie</label>
+            <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="form-control">
+              <option value="all">Toutes</option>
+              {productCategories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Statut</label>
+            <select value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value)} className="form-control">
+              <option value="all">Tous</option>
+              <option value="normal">Normal</option>
+              <option value="alerte">Alerte</option>
+              <option value="rupture">Rupture</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Tri</label>
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="form-control">
+              <option value="value">Valeur stock</option>
+              <option value="qty">Quantité</option>
+              <option value="alert">Priorité alerte</option>
+              <option value="product">Produit</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Stock Grid Table */}
@@ -95,7 +167,7 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
             {filteredStocks.length} enregistrements trouvés
           </span>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">
             <thead>
               <tr>
@@ -227,6 +299,58 @@ export const Stocks: React.FC<StocksProps> = ({ state }) => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-card-list">
+          {filteredStocks.map(stock => {
+            const product = db.products.find(p => p.id === stock.productId)!;
+            const warehouse = db.warehouses.find(w => w.id === stock.warehouseId)!;
+            const status = getStockStatusLabel(stock.quantityAvailable, stock.alertThreshold);
+            const key = `${stock.productId}-${stock.warehouseId}`;
+            const isExpanded = expandedProductWhKey === key;
+            const rowBatches = db.batches.filter(b => b.productId === stock.productId && b.warehouseId === stock.warehouseId && b.quantity > 0);
+            return (
+              <div key={key} className="mobile-data-card" role="button" tabIndex={0} onClick={() => setExpandedProductWhKey(isExpanded ? null : key)}>
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{product.name}</div>
+                    <div className="mobile-data-subtitle">{product.sku} • {product.category} • {warehouse.name}</div>
+                  </div>
+                  <span className={`badge ${status.class}`}>{status.text}</span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Disponible</span>
+                  <strong>{stock.quantityAvailable} {product.baseUnit}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Réservé</span>
+                  <strong>{stock.quantityReserved} {product.baseUnit}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Valeur</span>
+                  <strong>{formatFCFA(stock.quantityAvailable * stock.averageCost)}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Lots disponibles</span>
+                  <strong>{rowBatches.length}</strong>
+                </div>
+                {isExpanded && (
+                  <div className="mobile-nested-list">
+                    {rowBatches.length > 0 ? rowBatches.map(batch => (
+                      <div key={batch.id} className="mobile-nested-row">
+                        <strong>{batch.batchNumber}</strong>
+                        <span>{batch.quantity} {product.baseUnit} • {batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : 'DLC non saisie'}</span>
+                      </div>
+                    )) : (
+                      <div className="mobile-empty-state">Aucun lot disponible pour cette position.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {filteredStocks.length === 0 && (
+            <div className="mobile-empty-state">Aucun stock correspondant aux filtres.</div>
+          )}
         </div>
       </div>
 

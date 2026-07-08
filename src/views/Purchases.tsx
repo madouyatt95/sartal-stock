@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Plus, ShoppingBag } from 'lucide-react';
+import { Filter, Plus, Search, ShoppingBag } from 'lucide-react';
 
 interface PurchasesProps {
   state: StockState;
@@ -13,6 +13,10 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
     { productId: '', quantityOrdered: 10, purchasePrice: 400, unit: 'unité' }
   ]);
   const [showCreate, setShowCreate] = useState(false);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [productSearch, setProductSearch] = useState('');
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +42,39 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
     }
   };
 
+  const formatFCFA = (value: number) => (
+    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
+  );
+
+  const filteredOrders = db.supplierOrders.filter(order => {
+    const supplier = db.suppliers.find(item => item.id === order.supplierId);
+    const normalizedSearch = orderSearch.trim().toLowerCase();
+    const hasProductMatch = order.items.some(item => {
+      const product = db.products.find(prod => prod.id === item.productId);
+      return product?.name.toLowerCase().includes(normalizedSearch) || product?.sku.toLowerCase().includes(normalizedSearch);
+    });
+    const matchesSearch = !normalizedSearch
+      || order.id.toLowerCase().includes(normalizedSearch)
+      || supplier?.name.toLowerCase().includes(normalizedSearch)
+      || hasProductMatch;
+    const matchesSupplier = supplierFilter === 'all' || order.supplierId === supplierFilter;
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    return matchesSearch && matchesSupplier && matchesStatus;
+  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const filteredProducts = db.products.filter(product => {
+    if (!product.isStockable) return false;
+    const normalizedSearch = productSearch.trim().toLowerCase();
+    return !normalizedSearch
+      || product.name.toLowerCase().includes(normalizedSearch)
+      || product.sku.toLowerCase().includes(normalizedSearch)
+      || product.category.toLowerCase().includes(normalizedSearch);
+  });
+
+  const filteredOrderValue = filteredOrders.reduce((sum, order) => (
+    sum + order.items.reduce((orderTotal, item) => orderTotal + (item.quantityOrdered * item.purchasePrice), 0)
+  ), 0);
+
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
@@ -51,13 +88,77 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
         </button>
       </div>
 
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Commandes</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredOrders.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>affichées</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Valeur</p>
+          <strong style={{ fontSize: '1.25rem' }}>{formatFCFA(filteredOrderValue)}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>estimée</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>À recevoir</p>
+          <strong style={{ fontSize: '1.45rem' }}>{db.supplierOrders.filter(order => order.status === 'ordered' || order.status === 'partially_received').length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>bons ouverts</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Fournisseurs</p>
+          <strong style={{ fontSize: '1.45rem' }}>{db.suppliers.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>actifs</p>
+        </div>
+      </div>
+
+      <div className="card product-filter-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Recherche et filtres</h3>
+        </div>
+        <div className="mobile-filter-grid purchase-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Rechercher</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input
+                type="search"
+                className="form-control"
+                value={orderSearch}
+                onChange={(event) => setOrderSearch(event.target.value)}
+                placeholder="Bon, fournisseur ou produit"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fournisseur</label>
+            <select className="form-control" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              {db.suppliers.map(supplier => (
+                <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Statut</label>
+            <select className="form-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              <option value="ordered">Commandée</option>
+              <option value="partially_received">Partielle</option>
+              <option value="fully_received">Reçue</option>
+              <option value="cancelled">Annulée</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Orders List */}
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <ShoppingBag size={20} color="var(--primary)" />
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Bons de commande</h3>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">
             <thead>
               <tr>
@@ -70,7 +171,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
               </tr>
             </thead>
             <tbody>
-              {db.supplierOrders.map(order => {
+              {filteredOrders.map(order => {
                 const supplier = db.suppliers.find(s => s.id === order.supplierId);
                 const totalItems = order.items.length;
                 const totalValue = order.items.reduce((sum, item) => sum + (item.quantityOrdered * item.purchasePrice), 0);
@@ -83,7 +184,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                     <td>{new Date(order.createdAt).toLocaleDateString()}</td>
                     <td>{totalItems} types de produits</td>
                     <td style={{ fontWeight: 700 }}>
-                      {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(totalValue).replace('XOF', 'FCFA')}
+                      {formatFCFA(totalValue)}
                     </td>
                     <td>
                       <span className={`badge ${status.class}`}>
@@ -93,7 +194,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                   </tr>
                 );
               })}
-              {db.supplierOrders.length === 0 && (
+              {filteredOrders.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px' }}>
                     Aucune commande en cours. Créez un bon pour démarrer le processus d'achat.
@@ -102,6 +203,35 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="mobile-card-list">
+          {filteredOrders.map(order => {
+            const supplier = db.suppliers.find(s => s.id === order.supplierId);
+            const totalValue = order.items.reduce((sum, item) => sum + (item.quantityOrdered * item.purchasePrice), 0);
+            const status = getStatusLabel(order.status);
+            return (
+              <div key={order.id} className="mobile-data-card">
+                <div className="mobile-data-header">
+                  <div>
+                    <div className="mobile-data-title">{order.id}</div>
+                    <div className="mobile-data-subtitle">{supplier?.name} • {new Date(order.createdAt).toLocaleDateString()}</div>
+                  </div>
+                  <span className={`badge ${status.class}`}>{status.text}</span>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Articles</span>
+                  <strong>{order.items.length}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Valeur estimée</span>
+                  <strong>{formatFCFA(totalValue)}</strong>
+                </div>
+              </div>
+            );
+          })}
+          {filteredOrders.length === 0 && (
+            <div className="mobile-empty-state">Aucune commande ne correspond aux filtres.</div>
+          )}
         </div>
       </div>
 
@@ -129,6 +259,19 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                 <label className="form-label">Lignes de commande</label>
+                <div className="form-group" style={{ marginBottom: '6px' }}>
+                  <label className="form-label">Filtrer les produits</label>
+                  <div className="input-with-icon">
+                    <Search size={16} />
+                    <input
+                      type="search"
+                      className="form-control"
+                      value={productSearch}
+                      onChange={(event) => setProductSearch(event.target.value)}
+                      placeholder="Nom, code ou catégorie"
+                    />
+                  </div>
+                </div>
                 {orderItems.map((item, idx) => (
                   <div key={idx} className="modal-line">
                     <select 
@@ -151,7 +294,7 @@ export const Purchases: React.FC<PurchasesProps> = ({ state }) => {
                       required
                     >
                       <option value="">Sélectionner un produit...</option>
-                      {db.products.filter(p => p.isStockable).map(p => (
+                      {filteredProducts.map(p => (
                         <option key={p.id} value={p.id}>{p.name} ({p.baseUnit})</option>
                       ))}
                     </select>

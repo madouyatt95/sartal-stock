@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { Pencil, Plus, Trash2, Warehouse, Landmark, ThermometerSnowflake } from 'lucide-react';
+import { Filter, Landmark, Pencil, Plus, Search, ThermometerSnowflake, Trash2, Warehouse } from 'lucide-react';
 import { POSType } from '../types';
 
 interface WarehousesProps {
@@ -15,6 +15,11 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
   const [showAddPOS, setShowAddPOS] = useState(false);
   const [editingPOSId, setEditingPOSId] = useState<string | null>(null);
   const [newPOS, setNewPOS] = useState({ name: '', type: 'restaurant' as POSType, defaultWarehouseId: '' });
+  const [warehouseSearch, setWarehouseSearch] = useState('');
+  const [warehouseTypeFilter, setWarehouseTypeFilter] = useState('all');
+  const [posSearch, setPOSSearch] = useState('');
+  const [posTypeFilter, setPOSTypeFilter] = useState('all');
+  const [posWarehouseFilter, setPOSWarehouseFilter] = useState('all');
   const posTypeLabels: Record<POSType, string> = {
     restaurant: 'Restaurant',
     bar: 'Bar',
@@ -96,6 +101,27 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
     deletePOS(posId);
   };
 
+  const filteredWarehouses = db.warehouses.filter(warehouse => {
+    const normalizedSearch = warehouseSearch.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch || warehouse.name.toLowerCase().includes(normalizedSearch);
+    const matchesType = warehouseTypeFilter === 'all'
+      || (warehouseTypeFilter === 'cold' && warehouse.isColdStorage)
+      || (warehouseTypeFilter === 'dry' && !warehouse.isColdStorage);
+    return matchesSearch && matchesType;
+  });
+
+  const filteredPOS = db.posList.filter(pos => {
+    const warehouse = db.warehouses.find(item => item.id === pos.defaultWarehouseId);
+    const normalizedSearch = posSearch.trim().toLowerCase();
+    const matchesSearch = !normalizedSearch
+      || pos.name.toLowerCase().includes(normalizedSearch)
+      || posTypeLabels[pos.type].toLowerCase().includes(normalizedSearch)
+      || warehouse?.name.toLowerCase().includes(normalizedSearch);
+    const matchesType = posTypeFilter === 'all' || pos.type === posTypeFilter;
+    const matchesWarehouse = posWarehouseFilter === 'all' || pos.defaultWarehouseId === posWarehouseFilter;
+    return matchesSearch && matchesType && matchesWarehouse;
+  });
+
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -121,6 +147,78 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
         </div>
       </div>
 
+      <div className="grid-4">
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Dépôts</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredWarehouses.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>affichés</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Canaux</p>
+          <strong style={{ fontSize: '1.45rem' }}>{filteredPOS.length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>affichés</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Froid</p>
+          <strong style={{ fontSize: '1.45rem' }}>{db.warehouses.filter(warehouse => warehouse.isColdStorage).length}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>dépôts</p>
+        </div>
+        <div className="card" style={{ padding: '16px' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase' }}>Types</p>
+          <strong style={{ fontSize: '1.45rem' }}>{new Set(db.posList.map(pos => pos.type)).size}</strong>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>canaux</p>
+        </div>
+      </div>
+
+      <div className="card product-filter-panel">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={18} color="var(--primary)" />
+          <h3 style={{ fontSize: '1rem', fontWeight: 800 }}>Recherche et filtres</h3>
+        </div>
+        <div className="mobile-filter-grid warehouse-filter-grid">
+          <div className="form-group">
+            <label className="form-label">Chercher dépôt</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input className="form-control" type="search" value={warehouseSearch} onChange={(event) => setWarehouseSearch(event.target.value)} placeholder="Nom du dépôt" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Type dépôt</label>
+            <select className="form-control" value={warehouseTypeFilter} onChange={(event) => setWarehouseTypeFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              <option value="dry">Sec</option>
+              <option value="cold">Froid</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Chercher canal</label>
+            <div className="input-with-icon">
+              <Search size={16} />
+              <input className="form-control" type="search" value={posSearch} onChange={(event) => setPOSSearch(event.target.value)} placeholder="Nom, type ou dépôt" />
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Type canal</label>
+            <select className="form-control" value={posTypeFilter} onChange={(event) => setPOSTypeFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              {Object.entries(posTypeLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Dépôt canal</label>
+            <select className="form-control" value={posWarehouseFilter} onChange={(event) => setPOSWarehouseFilter(event.target.value)}>
+              <option value="all">Tous</option>
+              {db.warehouses.map(warehouse => (
+                <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="grid-2">
         {/* Warehouses list */}
         <div className="card" style={{ padding: 0 }}>
@@ -129,7 +227,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Dépôts Physiques</h3>
           </div>
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {db.warehouses.map(w => {
+            {filteredWarehouses.map(w => {
               // Calculate value in this warehouse
               const whStock = db.stocks.filter(s => s.warehouseId === w.id);
               const totalVal = whStock.reduce((sum, s) => sum + (s.quantityAvailable * s.averageCost), 0);
@@ -163,6 +261,9 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                 </div>
               );
             })}
+            {filteredWarehouses.length === 0 && (
+              <div className="mobile-empty-state">Aucun dépôt ne correspond aux filtres.</div>
+            )}
           </div>
         </div>
 
@@ -173,7 +274,7 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Points de vente / canaux</h3>
           </div>
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {db.posList.map(pos => {
+            {filteredPOS.map(pos => {
               const defaultWh = db.warehouses.find(w => w.id === pos.defaultWarehouseId);
               return (
                 <div key={pos.id} className="entity-row">
@@ -201,6 +302,9 @@ export const Warehouses: React.FC<WarehousesProps> = ({ state }) => {
                 </div>
               );
             })}
+            {filteredPOS.length === 0 && (
+              <div className="mobile-empty-state">Aucun canal ne correspond aux filtres.</div>
+            )}
           </div>
         </div>
       </div>
