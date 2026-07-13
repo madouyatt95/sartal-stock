@@ -126,7 +126,7 @@ export const App: React.FC = () => {
     { id: 'Contrôle', label: 'Contrôle & rapports' },
     { id: 'Réglages', label: 'Réglages' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'answer', 'delivery', 'stock-control', 'exports'];
+  const mobilePrimaryOrder = ['dashboard', 'answer', 'pms', 'delivery', 'stock-control'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));

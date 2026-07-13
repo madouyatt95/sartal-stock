@@ -3827,6 +3827,19 @@ button, input, select, textarea {
     padding: 16px 14px;
   }
 
+  .pms-booking-section,
+  .pms-booking-section .grid-2,
+  .pms-booking-section .form-group,
+  .pms-booking-section .form-control {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .pms-booking-section .grid-2 {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
   .pms-booking-room-grid {
     grid-template-columns: 1fr 1fr;
   }
