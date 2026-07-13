@@ -2873,6 +2873,7 @@ button, input, select, textarea {
   min-height: 39px;
   padding: 7px 10px;
   border-radius: 7px;
+  background: transparent;
 }
 
 .sidebar-link:hover {
@@ -3359,5 +3360,509 @@ button, input, select, textarea {
   .mobile-bottom-nav {
     border-color: #c5d9d5;
     border-radius: 12px;
+  }
+}
+
+/* PMS room states and reservation flow */
+.pms-room-legend {
+  display: flex !important;
+  justify-content: flex-end;
+  gap: 7px !important;
+  flex-wrap: wrap;
+}
+
+.pms-room-legend > span,
+.pms-room-state-label {
+  --room-state-color: var(--primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--room-state-color) 11%, var(--bg-card));
+  color: var(--room-state-color);
+  font-size: 0.67rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.pms-room-legend i,
+.pms-room-state-label i {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--room-state-color);
+}
+
+.pms-room-legend .room-available,
+.pms-room-card.room-available { --room-state-color: #0b9367; }
+
+.pms-room-legend .room-occupied,
+.pms-room-card.room-occupied { --room-state-color: #3975dc; }
+
+.pms-room-legend .room-dirty,
+.pms-room-card.room-dirty { --room-state-color: #cc861b; }
+
+.pms-room-legend .room-maintenance,
+.pms-room-card.room-maintenance { --room-state-color: #d24c4c; }
+
+.pms-room-card.room-available,
+.pms-room-card.room-occupied,
+.pms-room-card.room-dirty,
+.pms-room-card.room-maintenance {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--room-state-color) 35%, var(--border-color));
+  border-top: 5px solid var(--room-state-color);
+  background: color-mix(in srgb, var(--room-state-color) 5%, var(--bg-card));
+}
+
+.pms-room-card .pms-room-state-label {
+  --room-state-color: inherit;
+}
+
+.pms-room-card.room-available .pms-room-state-label,
+.pms-room-card.room-occupied .pms-room-state-label,
+.pms-room-card.room-dirty .pms-room-state-label,
+.pms-room-card.room-maintenance .pms-room-state-label {
+  color: var(--room-state-color);
+}
+
+.pms-room-card .pms-room-state-label i {
+  background: currentColor;
+}
+
+.pms-room-primary-badge {
+  background: color-mix(in srgb, var(--room-state-color) 13%, var(--bg-card));
+  color: var(--room-state-color);
+}
+
+.pms-room-card:hover {
+  border-color: var(--room-state-color);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--room-state-color) 14%, transparent);
+}
+
+.pms-room-summary button:nth-child(1) { border-left: 4px solid #3975dc; }
+.pms-room-summary button:nth-child(2) { border-left: 4px solid #0b9367; }
+.pms-room-summary button:nth-child(3) { border-left: 4px solid #cc861b; }
+.pms-room-summary button:nth-child(4) { border-left: 4px solid #d24c4c; }
+
+.pms-planning-table td.available {
+  color: #08724f;
+  background: #e8f7f1;
+}
+
+.pms-planning-table td.booked {
+  color: #255bb8;
+  background: #e9f0ff;
+}
+
+.pms-planning-table td.maintenance {
+  color: #b93838;
+  background: #fdecec;
+}
+
+.dark-mode .pms-planning-table td.available { color: #68d4ae; background: #17352c; }
+.dark-mode .pms-planning-table td.booked { color: #82aaf1; background: #1a2942; }
+.dark-mode .pms-planning-table td.maintenance { color: #f08b8b; background: #3b2020; }
+
+.pms-reservation-modal {
+  width: min(920px, calc(100vw - 32px));
+  max-height: min(880px, calc(100dvh - 32px));
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.pms-reservation-modal > .modal-header {
+  flex: 0 0 auto;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pms-reservation-modal > .modal-header h2 {
+  margin-top: 5px;
+  font-size: 1.3rem;
+}
+
+.pms-reservation-modal .icon-btn {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pms-booking-steps {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.pms-booking-steps button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.pms-booking-steps button:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  width: min(42px, 20%);
+  height: 2px;
+  background: var(--border-color);
+}
+
+.pms-booking-steps button > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--bg-card);
+}
+
+.pms-booking-steps button strong {
+  font-size: 0.78rem;
+}
+
+.pms-booking-steps button.active {
+  color: var(--primary);
+}
+
+.pms-booking-steps button.active > span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 5px 12px rgba(21, 127, 117, 0.22);
+}
+
+.pms-booking-steps button.done {
+  color: var(--success);
+}
+
+.pms-booking-steps button.done > span {
+  border-color: var(--success);
+  background: var(--success-light);
+}
+
+.pms-booking-steps button:disabled {
+  cursor: default;
+}
+
+.pms-reservation-modal > .alert {
+  margin: 12px 22px 0;
+}
+
+.pms-booking-body {
+  min-height: 280px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 22px;
+}
+
+.pms-booking-section {
+  display: grid;
+  gap: 16px;
+}
+
+.pms-booking-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pms-booking-section-heading > svg {
+  color: var(--primary);
+  margin-top: 1px;
+}
+
+.pms-booking-section-heading h3 {
+  font-size: 1rem;
+}
+
+.pms-booking-section-heading p {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.pms-booking-section .form-group {
+  margin-bottom: 0;
+}
+
+.form-optional {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.pms-booking-highlight {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  border: 1px solid #badbd5;
+  border-radius: 8px;
+  background: #edf8f5;
+  color: var(--primary);
+}
+
+.pms-booking-highlight > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pms-booking-highlight span {
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+}
+
+.pms-booking-room-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pms-booking-room-grid > button {
+  display: grid;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--border-color);
+  border-top: 4px solid #0b9367;
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pms-booking-room-grid > button.prepare {
+  border-top-color: #cc861b;
+}
+
+.pms-booking-room-grid > button:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.pms-booking-room-grid > button.selected {
+  border-color: var(--primary);
+  background: var(--primary-lightest);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.pms-booking-room-grid > button > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.pms-booking-room-grid > button span,
+.pms-booking-room-grid > button p,
+.pms-booking-room-grid small {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+
+.pms-booking-room-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  color: #0b9367 !important;
+  font-weight: 800;
+}
+
+.prepare .pms-booking-room-state {
+  color: #cc861b !important;
+}
+
+.pms-booking-room-state i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pms-booking-subsection {
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.pms-booking-summary {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 0.7fr;
+  gap: 12px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.pms-booking-summary > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pms-booking-summary span {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.pms-booking-summary strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pms-booking-actions {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(200px, 0.65fr);
+  margin: 0;
+  padding: 14px 22px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.pms-booking-actions .btn {
+  width: 100%;
+}
+
+.dark-mode .pms-booking-highlight {
+  border-color: #2c554d;
+  background: #172e29;
+}
+
+@media (max-width: 768px) {
+  .sidebar-link {
+    background: transparent !important;
+  }
+
+  .pms-room-legend {
+    justify-content: flex-start;
+  }
+
+  .pms-room-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .pms-room-card {
+    padding: 16px !important;
+  }
+
+  .modal-overlay:has(.pms-reservation-modal) {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .pms-reservation-modal,
+  .modal-card.pms-reservation-modal {
+    width: 100% !important;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .pms-reservation-modal > .modal-header {
+    padding: 14px 14px 11px;
+  }
+
+  .pms-reservation-modal > .modal-header p {
+    display: none;
+  }
+
+  .pms-booking-steps {
+    padding: 8px 12px;
+  }
+
+  .pms-booking-steps button {
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .pms-booking-steps button:not(:last-child)::after {
+    display: none;
+  }
+
+  .pms-booking-steps button > span {
+    width: 30px;
+    height: 30px;
+  }
+
+  .pms-booking-steps button strong {
+    font-size: 0.64rem;
+  }
+
+  .pms-booking-body {
+    min-height: 0;
+    padding: 16px 14px;
+  }
+
+  .pms-booking-room-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pms-booking-room-grid > button {
+    padding: 11px;
+  }
+
+  .pms-booking-summary {
+    grid-template-columns: 1fr 0.8fr;
+    padding: 10px 14px;
+  }
+
+  .pms-booking-summary > div:nth-child(2) {
+    display: none;
+  }
+
+  .pms-booking-actions,
+  .modal-actions.pms-booking-actions {
+    grid-template-columns: 0.75fr 1.25fr;
+    gap: 8px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .pms-booking-actions .btn {
+    min-height: 46px;
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .pms-booking-steps button strong {
+    display: none;
+  }
+
+  .pms-booking-room-grid {
+    grid-template-columns: 1fr;
   }
 }

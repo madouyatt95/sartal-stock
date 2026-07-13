@@ -106,6 +106,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const [statusFilter, setStatusFilter] = useState('active');
   const [roomFilter, setRoomFilter] = useState('all');
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [reservationStep, setReservationStep] = useState<1 | 2 | 3>(1);
   const [editingReservationId, setEditingReservationId] = useState<string | null>(null);
   const [paymentFolioId, setPaymentFolioId] = useState<string | null>(null);
   const [transferChargeId, setTransferChargeId] = useState<string | null>(null);
@@ -154,10 +155,41 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     return matchesSearch && matchesStatus;
   }).sort((a, b) => a.arrivalDate.localeCompare(b.arrivalDate));
 
-  const filteredRooms = db.pmsRooms.filter(room => roomFilter === 'all'
-    || room.status === roomFilter
-    || room.housekeepingStatus === roomFilter
-  );
+  const getRoomVisualStatus = (room: (typeof db.pmsRooms)[number]) => {
+    if (room.status === 'maintenance') return 'maintenance';
+    if (room.status === 'occupied') return 'occupied';
+    if (room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'in_progress') return 'dirty';
+    return 'available';
+  };
+
+  const roomVisualMeta = {
+    available: { label: 'Libre et prête', className: 'room-available' },
+    occupied: { label: 'Occupée', className: 'room-occupied' },
+    dirty: { label: 'À nettoyer', className: 'room-dirty' },
+    maintenance: { label: 'Maintenance', className: 'room-maintenance' }
+  };
+
+  const filteredRooms = db.pmsRooms.filter(room => {
+    const visualStatus = getRoomVisualStatus(room);
+    return roomFilter === 'all'
+      || roomFilter === visualStatus
+      || (roomFilter === 'vacant' && room.status === 'vacant');
+  });
+
+  const availableRoomsForReservation = db.pmsRooms.filter(room => {
+    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children) return false;
+    return !db.pmsReservations.some(reservation => (
+      reservation.id !== editingReservationId
+      && reservation.roomId === room.id
+      && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(reservation.status)
+      && reservationForm.arrivalDate < reservation.departureDate
+      && reservationForm.departureDate > reservation.arrivalDate
+    ));
+  });
+  const selectedReservationRoom = db.pmsRooms.find(room => room.id === reservationForm.roomId);
+  const reservationNights = reservationForm.arrivalDate && reservationForm.departureDate
+    ? getNights(reservationForm.arrivalDate, reservationForm.departureDate)
+    : 0;
 
   const planningDates = useMemo(() => Array.from({ length: planningRange }, (_, index) => {
     const date = new Date(`${today}T12:00:00`);
@@ -200,6 +232,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       ratePlanId: '', guaranteeType: 'none'
     });
     setActionError('');
+    setReservationStep(1);
     setReservationModalOpen(true);
   };
 
@@ -214,14 +247,37 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       ratePlanId: reservation.ratePlanId || '', guaranteeType: reservation.guaranteeType || 'none'
     });
     setActionError('');
+    setReservationStep(1);
     setReservationModalOpen(true);
+  };
+
+  const moveReservationStep = (nextStep: 1 | 2 | 3) => {
+    setActionError('');
+    if (nextStep > reservationStep && reservationStep === 1 && (
+      !reservationForm.arrivalDate
+      || !reservationForm.departureDate
+      || reservationForm.departureDate <= reservationForm.arrivalDate
+      || reservationForm.adults < 1
+    )) {
+      setActionError('Choisissez des dates valides et au moins un adulte.');
+      return;
+    }
+    if (nextStep > reservationStep && reservationStep === 2 && !availableRoomsForReservation.some(room => room.id === reservationForm.roomId)) {
+      setActionError('Sélectionnez une chambre disponible pour ces dates.');
+      return;
+    }
+    setReservationStep(nextStep);
   };
 
   const saveReservation = (event: React.FormEvent) => {
     event.preventDefault();
+    if (reservationStep < 3) {
+      moveReservationStep((reservationStep + 1) as 2 | 3);
+      return;
+    }
     setActionError('');
-    if (!reservationForm.roomId || !reservationForm.guestName.trim() || reservationForm.departureDate <= reservationForm.arrivalDate) {
-      setActionError('Renseignez le client, la chambre et des dates de séjour valides.');
+    if (!reservationForm.roomId || !reservationForm.guestName.trim() || !reservationForm.phone.trim() || reservationForm.departureDate <= reservationForm.arrivalDate) {
+      setActionError('Renseignez le client, son téléphone, la chambre et des dates de séjour valides.');
       return;
     }
     try {
@@ -354,7 +410,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
           <div className="pms-room-summary">
             {[
               { label: 'Occupées', value: occupiedRooms.length, filter: 'occupied' },
-              { label: 'Libres et prêtes', value: db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus)).length, filter: 'vacant' },
+              { label: 'Libres et prêtes', value: db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus)).length, filter: 'available' },
               { label: 'À nettoyer', value: dirtyRooms.length, filter: 'dirty' },
               { label: 'Maintenance', value: db.pmsRooms.filter(room => room.status === 'maintenance').length, filter: 'maintenance' }
             ].map(item => <button key={item.label} onClick={() => { setRoomFilter(item.filter); setActiveTab('rooms'); }}><span>{item.label}</span><strong>{item.value}</strong></button>)}
@@ -442,17 +498,22 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     <>
       <div className="card pms-filter-bar">
         <div><Filter size={18} /><strong>État des chambres</strong></div>
-        <select className="form-control" value={roomFilter} onChange={event => setRoomFilter(event.target.value)}><option value="all">Toutes les chambres</option><option value="vacant">Libres</option><option value="occupied">Occupées</option><option value="dirty">À nettoyer</option><option value="maintenance">Maintenance</option></select>
+        <select className="form-control" value={roomFilter} onChange={event => setRoomFilter(event.target.value)}><option value="all">Toutes les chambres</option><option value="available">Libres et prêtes</option><option value="occupied">Occupées</option><option value="dirty">À nettoyer</option><option value="maintenance">Maintenance</option></select>
+        <div className="pms-room-legend" aria-label="Légende des états de chambre">
+          {Object.entries(roomVisualMeta).map(([status, meta]) => <span key={status} className={meta.className}><i />{meta.label}</span>)}
+        </div>
       </div>
       <div className="grid-4 pms-room-grid">
         {filteredRooms.map(room => {
           const reservation = db.pmsReservations.find(item => item.roomId === room.id && item.status === 'checked_in');
           const guest = reservation ? db.pmsGuests.find(item => item.id === reservation.guestId) : undefined;
+          const visualStatus = getRoomVisualStatus(room);
+          const visualMeta = roomVisualMeta[visualStatus];
           return (
-            <article className="card pms-room-card" key={room.id}>
-              <div className="pms-room-card-header"><div><strong>{room.roomNumber}</strong><span>{room.floor}</span></div><span className={`pms-room-dot ${room.status}`} /></div>
+            <article className={`card pms-room-card ${visualMeta.className}`} key={room.id}>
+              <div className="pms-room-card-header"><div><strong>{room.roomNumber}</strong><span>{room.floor}</span></div><span className="pms-room-state-label"><i />{visualMeta.label}</span></div>
               <h3>{room.roomType}</h3><p>{room.capacity} personne(s) · {formatFCFA(room.nightlyRate)}/nuit</p>
-              <div className="pms-room-statuses"><span className={`badge ${room.status === 'occupied' ? 'badge-green' : room.status === 'maintenance' ? 'badge-yellow' : 'badge-blue'}`}>{room.status === 'occupied' ? 'Occupée' : room.status === 'maintenance' ? 'Maintenance' : 'Libre'}</span><span className="badge badge-gray">{housekeepingLabels[room.housekeepingStatus]}</span></div>
+              <div className="pms-room-statuses"><span className="badge pms-room-primary-badge">{visualMeta.label}</span><span className="badge badge-gray">Entretien : {housekeepingLabels[room.housekeepingStatus]}</span></div>
               {guest && <div className="pms-room-guest"><Users size={15} /><span>{guest.fullName}</span></div>}
               {room.maintenanceNote && <p className="pms-maintenance-note">{room.maintenanceNote}</p>}
               <div className="mobile-card-actions">
@@ -594,18 +655,87 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
       {reservationModalOpen && (
         <div className="modal-overlay" onClick={() => setReservationModalOpen(false)}>
-          <form className="modal-card pms-modal" onSubmit={saveReservation} onClick={event => event.stopPropagation()}>
-            <div className="modal-header"><div><h2>{editingReservationId ? 'Modifier la réservation' : 'Nouvelle réservation'}</h2><p>{editingReservationId ? 'Ajustez le séjour, la chambre ou le tarif.' : 'Créez le client et son séjour en une seule étape.'}</p></div><button type="button" className="icon-btn" onClick={() => setReservationModalOpen(false)}><X size={20} /></button></div>
+          <form className="modal-card pms-modal pms-reservation-modal" onSubmit={saveReservation} onClick={event => event.stopPropagation()}>
+            <div className="modal-header">
+              <div><span className="pms-eyebrow"><CalendarDays size={15} /> Réservation</span><h2>{editingReservationId ? 'Modifier le séjour' : 'Nouvelle réservation'}</h2><p>Trois étapes pour vérifier la disponibilité et éviter les erreurs.</p></div>
+              <button type="button" className="icon-btn" aria-label="Fermer" onClick={() => setReservationModalOpen(false)}><X size={20} /></button>
+            </div>
+
+            <div className="pms-booking-steps">
+              {[
+                { step: 1 as const, label: 'Séjour', icon: <CalendarDays size={17} /> },
+                { step: 2 as const, label: 'Chambre', icon: <BedDouble size={17} /> },
+                { step: 3 as const, label: 'Client & tarif', icon: <Users size={17} /> }
+              ].map(item => (
+                <button key={item.step} type="button" className={reservationStep === item.step ? 'active' : reservationStep > item.step ? 'done' : ''} disabled={item.step > reservationStep} onClick={() => moveReservationStep(item.step)}>
+                  <span>{reservationStep > item.step ? <CheckCircle size={17} /> : item.icon}</span><strong>{item.step}. {item.label}</strong>
+                </button>
+              ))}
+            </div>
+
             {actionError && <div className="alert alert-danger">{actionError}</div>}
-            <div className="grid-2"><div className="form-group"><label className="form-label">Nom du client</label><input className="form-control" required disabled={Boolean(editingReservationId)} value={reservationForm.guestName} onChange={event => setReservationForm({ ...reservationForm, guestName: event.target.value })} /></div><div className="form-group"><label className="form-label">Téléphone</label><input className="form-control" required disabled={Boolean(editingReservationId)} value={reservationForm.phone} onChange={event => setReservationForm({ ...reservationForm, phone: event.target.value })} /></div></div>
-            <div className="form-group"><label className="form-label">E-mail</label><input type="email" className="form-control" disabled={Boolean(editingReservationId)} value={reservationForm.email} onChange={event => setReservationForm({ ...reservationForm, email: event.target.value })} /></div>
-            <div className="grid-2"><div className="form-group"><label className="form-label">Arrivée</label><input type="date" className="form-control" value={reservationForm.arrivalDate} onChange={event => setReservationForm({ ...reservationForm, arrivalDate: event.target.value })} /></div><div className="form-group"><label className="form-label">Départ</label><input type="date" className="form-control" value={reservationForm.departureDate} onChange={event => setReservationForm({ ...reservationForm, departureDate: event.target.value })} /></div></div>
-            <div className="grid-2"><div className="form-group"><label className="form-label">Chambre</label><select className="form-control" value={reservationForm.roomId} onChange={event => { const room = db.pmsRooms.find(item => item.id === event.target.value); setReservationForm({ ...reservationForm, roomId: event.target.value, nightlyRate: room?.nightlyRate || reservationForm.nightlyRate }); }}>{db.pmsRooms.filter(room => room.status !== 'maintenance').map(room => <option key={room.id} value={room.id}>{room.roomNumber} · {room.roomType}</option>)}</select></div><div className="form-group"><label className="form-label">Origine</label><select className="form-control" value={reservationForm.source} onChange={event => setReservationForm({ ...reservationForm, source: event.target.value as PMSReservation['source'] })}>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></div>
-            <div className="grid-2"><div className="form-group"><label className="form-label">Plan tarifaire</label><select className="form-control" value={reservationForm.ratePlanId} onChange={event => { const plan = db.pmsRatePlans.find(item => item.id === event.target.value); setReservationForm({ ...reservationForm, ratePlanId: event.target.value, nightlyRate: plan?.baseRate || reservationForm.nightlyRate }); }}><option value="">Tarif de la chambre</option>{db.pmsRatePlans.filter(plan => plan.active).map(plan => <option key={plan.id} value={plan.id}>{plan.name} · {formatFCFA(plan.baseRate)}</option>)}</select></div><div className="form-group"><label className="form-label">Garantie</label><select className="form-control" value={reservationForm.guaranteeType} onChange={event => setReservationForm({ ...reservationForm, guaranteeType: event.target.value as NonNullable<PMSReservation['guaranteeType']> })}><option value="none">Sans garantie</option><option value="deposit">Acompte</option><option value="card">Carte bancaire</option><option value="company">Prise en charge entreprise</option></select></div></div>
-            <div className="grid-2"><div className="form-group"><label className="form-label">Adultes</label><input type="number" min="1" className="form-control" value={reservationForm.adults} onChange={event => setReservationForm({ ...reservationForm, adults: Number(event.target.value) })} /></div><div className="form-group"><label className="form-label">Enfants</label><input type="number" min="0" className="form-control" value={reservationForm.children} onChange={event => setReservationForm({ ...reservationForm, children: Number(event.target.value) })} /></div></div>
-            <div className="grid-2"><div className="form-group"><label className="form-label">Tarif par nuit</label><input type="number" min="0" className="form-control" value={reservationForm.nightlyRate} onChange={event => setReservationForm({ ...reservationForm, nightlyRate: Number(event.target.value) })} /></div><div className="form-group"><label className="form-label">Acompte</label><input type="number" min="0" className="form-control" value={reservationForm.depositAmount} onChange={event => setReservationForm({ ...reservationForm, depositAmount: Number(event.target.value) })} /></div></div>
-            <div className="form-group"><label className="form-label">Notes séjour</label><textarea className="form-control" rows={3} value={reservationForm.notes} onChange={event => setReservationForm({ ...reservationForm, notes: event.target.value })} /></div>
-            <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setReservationModalOpen(false)}>Annuler</button><button type="submit" className="btn btn-primary"><ClipboardCheck size={17} /> {editingReservationId ? 'Enregistrer' : 'Créer la réservation'}</button></div>
+
+            <div className="pms-booking-body">
+              {reservationStep === 1 && (
+                <section className="pms-booking-section">
+                  <div className="pms-booking-section-heading"><CalendarDays size={20} /><div><h3>Dates et voyageurs</h3><p>Les chambres proposées à l’étape suivante seront réellement disponibles.</p></div></div>
+                  <div className="grid-2">
+                    <div className="form-group"><label className="form-label">Date d’arrivée</label><input type="date" className="form-control" value={reservationForm.arrivalDate} onChange={event => setReservationForm({ ...reservationForm, arrivalDate: event.target.value })} /></div>
+                    <div className="form-group"><label className="form-label">Date de départ</label><input type="date" min={reservationForm.arrivalDate} className="form-control" value={reservationForm.departureDate} onChange={event => setReservationForm({ ...reservationForm, departureDate: event.target.value })} /></div>
+                  </div>
+                  <div className="grid-2">
+                    <div className="form-group"><label className="form-label">Adultes</label><input type="number" min="1" max="8" className="form-control" value={reservationForm.adults} onChange={event => setReservationForm({ ...reservationForm, adults: Number(event.target.value) })} /></div>
+                    <div className="form-group"><label className="form-label">Enfants</label><input type="number" min="0" max="8" className="form-control" value={reservationForm.children} onChange={event => setReservationForm({ ...reservationForm, children: Number(event.target.value) })} /></div>
+                  </div>
+                  <div className="pms-booking-highlight"><MoonStar size={19} /><div><strong>{reservationNights} nuit(s)</strong><span>{reservationForm.adults + reservationForm.children} voyageur(s) · arrivée à partir du {db.pmsSettings.checkInTime}</span></div></div>
+                </section>
+              )}
+
+              {reservationStep === 2 && (
+                <section className="pms-booking-section">
+                  <div className="pms-booking-section-heading"><BedDouble size={20} /><div><h3>Choisir une chambre</h3><p>{availableRoomsForReservation.length} chambre(s) disponible(s) pour ce séjour.</p></div></div>
+                  <div className="pms-booking-room-grid">
+                    {availableRoomsForReservation.map(room => {
+                      const ready = ['clean', 'inspected'].includes(room.housekeepingStatus);
+                      return (
+                        <button key={room.id} type="button" className={`${reservationForm.roomId === room.id ? 'selected' : ''} ${ready ? 'ready' : 'prepare'}`} onClick={() => setReservationForm({ ...reservationForm, roomId: room.id, nightlyRate: room.nightlyRate })}>
+                          <div><strong>Chambre {room.roomNumber}</strong><span>{room.roomType} · {room.floor}</span></div>
+                          <span className="pms-booking-room-state"><i />{ready ? 'Prête' : 'À préparer'}</span>
+                          <p>{room.capacity} personne(s)</p><strong>{formatFCFA(room.nightlyRate)} <small>/ nuit</small></strong>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {availableRoomsForReservation.length === 0 && <div className="mobile-empty-state">Aucune chambre ne correspond à ces dates et à cette capacité. Revenez à l’étape précédente pour modifier le séjour.</div>}
+                </section>
+              )}
+
+              {reservationStep === 3 && (
+                <section className="pms-booking-section">
+                  <div className="pms-booking-section-heading"><Users size={20} /><div><h3>Client et conditions</h3><p>Coordonnées, origine de la réservation et garantie.</p></div></div>
+                  <div className="grid-2"><div className="form-group"><label className="form-label">Nom complet</label><input className="form-control" required disabled={Boolean(editingReservationId)} value={reservationForm.guestName} onChange={event => setReservationForm({ ...reservationForm, guestName: event.target.value })} /></div><div className="form-group"><label className="form-label">Téléphone</label><input type="tel" className="form-control" required disabled={Boolean(editingReservationId)} value={reservationForm.phone} onChange={event => setReservationForm({ ...reservationForm, phone: event.target.value })} /></div></div>
+                  <div className="form-group"><label className="form-label">E-mail <span className="form-optional">facultatif</span></label><input type="email" className="form-control" disabled={Boolean(editingReservationId)} value={reservationForm.email} onChange={event => setReservationForm({ ...reservationForm, email: event.target.value })} /></div>
+                  <div className="pms-booking-subsection"><strong>Tarification et garantie</strong></div>
+                  <div className="grid-2"><div className="form-group"><label className="form-label">Origine</label><select className="form-control" value={reservationForm.source} onChange={event => setReservationForm({ ...reservationForm, source: event.target.value as PMSReservation['source'] })}>{Object.entries(sourceLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><div className="form-group"><label className="form-label">Plan tarifaire</label><select className="form-control" value={reservationForm.ratePlanId} onChange={event => { const plan = db.pmsRatePlans.find(item => item.id === event.target.value); setReservationForm({ ...reservationForm, ratePlanId: event.target.value, nightlyRate: plan?.baseRate || selectedReservationRoom?.nightlyRate || reservationForm.nightlyRate }); }}><option value="">Tarif de la chambre</option>{db.pmsRatePlans.filter(plan => plan.active).map(plan => <option key={plan.id} value={plan.id}>{plan.name} · {formatFCFA(plan.baseRate)}</option>)}</select></div></div>
+                  <div className="grid-2"><div className="form-group"><label className="form-label">Tarif par nuit</label><input type="number" min="0" className="form-control" value={reservationForm.nightlyRate} onChange={event => setReservationForm({ ...reservationForm, nightlyRate: Number(event.target.value) })} /></div><div className="form-group"><label className="form-label">Garantie</label><select className="form-control" value={reservationForm.guaranteeType} onChange={event => setReservationForm({ ...reservationForm, guaranteeType: event.target.value as NonNullable<PMSReservation['guaranteeType']> })}><option value="none">Sans garantie</option><option value="deposit">Acompte</option><option value="card">Carte bancaire</option><option value="company">Prise en charge entreprise</option></select></div></div>
+                  {reservationForm.guaranteeType === 'deposit' && <div className="form-group"><label className="form-label">Montant de l’acompte</label><input type="number" min="0" className="form-control" value={reservationForm.depositAmount} onChange={event => setReservationForm({ ...reservationForm, depositAmount: Number(event.target.value) })} /></div>}
+                  <div className="form-group"><label className="form-label">Notes du séjour <span className="form-optional">facultatif</span></label><textarea className="form-control" rows={2} value={reservationForm.notes} onChange={event => setReservationForm({ ...reservationForm, notes: event.target.value })} /></div>
+                </section>
+              )}
+            </div>
+
+            <div className="pms-booking-summary">
+              <div><span>Séjour</span><strong>{formatDate(reservationForm.arrivalDate)} → {formatDate(reservationForm.departureDate)} · {reservationNights} nuit(s)</strong></div>
+              <div><span>Chambre</span><strong>{selectedReservationRoom ? `${selectedReservationRoom.roomNumber} · ${selectedReservationRoom.roomType}` : 'À sélectionner'}</strong></div>
+              <div><span>Total prévu</span><strong>{formatFCFA(reservationNights * reservationForm.nightlyRate)}</strong></div>
+            </div>
+
+            <div className="modal-actions pms-booking-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => reservationStep === 1 ? setReservationModalOpen(false) : moveReservationStep((reservationStep - 1) as 1 | 2)}>{reservationStep === 1 ? 'Annuler' : 'Retour'}</button>
+              {reservationStep < 3
+                ? <button type="submit" className="btn btn-primary">Continuer <ArrowRight size={17} /></button>
+                : <button type="submit" className="btn btn-primary"><ClipboardCheck size={17} /> {editingReservationId ? 'Enregistrer les modifications' : 'Confirmer la réservation'}</button>}
+            </div>
           </form>
         </div>
       )}
