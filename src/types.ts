@@ -393,6 +393,9 @@ export interface PMSRoom {
   status: 'occupied' | 'vacant' | 'maintenance';
   housekeepingStatus: PMSHousekeepingStatus;
   maintenanceNote?: string;
+  holdUntil?: string;
+  holdBy?: string;
+  holdReservationId?: string;
 }
 
 export interface PMSFolioCharge {
@@ -405,6 +408,7 @@ export interface PMSFolioCharge {
   date: string;
   status: PMSChargeStatus;
   category?: 'room' | 'restaurant' | 'service' | 'tax' | 'adjustment';
+  billingWindow?: 'guest' | 'company' | 'agency' | 'group';
 }
 
 export interface PMSFolioPayment {
@@ -451,6 +455,9 @@ export interface PMSReservation {
   confirmationNumber: string;
   guestId: string;
   roomId: string;
+  requestedRoomType?: string;
+  roomAssignmentLocked?: boolean;
+  estimatedArrivalTime?: string;
   arrivalDate: string;
   departureDate: string;
   adults: number;
@@ -464,6 +471,14 @@ export interface PMSReservation {
   guaranteeType?: 'deposit' | 'company' | 'card' | 'none';
   guaranteeStatus?: 'secured' | 'pending';
   groupId?: string;
+  checkInChecklist?: {
+    identity: boolean;
+    guarantee: boolean;
+    payment: boolean;
+    signature: boolean;
+    keyIssued: boolean;
+    completedAt?: string;
+  };
 }
 
 export interface PMSHousekeepingTask {
@@ -474,6 +489,11 @@ export interface PMSHousekeepingTask {
   priority: 'normal' | 'urgent';
   scheduledDate: string;
   note?: string;
+  startedAt?: string;
+  completedAt?: string;
+  linenStatus?: 'complete' | 'missing' | 'damaged';
+  minibarStatus?: 'checked' | 'restock';
+  photoCount?: number;
 }
 
 export interface PMSNightAudit {
@@ -524,6 +544,8 @@ export interface PMSRatePlan {
   validTo: string;
   audience: 'public' | 'company' | 'agency' | 'group';
   active: boolean;
+  minStay?: number;
+  occupancyAdjustment?: number;
 }
 
 export interface PMSGroupBooking {

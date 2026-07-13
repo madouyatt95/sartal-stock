@@ -695,7 +695,8 @@ const initialDB = (): DatabaseState => {
     { id: 'guest-sarah', fullName: 'Sarah Johnson', phone: '+44 7700 900123', email: 'sarah.j@example.com', nationality: 'Britannique', preferences: 'Chambre calme', stays: 1, documentType: 'passport', documentNumber: 'GB-51****83', loyaltyTier: 'standard' },
     { id: 'guest-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 610 44 20', email: 'm.ndiaye@example.com', nationality: 'Sénégalaise', company: 'Ndar Distribution', stays: 5 },
     { id: 'guest-fatou', fullName: 'Fatou Kane', phone: '+221 76 812 33 05', nationality: 'Sénégalaise', stays: 1 },
-    { id: 'guest-ibrahima', fullName: 'Ibrahima Fall', phone: '+221 77 901 24 61', email: 'i.fall@example.com', nationality: 'Sénégalaise', stays: 0 }
+    { id: 'guest-ibrahima', fullName: 'Ibrahima Fall', phone: '+221 77 901 24 61', email: 'i.fall@example.com', nationality: 'Sénégalaise', stays: 0 },
+    { id: 'guest-coumba', fullName: 'Coumba Diallo', phone: '+221 77 620 14 52', email: 'coumba.diallo@example.com', nationality: 'Sénégalaise', preferences: 'Étage élevé et chambre calme', stays: 2, loyaltyTier: 'silver' }
   ];
 
   const pmsReservations: PMSReservation[] = [
@@ -704,7 +705,8 @@ const initialDB = (): DatabaseState => {
     { id: 'res-301', confirmationNumber: 'RSV-240704', guestId: 'guest-moussa', roomId: 'room-301', arrivalDate: hotelDate(-1), departureDate: hotelDate(2), adults: 2, children: 1, status: 'checked_in', source: 'phone', nightlyRate: 70000, depositAmount: 70000 },
     { id: 'res-118', confirmationNumber: 'RSV-240703', guestId: 'guest-sarah', roomId: 'room-118', arrivalDate: today, departureDate: hotelDate(2), adults: 1, children: 0, status: 'confirmed', source: 'online', nightlyRate: 55000, depositAmount: 25000 },
     { id: 'res-101', confirmationNumber: 'RSV-240705', guestId: 'guest-fatou', roomId: 'room-101', arrivalDate: hotelDate(1), departureDate: hotelDate(4), adults: 2, children: 0, status: 'confirmed', source: 'agency', nightlyRate: 45000, depositAmount: 45000 },
-    { id: 'res-302', confirmationNumber: 'RSV-240706', guestId: 'guest-ibrahima', roomId: 'room-205', arrivalDate: hotelDate(-1), departureDate: hotelDate(1), adults: 1, children: 0, status: 'no_show', source: 'phone', nightlyRate: 85000, depositAmount: 0, notes: 'Client non présenté, relance à effectuer.' }
+    { id: 'res-302', confirmationNumber: 'RSV-240706', guestId: 'guest-ibrahima', roomId: 'room-205', arrivalDate: hotelDate(-1), departureDate: hotelDate(1), adults: 1, children: 0, status: 'no_show', source: 'phone', nightlyRate: 85000, depositAmount: 0, notes: 'Client non présenté, relance à effectuer.' },
+    { id: 'res-unassigned', confirmationNumber: 'RSV-240707', guestId: 'guest-coumba', roomId: '', requestedRoomType: 'Chambre Deluxe', arrivalDate: hotelDate(2), departureDate: hotelDate(5), adults: 2, children: 0, status: 'confirmed', source: 'online', nightlyRate: 70000, depositAmount: 35000, notes: 'Chambre précise à attribuer avant l’arrivée.', guaranteeType: 'deposit', guaranteeStatus: 'secured', estimatedArrivalTime: '16:30' }
   ];
 
   const pmsFolios: PMSFolio[] = [
@@ -787,11 +789,11 @@ const initialDB = (): DatabaseState => {
   };
 
   const pmsRatePlans: PMSRatePlan[] = [
-    { id: 'rate-flex-standard', name: 'Flexible public', roomType: 'Standard', baseRate: 45000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
-    { id: 'rate-flex-superior', name: 'Flexible Supérieure', roomType: 'Supérieure', baseRate: 55000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
-    { id: 'rate-flex-suite', name: 'Flexible Suite', roomType: 'Suite Junior', baseRate: 85000, weekendMultiplier: 1.15, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
-    { id: 'rate-corporate', name: 'Contrat entreprise Dakar', roomType: 'Chambre Deluxe', baseRate: 63000, weekendMultiplier: 1, validFrom: hotelDate(-120), validTo: hotelDate(240), audience: 'company', active: true },
-    { id: 'rate-group', name: 'Groupe & séminaire', roomType: 'Standard', baseRate: 40000, weekendMultiplier: 1, validFrom: hotelDate(-30), validTo: hotelDate(120), audience: 'group', active: true }
+    { id: 'rate-flex-standard', name: 'Flexible public', roomType: 'Standard', baseRate: 45000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true, minStay: 1, occupancyAdjustment: 12 },
+    { id: 'rate-flex-superior', name: 'Flexible Supérieure', roomType: 'Supérieure', baseRate: 55000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true, minStay: 1, occupancyAdjustment: 12 },
+    { id: 'rate-flex-suite', name: 'Flexible Suite', roomType: 'Suite Junior', baseRate: 85000, weekendMultiplier: 1.15, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true, minStay: 2, occupancyAdjustment: 15 },
+    { id: 'rate-corporate', name: 'Contrat entreprise Dakar', roomType: 'Chambre Deluxe', baseRate: 63000, weekendMultiplier: 1, validFrom: hotelDate(-120), validTo: hotelDate(240), audience: 'company', active: true, minStay: 1, occupancyAdjustment: 0 },
+    { id: 'rate-group', name: 'Groupe & séminaire', roomType: 'Standard', baseRate: 40000, weekendMultiplier: 1, validFrom: hotelDate(-30), validTo: hotelDate(120), audience: 'group', active: true, minStay: 2, occupancyAdjustment: 0 }
   ];
 
   const pmsGroups: PMSGroupBooking[] = [
@@ -1623,6 +1625,31 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       ...(session.paymentTotals || {})
     }
   }));
+  const pmsRooms = (state.pmsRooms || []).map(room => (
+    room.holdUntil && new Date(room.holdUntil).getTime() <= Date.now()
+      ? { ...room, holdUntil: undefined, holdBy: undefined, holdReservationId: undefined }
+      : room
+  ));
+  const pmsGuests = [...(state.pmsGuests || [])];
+  if (!pmsGuests.some(guest => guest.id === 'guest-coumba')) {
+    pmsGuests.push({ id: 'guest-coumba', fullName: 'Coumba Diallo', phone: '+221 77 620 14 52', email: 'coumba.diallo@example.com', nationality: 'Sénégalaise', preferences: 'Étage élevé et chambre calme', stays: 2, loyaltyTier: 'silver' });
+  }
+  const pmsReservations = (state.pmsReservations || []).map(reservation => ({
+    ...reservation,
+    requestedRoomType: reservation.requestedRoomType || pmsRooms.find(room => room.id === reservation.roomId)?.roomType || 'Standard'
+  }));
+  if (!pmsReservations.some(reservation => reservation.id === 'res-unassigned')) {
+    const futureArrival = new Date();
+    futureArrival.setDate(futureArrival.getDate() + 2);
+    const futureDeparture = new Date(futureArrival);
+    futureDeparture.setDate(futureDeparture.getDate() + 3);
+    pmsReservations.push({
+      id: 'res-unassigned', confirmationNumber: 'RSV-240707', guestId: 'guest-coumba', roomId: '', requestedRoomType: 'Chambre Deluxe',
+      arrivalDate: futureArrival.toISOString().slice(0, 10), departureDate: futureDeparture.toISOString().slice(0, 10), adults: 2, children: 0,
+      status: 'confirmed', source: 'online', nightlyRate: 70000, depositAmount: 35000, notes: 'Chambre précise à attribuer avant l’arrivée.',
+      guaranteeType: 'deposit', guaranteeStatus: 'secured', estimatedArrivalTime: '16:30'
+    });
+  }
 
   const migratedState: DatabaseState = {
     ...state,
@@ -1647,14 +1674,14 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     externalPOSImportRuns: state.externalPOSImportRuns || [],
     deliveryOrders: state.deliveryOrders || [],
     cashSessions,
-    pmsRooms: state.pmsRooms || [],
-    pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [] })),
-    pmsGuests: state.pmsGuests || [],
-    pmsReservations: state.pmsReservations || [],
-    pmsHousekeepingTasks: state.pmsHousekeepingTasks || [],
+    pmsRooms,
+    pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [], charges: (folio.charges || []).map(charge => ({ ...charge, billingWindow: charge.billingWindow || 'guest' })) })),
+    pmsGuests,
+    pmsReservations,
+    pmsHousekeepingTasks: (state.pmsHousekeepingTasks || []).map(task => ({ ...task, linenStatus: task.linenStatus || 'complete', minibarStatus: task.minibarStatus || 'checked', photoCount: task.photoCount || 0 })),
     pmsNightAudits: state.pmsNightAudits || [],
     pmsMigrationRuns: state.pmsMigrationRuns || [],
-    pmsRatePlans: state.pmsRatePlans || [],
+    pmsRatePlans: (state.pmsRatePlans || []).map(plan => ({ ...plan, minStay: plan.minStay || 1, occupancyAdjustment: plan.occupancyAdjustment ?? (plan.audience === 'public' ? 10 : 0) })),
     pmsGroups: state.pmsGroups || [],
     pmsEvents: state.pmsEvents || [],
     pmsInvoices: state.pmsInvoices || [],

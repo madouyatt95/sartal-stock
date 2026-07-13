@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ArrowRight,
   BedDouble,
@@ -39,6 +39,12 @@ import {
   PMSMultiSitePanel,
   PMSRoleDashboard
 } from './PMSAdvancedPanels';
+import {
+  PMSFrontDeskCommand,
+  PMSHousekeepingMobile,
+  PMSRevenueIntelligence,
+  PMSRoomRack
+} from './PMSPremiumOperations';
 
 interface PMSHotelProps {
   state: StockState;
@@ -98,6 +104,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     updatePMSHousekeepingTask,
     addPMSFolioPayment,
     transferPMSFolioCharge,
+    routePMSFolioCharge,
     runPMSNightAudit,
     updatePMSSettings
   } = state;
@@ -112,12 +119,12 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const [transferChargeId, setTransferChargeId] = useState<string | null>(null);
   const [transferForm, setTransferForm] = useState({ targetFolioId: '', amount: 0 });
   const [selectedFolioId, setSelectedFolioId] = useState(db.pmsFolios.find(item => item.status === 'open')?.id || '');
-  const [planningRange, setPlanningRange] = useState<7 | 14 | 30>(7);
   const [actionError, setActionError] = useState('');
   const [reservationForm, setReservationForm] = useState({
     guestName: '', phone: '', email: '', roomId: db.pmsRooms.find(room => room.status === 'vacant')?.id || '',
     arrivalDate: db.pmsSettings.businessDate, departureDate: '', adults: 1, children: 0,
     source: 'direct' as PMSReservation['source'], nightlyRate: 0, depositAmount: 0, notes: '',
+    requestedRoomType: '', estimatedArrivalTime: '15:00',
     ratePlanId: '', guaranteeType: 'none' as NonNullable<PMSReservation['guaranteeType']>
   });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: 'wave' as PaymentType, reference: '' });
@@ -131,6 +138,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const arrivalsToday = db.pmsReservations.filter(item => item.arrivalDate === today && item.status === 'confirmed');
   const departuresToday = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
   const dirtyRooms = db.pmsRooms.filter(room => room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'in_progress');
+  const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
 
   const folioTotals = (folioId: string) => {
     const folio = db.pmsFolios.find(item => item.id === folioId);
@@ -148,7 +156,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const filteredReservations = db.pmsReservations.filter(reservation => {
     const guest = db.pmsGuests.find(item => item.id === reservation.guestId);
     const room = db.pmsRooms.find(item => item.id === reservation.roomId);
-    const matchesSearch = !normalizedSearch || `${guest?.fullName} ${guest?.phone} ${room?.roomNumber} ${reservation.confirmationNumber}`.toLowerCase().includes(normalizedSearch);
+    const matchesSearch = !normalizedSearch || `${guest?.fullName} ${guest?.phone} ${room?.roomNumber} ${reservation.requestedRoomType} ${reservation.confirmationNumber}`.toLowerCase().includes(normalizedSearch);
     const matchesStatus = statusFilter === 'all'
       || (statusFilter === 'active' && ['confirmed', 'checked_in', 'waitlisted'].includes(reservation.status))
       || reservation.status === statusFilter;
@@ -177,7 +185,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   });
 
   const availableRoomsForReservation = db.pmsRooms.filter(room => {
-    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children) return false;
+    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children || (reservationForm.requestedRoomType && room.roomType !== reservationForm.requestedRoomType)) return false;
     return !db.pmsReservations.some(reservation => (
       reservation.id !== editingReservationId
       && reservation.roomId === room.id
@@ -190,12 +198,6 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const reservationNights = reservationForm.arrivalDate && reservationForm.departureDate
     ? getNights(reservationForm.arrivalDate, reservationForm.departureDate)
     : 0;
-
-  const planningDates = useMemo(() => Array.from({ length: planningRange }, (_, index) => {
-    const date = new Date(`${today}T12:00:00`);
-    date.setDate(date.getDate() + index);
-    return date.toISOString().slice(0, 10);
-  }), [planningRange, today]);
 
   const tabs: Array<{ id: PMSTab; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Tableau hôtel', icon: <LayoutDashboard size={17} /> },
@@ -229,6 +231,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       guestName: '', phone: '', email: '', roomId: room?.id || '', arrivalDate: today,
       departureDate, adults: 1, children: 0,
       source: 'direct', nightlyRate: room?.nightlyRate || 0, depositAmount: 0, notes: '',
+      requestedRoomType: room?.roomType || db.pmsRooms[0]?.roomType || 'Standard', estimatedArrivalTime: '15:00',
       ratePlanId: '', guaranteeType: 'none'
     });
     setActionError('');
@@ -244,6 +247,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       roomId: reservation.roomId, arrivalDate: reservation.arrivalDate, departureDate: reservation.departureDate,
       adults: reservation.adults, children: reservation.children, source: reservation.source,
       nightlyRate: reservation.nightlyRate, depositAmount: reservation.depositAmount, notes: reservation.notes || '',
+      requestedRoomType: reservation.requestedRoomType || db.pmsRooms.find(item => item.id === reservation.roomId)?.roomType || 'Standard', estimatedArrivalTime: reservation.estimatedArrivalTime || '15:00',
       ratePlanId: reservation.ratePlanId || '', guaranteeType: reservation.guaranteeType || 'none'
     });
     setActionError('');
@@ -262,8 +266,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       setActionError('Choisissez des dates valides et au moins un adulte.');
       return;
     }
-    if (nextStep > reservationStep && reservationStep === 2 && !availableRoomsForReservation.some(room => room.id === reservationForm.roomId)) {
-      setActionError('Sélectionnez une chambre disponible pour ces dates.');
+    if (nextStep > reservationStep && reservationStep === 2 && reservationForm.roomId && !availableRoomsForReservation.some(room => room.id === reservationForm.roomId)) {
+      setActionError('Sélectionnez une chambre disponible ou choisissez l’attribution ultérieure.');
       return;
     }
     setReservationStep(nextStep);
@@ -276,14 +280,16 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       return;
     }
     setActionError('');
-    if (!reservationForm.roomId || !reservationForm.guestName.trim() || !reservationForm.phone.trim() || reservationForm.departureDate <= reservationForm.arrivalDate) {
-      setActionError('Renseignez le client, son téléphone, la chambre et des dates de séjour valides.');
+    if (!reservationForm.requestedRoomType || !reservationForm.guestName.trim() || !reservationForm.phone.trim() || reservationForm.departureDate <= reservationForm.arrivalDate) {
+      setActionError('Renseignez le client, son téléphone, la catégorie et des dates de séjour valides.');
       return;
     }
     try {
       if (editingReservationId) {
         updatePMSReservation(editingReservationId, {
           roomId: reservationForm.roomId,
+          requestedRoomType: reservationForm.requestedRoomType,
+          estimatedArrivalTime: reservationForm.estimatedArrivalTime,
           arrivalDate: reservationForm.arrivalDate,
           departureDate: reservationForm.departureDate,
           adults: reservationForm.adults,
@@ -381,42 +387,19 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const renderDashboard = () => (
     <>
       {renderKpis()}
+      <PMSFrontDeskCommand state={state} />
       <PMSRoleDashboard state={state} />
-      <div className="grid-2" style={{ alignItems: 'start' }}>
-        <section className="card pms-section-card">
-          <div className="pms-section-header">
-            <div><h2>Réception aujourd’hui</h2><p>Arrivées, départs et actions immédiates.</p></div>
-            <button className="btn btn-secondary" onClick={() => setActiveTab('reservations')}>Tout voir</button>
-          </div>
-          <div className="pms-stack">
-            {[...arrivalsToday, ...departuresToday].map(reservation => {
-              const guest = db.pmsGuests.find(item => item.id === reservation.guestId);
-              const room = db.pmsRooms.find(item => item.id === reservation.roomId);
-              const arrival = reservation.arrivalDate === today;
-              return (
-                <div className="pms-action-row" key={reservation.id}>
-                  <div className={`pms-event-icon ${arrival ? 'arrival' : 'departure'}`}>{arrival ? <LogIn size={18} /> : <LogOut size={18} />}</div>
-                  <div><strong>{guest?.fullName}</strong><span>Chambre {room?.roomNumber} · {arrival ? 'Arrivée' : 'Départ'} prévu</span></div>
-                  <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, arrival ? 'checked_in' : 'checked_out')}>{arrival ? 'Check-in' : 'Check-out'}</button>
-                </div>
-              );
-            })}
-            {arrivalsToday.length + departuresToday.length === 0 && <div className="mobile-empty-state">Aucune arrivée ou départ à traiter aujourd’hui.</div>}
-          </div>
-        </section>
-
-        <section className="card pms-section-card">
-          <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div></div>
-          <div className="pms-room-summary">
-            {[
-              { label: 'Occupées', value: occupiedRooms.length, filter: 'occupied' },
-              { label: 'Libres et prêtes', value: db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus)).length, filter: 'available' },
-              { label: 'À nettoyer', value: dirtyRooms.length, filter: 'dirty' },
-              { label: 'Maintenance', value: db.pmsRooms.filter(room => room.status === 'maintenance').length, filter: 'maintenance' }
-            ].map(item => <button key={item.label} onClick={() => { setRoomFilter(item.filter); setActiveTab('rooms'); }}><span>{item.label}</span><strong>{item.value}</strong></button>)}
-          </div>
-        </section>
-      </div>
+      <section className="card pms-section-card">
+        <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div><button className="btn btn-secondary" onClick={() => setActiveTab('rooms')}>Voir les chambres</button></div>
+        <div className="pms-room-summary">
+          {[
+            { label: 'Occupées', value: occupiedRooms.length, filter: 'occupied' },
+            { label: 'Libres et prêtes', value: db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus)).length, filter: 'available' },
+            { label: 'À nettoyer', value: dirtyRooms.length, filter: 'dirty' },
+            { label: 'Maintenance', value: db.pmsRooms.filter(room => room.status === 'maintenance').length, filter: 'maintenance' }
+          ].map(item => <button key={item.label} onClick={() => { setRoomFilter(item.filter); setActiveTab('rooms'); }}><span>{item.label}</span><strong>{item.value}</strong></button>)}
+        </div>
+      </section>
 
       <section className="card pms-section-card">
         <div className="pms-section-header"><div><h2>Parcours opérationnel</h2><p>Les actions principales restent accessibles sans changer de module.</p></div></div>
@@ -433,31 +416,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     </>
   );
 
-  const renderPlanning = () => (
-    <section className="card pms-section-card">
-      <div className="pms-section-header">
-        <div><h2>Planning sur {planningRange} jours</h2><p>Occupation, arrivées et disponibilités à partir du {formatDate(today)}.</p></div>
-        <div className="pms-planning-actions"><select className="form-control" value={planningRange} onChange={event => setPlanningRange(Number(event.target.value) as 7 | 14 | 30)}><option value="7">7 jours</option><option value="14">14 jours</option><option value="30">30 jours</option></select><button className="btn btn-primary" onClick={openCreateReservation}><Plus size={17} /> Réserver</button></div>
-      </div>
-      <div className="pms-planning-wrap">
-        <table className="pms-planning-table">
-          <thead><tr><th>Chambre</th>{planningDates.map(date => <th key={date}>{new Date(`${date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit' })}</th>)}</tr></thead>
-          <tbody>
-            {db.pmsRooms.map(room => (
-              <tr key={room.id}>
-                <th><strong>{room.roomNumber}</strong><span>{room.roomType}</span></th>
-                {planningDates.map(date => {
-                  const reservation = db.pmsReservations.find(item => item.roomId === room.id && !['cancelled', 'no_show'].includes(item.status) && date >= item.arrivalDate && date < item.departureDate);
-                  const guest = reservation ? db.pmsGuests.find(item => item.id === reservation.guestId) : undefined;
-                  return <td key={date} className={room.status === 'maintenance' ? 'maintenance' : reservation ? 'booked' : 'available'} title={guest?.fullName}>{room.status === 'maintenance' ? 'Maintenance' : reservation ? guest?.fullName.split(' ')[0] : 'Libre'}</td>;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
+  const renderPlanning = () => <PMSRoomRack state={state} />;
 
   const renderReservations = () => (
     <>
@@ -479,10 +438,10 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
                 <div><span className={`badge ${reservationMeta[reservation.status].className}`}>{reservationMeta[reservation.status].label}</span><h3>{guest?.fullName}</h3><p>{reservation.confirmationNumber} · {sourceLabels[reservation.source]}</p></div>
                 <div className="pms-stay-dates"><span>{formatDate(reservation.arrivalDate)}</span><ArrowRight size={16} /><span>{formatDate(reservation.departureDate)}</span><small>{getNights(reservation.arrivalDate, reservation.departureDate)} nuit(s)</small></div>
               </div>
-              <div className="pms-reservation-details"><span>Chambre <strong>{room?.roomNumber}</strong></span><span>{reservation.adults} adulte(s) · {reservation.children} enfant(s)</span><span><strong>{formatFCFA(reservation.nightlyRate)}</strong> / nuit</span><span>Acompte <strong>{formatFCFA(reservation.depositAmount)}</strong></span></div>
+              <div className="pms-reservation-details"><span>{room ? 'Chambre' : 'Catégorie'} <strong>{room?.roomNumber || reservation.requestedRoomType || 'À attribuer'}</strong></span><span>{reservation.adults} adulte(s) · {reservation.children} enfant(s)</span><span><strong>{formatFCFA(reservation.nightlyRate)}</strong> / nuit</span><span>Acompte <strong>{formatFCFA(reservation.depositAmount)}</strong></span></div>
               <div className="mobile-card-actions pms-reservation-actions">
                 <button className="btn btn-secondary" onClick={() => openEditReservation(reservation)}><Pencil size={16} /> Modifier</button>
-                {reservation.status === 'confirmed' && <><button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'checked_in')}><LogIn size={16} /> Check-in</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'no_show')}>Non présenté</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'cancelled')}>Annuler</button></>}
+                {reservation.status === 'confirmed' && <>{reservation.roomId ? <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><LogIn size={16} /> Accueillir</button> : <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><BedDouble size={16} /> Attribuer</button>}<button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'no_show')}>Non présenté</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'cancelled')}>Annuler</button></>}
                 {reservation.status === 'checked_in' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'checked_out')}><LogOut size={16} /> Check-out</button>}
                 {reservation.status === 'waitlisted' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'confirmed')}>Confirmer si disponible</button>}
               </div>
@@ -561,7 +520,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
             <div className="pms-folio-totals"><div><span>Charges</span><strong>{formatFCFA(totals.charges)}</strong></div><div><span>Paiements</span><strong>{formatFCFA(totals.payments)}</strong></div><div className={totals.balance > 0 ? 'due' : 'paid'}><span>Solde</span><strong>{formatFCFA(totals.balance)}</strong></div></div>
             <h3>Charges du séjour</h3>
             <div className="pms-ledger">
-              {folio.charges.map(charge => <div key={charge.id}><div><strong>{charge.label}</strong><span>{new Date(charge.date).toLocaleString('fr-FR')} · {charge.externalSaleId}</span></div><span className={`badge ${charge.status === 'pending' ? 'badge-yellow' : charge.status === 'exported' ? 'badge-blue' : 'badge-green'}`}>{charge.status === 'pending' ? 'À envoyer' : charge.status === 'exported' ? 'Envoyé' : 'Rapproché'}</span><strong>{formatFCFA(charge.amount)}</strong><div className="pms-ledger-actions">{charge.category === 'restaurant' && <button className="btn btn-secondary" onClick={() => togglePMSExport(charge.saleId)}>{charge.status === 'pending' ? 'Envoyer' : charge.status === 'exported' ? 'Rapprocher' : 'Rouvrir'}</button>}<button className="btn btn-secondary" onClick={() => openChargeTransfer(charge.id, charge.amount, folio.id)}>Transférer</button></div></div>)}
+              {folio.charges.map(charge => <div key={charge.id}><div><strong>{charge.label}</strong><span>{new Date(charge.date).toLocaleString('fr-FR')} · {charge.externalSaleId}</span></div><span className={`badge ${charge.status === 'pending' ? 'badge-yellow' : charge.status === 'exported' ? 'badge-blue' : 'badge-green'}`}>{charge.status === 'pending' ? 'À envoyer' : charge.status === 'exported' ? 'Envoyé' : 'Rapproché'}</span><strong>{formatFCFA(charge.amount)}</strong><div className="pms-ledger-actions"><select className="form-control pms-routing-select" aria-label="Destination de facturation" value={charge.billingWindow || 'guest'} onChange={event => routePMSFolioCharge(charge.id, event.target.value as 'guest' | 'company' | 'agency' | 'group')}><option value="guest">Client</option><option value="company">Entreprise</option><option value="agency">Agence</option><option value="group">Groupe</option></select>{charge.category === 'restaurant' && <button className="btn btn-secondary" onClick={() => togglePMSExport(charge.saleId)}>{charge.status === 'pending' ? 'Envoyer' : charge.status === 'exported' ? 'Rapprocher' : 'Rouvrir'}</button>}<button className="btn btn-secondary" onClick={() => openChargeTransfer(charge.id, charge.amount, folio.id)}>Transférer</button></div></div>)}
             </div>
             <h3>Paiements</h3>
             <div className="pms-ledger compact">{folio.payments.map(payment => <div key={payment.id}><div><strong>{PAYMENT_TYPE_LABELS[payment.method]}</strong><span>{new Date(payment.date).toLocaleString('fr-FR')} · {payment.reference || 'Sans référence'}</span></div><strong>{formatFCFA(payment.amount)}</strong></div>)}{folio.payments.length === 0 && <div className="mobile-empty-state">Aucun paiement enregistré.</div>}</div>
@@ -583,6 +542,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
           return <article className="card pms-task-card" key={task.id}><div><span className={`badge ${task.priority === 'urgent' ? 'badge-red' : 'badge-gray'}`}>{task.priority === 'urgent' ? 'Urgent' : 'Normal'}</span><h3>Chambre {room?.roomNumber}</h3><p>{room?.roomType} · {task.assignedTo}</p></div><p>{task.note || 'Entretien standard de la chambre.'}</p><div className="pms-task-progress">{(['pending', 'in_progress', 'completed', 'inspected'] as const).map(status => <button key={status} className={task.status === status ? 'active' : ''} onClick={() => updatePMSHousekeepingTask(task.id, status)}>{taskLabels[status]}</button>)}</div></article>;
         })}
       </div>
+      <PMSHousekeepingMobile state={state} />
       <PMSMaintenancePanel state={state} />
     </>
   );
@@ -591,12 +551,22 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     const blockers = [
       { label: 'Consommations POS à envoyer', count: pendingCharges.length, action: () => setActiveTab('folios') },
       { label: 'Départs du jour non clôturés', count: departuresToday.length, action: () => setActiveTab('reservations') },
-      { label: 'Chambres à nettoyer', count: dirtyRooms.length, action: () => setActiveTab('housekeeping') }
+      { label: 'Arrivées sans chambre', count: db.pmsReservations.filter(item => !item.roomId && item.status === 'confirmed' && item.arrivalDate <= today).length, action: () => setActiveTab('dashboard') },
+      { label: 'Chambres occupées incohérentes', count: db.pmsRooms.filter(room => room.status === 'occupied' && ['dirty', 'in_progress'].includes(room.housekeepingStatus)).length, action: () => setActiveTab('housekeeping') }
     ];
+    const blockerCount = blockers.reduce((sum, item) => sum + item.count, 0);
+    const closeDay = () => {
+      try {
+        setActionError('');
+        runPMSNightAudit();
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : 'Clôture impossible');
+      }
+    };
     return (
       <>
       <div className="grid-2" style={{ alignItems: 'start' }}>
-        <section className="card pms-section-card"><div className="pms-audit-title"><MoonStar size={26} /><div><h2>Clôture du {formatDate(today)}</h2><p>Contrôlez les opérations avant de changer de journée hôtelière.</p></div></div><div className="pms-audit-checks">{blockers.map(item => <button key={item.label} onClick={item.action}><span className={item.count === 0 ? 'check-ok' : 'check-warning'}>{item.count === 0 ? <CheckCircle size={19} /> : item.count}</span><strong>{item.label}</strong><ArrowRight size={17} /></button>)}</div><button className="btn btn-primary pms-audit-button" onClick={runPMSNightAudit}><MoonStar size={17} /> Clôturer la journée et passer au lendemain</button><p className="pms-audit-note">La clôture produit un rapport daté. Les points restant à contrôler restent visibles dans l’historique.</p></section>
+        <section className="card pms-section-card"><div className="pms-audit-title"><MoonStar size={26} /><div><h2>Clôture du {formatDate(today)}</h2><p>La journée ne peut avancer tant qu’une anomalie critique reste ouverte.</p></div></div>{actionError && <div className="alert alert-danger">{actionError}</div>}<div className="pms-audit-checks">{blockers.map(item => <button key={item.label} onClick={item.action}><span className={item.count === 0 ? 'check-ok' : 'check-warning'}>{item.count === 0 ? <CheckCircle size={19} /> : item.count}</span><strong>{item.label}</strong><ArrowRight size={17} /></button>)}</div><button className="btn btn-primary pms-audit-button" disabled={blockerCount > 0} onClick={closeDay}><MoonStar size={17} /> {blockerCount > 0 ? `Clôture bloquée · ${blockerCount} point(s)` : 'Clôturer la journée et passer au lendemain'}</button><p className="pms-audit-note">Chaque contrôle doit être au vert. La clôture produit ensuite un rapport horodaté et verrouille la journée.</p></section>
         <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Historique des clôtures</h2><p>Recettes et soldes contrôlés par journée.</p></div></div><div className="pms-stack">{db.pmsNightAudits.map(audit => <div className="pms-night-row" key={audit.id}><div><strong>{formatDate(audit.businessDate)}</strong><span>{audit.completedBy} · {new Date(audit.completedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span></div><div><span>Hébergement {formatFCFA(audit.roomRevenue)}</span><span>POS {formatFCFA(audit.posRevenue)}</span><strong>Solde {formatFCFA(audit.openBalance)}</strong></div></div>)}</div></section>
       </div>
       <PMSAuditTrail state={state} />
@@ -607,7 +577,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const renderReports = () => {
     const sources = (Object.keys(sourceLabels) as PMSReservation['source'][]).map(source => ({ source, count: db.pmsReservations.filter(item => item.source === source).length }));
     const maxSource = Math.max(1, ...sources.map(item => item.count));
-    return <><div className="grid-4 pms-kpi-grid"><div className="card pms-kpi"><Hotel size={20} /><span>Taux d’occupation</span><strong>{occupancyRate}%</strong><small>{occupiedRooms.length} chambres occupées</small></div><div className="card pms-kpi"><ReceiptText size={20} /><span>Prix moyen</span><strong>{formatFCFA(averageRate)}</strong><small>Par chambre occupée</small></div><div className="card pms-kpi"><CreditCard size={20} /><span>Chiffre folios</span><strong>{formatFCFA(totalRevenue)}</strong><small>Hébergement et services</small></div><div className="card pms-kpi"><RefreshCcw size={20} /><span>Ventes POS chambre</span><strong>{formatFCFA(chargeRows.filter(row => row.charge.category === 'restaurant').reduce((sum, row) => sum + row.charge.amount, 0))}</strong><small>Restaurant vers PMS</small></div></div><div className="grid-2"><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Origine des réservations</h2><p>Répartition des canaux de vente.</p></div></div><div className="pms-bars">{sources.map(item => <div key={item.source}><span>{sourceLabels[item.source]}</span><div><i style={{ width: `${(item.count / maxSource) * 100}%` }} /></div><strong>{item.count}</strong></div>)}</div></section><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Exports de gestion</h2><p>Données directement exploitables pour le contrôle.</p></div></div><div className="pms-export-actions"><button className="btn btn-secondary" onClick={exportFolios}><FileSpreadsheet size={17} /> Folios et soldes</button><button className="btn btn-secondary" onClick={() => setView('exports')}><ReceiptText size={17} /> Rapports stock et POS</button><button className="btn btn-secondary" onClick={() => setActiveTab('audit')}><MoonStar size={17} /> Rapports de clôture</button></div></section></div><PMSMultiSitePanel state={state} /></>;
+    return <><PMSRevenueIntelligence state={state} /><div className="grid-4 pms-kpi-grid"><div className="card pms-kpi"><Hotel size={20} /><span>Taux d’occupation</span><strong>{occupancyRate}%</strong><small>{occupiedRooms.length} chambres occupées</small></div><div className="card pms-kpi"><ReceiptText size={20} /><span>Prix moyen</span><strong>{formatFCFA(averageRate)}</strong><small>Par chambre occupée</small></div><div className="card pms-kpi"><CreditCard size={20} /><span>Chiffre folios</span><strong>{formatFCFA(totalRevenue)}</strong><small>Hébergement et services</small></div><div className="card pms-kpi"><RefreshCcw size={20} /><span>Ventes POS chambre</span><strong>{formatFCFA(chargeRows.filter(row => row.charge.category === 'restaurant').reduce((sum, row) => sum + row.charge.amount, 0))}</strong><small>Restaurant vers PMS</small></div></div><div className="grid-2"><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Origine des réservations</h2><p>Répartition des canaux de vente.</p></div></div><div className="pms-bars">{sources.map(item => <div key={item.source}><span>{sourceLabels[item.source]}</span><div><i style={{ width: `${(item.count / maxSource) * 100}%` }} /></div><strong>{item.count}</strong></div>)}</div></section><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Exports de gestion</h2><p>Données directement exploitables pour le contrôle.</p></div></div><div className="pms-export-actions"><button className="btn btn-secondary" onClick={exportFolios}><FileSpreadsheet size={17} /> Folios et soldes</button><button className="btn btn-secondary" onClick={() => setView('exports')}><ReceiptText size={17} /> Rapports stock et POS</button><button className="btn btn-secondary" onClick={() => setActiveTab('audit')}><MoonStar size={17} /> Rapports de clôture</button></div></section></div><PMSMultiSitePanel state={state} /></>;
   };
 
   const renderSettings = () => (
@@ -687,13 +657,18 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
                     <div className="form-group"><label className="form-label">Adultes</label><input type="number" min="1" max="8" className="form-control" value={reservationForm.adults} onChange={event => setReservationForm({ ...reservationForm, adults: Number(event.target.value) })} /></div>
                     <div className="form-group"><label className="form-label">Enfants</label><input type="number" min="0" max="8" className="form-control" value={reservationForm.children} onChange={event => setReservationForm({ ...reservationForm, children: Number(event.target.value) })} /></div>
                   </div>
-                  <div className="pms-booking-highlight"><MoonStar size={19} /><div><strong>{reservationNights} nuit(s)</strong><span>{reservationForm.adults + reservationForm.children} voyageur(s) · arrivée à partir du {db.pmsSettings.checkInTime}</span></div></div>
+                  <div className="grid-2">
+                    <div className="form-group"><label className="form-label">Catégorie demandée</label><select className="form-control" value={reservationForm.requestedRoomType} onChange={event => { const roomType = event.target.value; const referenceRoom = db.pmsRooms.find(room => room.roomType === roomType); setReservationForm({ ...reservationForm, requestedRoomType: roomType, roomId: '', nightlyRate: referenceRoom?.nightlyRate || reservationForm.nightlyRate }); }}>{roomTypes.map(roomType => <option value={roomType} key={roomType}>{roomType}</option>)}</select></div>
+                    <div className="form-group"><label className="form-label">Heure d’arrivée estimée</label><input type="time" className="form-control" value={reservationForm.estimatedArrivalTime} onChange={event => setReservationForm({ ...reservationForm, estimatedArrivalTime: event.target.value })} /></div>
+                  </div>
+                  <div className="pms-booking-highlight"><MoonStar size={19} /><div><strong>{reservationNights} nuit(s) · {reservationForm.requestedRoomType}</strong><span>{reservationForm.adults + reservationForm.children} voyageur(s) · arrivée estimée à {reservationForm.estimatedArrivalTime || db.pmsSettings.checkInTime}</span></div></div>
                 </section>
               )}
 
               {reservationStep === 2 && (
                 <section className="pms-booking-section">
-                  <div className="pms-booking-section-heading"><BedDouble size={20} /><div><h3>Choisir une chambre</h3><p>{availableRoomsForReservation.length} chambre(s) disponible(s) pour ce séjour.</p></div></div>
+                  <div className="pms-booking-section-heading"><BedDouble size={20} /><div><h3>Attribuer la chambre</h3><p>{availableRoomsForReservation.length} chambre(s) {reservationForm.requestedRoomType} disponible(s). Le numéro peut être choisi plus tard.</p></div></div>
+                  <button type="button" className={`pms-booking-later ${reservationForm.roomId ? '' : 'selected'}`} onClick={() => setReservationForm({ ...reservationForm, roomId: '' })}><CalendarDays size={19} /><span><strong>Attribuer le numéro plus tard</strong><small>La catégorie reste garantie et la réception choisira la meilleure chambre avant l’arrivée.</small></span><CheckCircle size={19} /></button>
                   <div className="pms-booking-room-grid">
                     {availableRoomsForReservation.map(room => {
                       const ready = ['clean', 'inspected'].includes(room.housekeepingStatus);
@@ -706,7 +681,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
                       );
                     })}
                   </div>
-                  {availableRoomsForReservation.length === 0 && <div className="mobile-empty-state">Aucune chambre ne correspond à ces dates et à cette capacité. Revenez à l’étape précédente pour modifier le séjour.</div>}
+                  {availableRoomsForReservation.length === 0 && <div className="mobile-empty-state">Aucun numéro disponible immédiatement. La réservation peut rester confirmée par catégorie et être attribuée ultérieurement.</div>}
                 </section>
               )}
 
@@ -726,7 +701,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
             <div className="pms-booking-summary">
               <div><span>Séjour</span><strong>{formatDate(reservationForm.arrivalDate)} → {formatDate(reservationForm.departureDate)} · {reservationNights} nuit(s)</strong></div>
-              <div><span>Chambre</span><strong>{selectedReservationRoom ? `${selectedReservationRoom.roomNumber} · ${selectedReservationRoom.roomType}` : 'À sélectionner'}</strong></div>
+              <div><span>Hébergement</span><strong>{selectedReservationRoom ? `${selectedReservationRoom.roomNumber} · ${selectedReservationRoom.roomType}` : `${reservationForm.requestedRoomType} · attribution ultérieure`}</strong></div>
               <div><span>Total prévu</span><strong>{formatFCFA(reservationNights * reservationForm.nightlyRate)}</strong></div>
             </div>
 

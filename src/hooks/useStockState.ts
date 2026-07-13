@@ -8,6 +8,8 @@ import {
   PaymentTotals,
   PaymentType,
   PMSHousekeepingStatus,
+  PMSHousekeepingTask,
+  PMSFolioCharge,
   PMSInvoice,
   PMSReservation,
   PMSReservationStatus,
@@ -455,14 +457,16 @@ export const useStockState = () => {
     notes?: string;
     ratePlanId?: string;
     guaranteeType?: PMSReservation['guaranteeType'];
+    requestedRoomType?: string;
+    estimatedArrivalTime?: string;
   }) => {
     const newDb = getDB();
-    const conflicts = newDb.pmsReservations.filter(item => (
+    const conflicts = payload.roomId ? newDb.pmsReservations.filter(item => (
       item.roomId === payload.roomId
       && !['cancelled', 'no_show', 'checked_out'].includes(item.status)
       && payload.arrivalDate < item.departureDate
       && payload.departureDate > item.arrivalDate
-    ));
+    )) : [];
     const overbookingAllowed = newDb.pmsSettings.allowOverbooking && conflicts.length <= newDb.pmsSettings.overbookingLimit;
     let guest = payload.guestId ? newDb.pmsGuests.find(item => item.id === payload.guestId) : undefined;
     if (!guest) {
@@ -482,6 +486,7 @@ export const useStockState = () => {
       confirmationNumber: `RSV-${Date.now().toString().slice(-6)}`,
       guestId: guest.id,
       roomId: payload.roomId,
+      requestedRoomType: payload.requestedRoomType || newDb.pmsRooms.find(item => item.id === payload.roomId)?.roomType || 'Standard',
       arrivalDate: payload.arrivalDate,
       departureDate: payload.departureDate,
       adults: payload.adults,
@@ -493,38 +498,39 @@ export const useStockState = () => {
       notes: payload.notes?.trim(),
       ratePlanId: payload.ratePlanId,
       guaranteeType: payload.guaranteeType || (payload.depositAmount > 0 ? 'deposit' : 'none'),
-      guaranteeStatus: payload.depositAmount > 0 ? 'secured' : 'pending'
+      guaranteeStatus: payload.depositAmount > 0 ? 'secured' : 'pending',
+      estimatedArrivalTime: payload.estimatedArrivalTime
     };
     newDb.pmsReservations.push(reservation);
     appendPMSAudit(
       newDb,
       reservation.status === 'waitlisted' ? 'Ajout liste d’attente' : 'Création réservation',
       reservation.confirmationNumber,
-      `${guest.fullName} · chambre ${newDb.pmsRooms.find(item => item.id === reservation.roomId)?.roomNumber || ''}`
+      `${guest.fullName} · ${newDb.pmsRooms.find(item => item.id === reservation.roomId)?.roomNumber ? `chambre ${newDb.pmsRooms.find(item => item.id === reservation.roomId)?.roomNumber}` : `${reservation.requestedRoomType}, attribution à faire`}`
     );
     saveDB(newDb);
     refresh();
     return reservation.id;
   };
 
-  const updatePMSReservation = (reservationId: string, patch: Partial<Pick<PMSReservation, 'roomId' | 'arrivalDate' | 'departureDate' | 'adults' | 'children' | 'source' | 'nightlyRate' | 'depositAmount' | 'notes' | 'ratePlanId' | 'guaranteeType'>>) => {
+  const updatePMSReservation = (reservationId: string, patch: Partial<Pick<PMSReservation, 'roomId' | 'requestedRoomType' | 'roomAssignmentLocked' | 'estimatedArrivalTime' | 'arrivalDate' | 'departureDate' | 'adults' | 'children' | 'source' | 'nightlyRate' | 'depositAmount' | 'notes' | 'ratePlanId' | 'guaranteeType'>>) => {
     const newDb = getDB();
     const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
     if (!reservation) throw new Error('Réservation introuvable');
-    const nextRoomId = patch.roomId || reservation.roomId;
+    const nextRoomId = patch.roomId ?? reservation.roomId;
     const nextArrival = patch.arrivalDate || reservation.arrivalDate;
     const nextDeparture = patch.departureDate || reservation.departureDate;
-    const conflict = newDb.pmsReservations.find(item => (
+    const conflict = nextRoomId ? newDb.pmsReservations.find(item => (
       item.id !== reservationId
       && item.roomId === nextRoomId
       && !['cancelled', 'no_show', 'checked_out'].includes(item.status)
       && nextArrival < item.departureDate
       && nextDeparture > item.arrivalDate
-    ));
+    )) : undefined;
     if (conflict) throw new Error(`La chambre est déjà réservée sur cette période (${conflict.confirmationNumber})`);
     Object.assign(reservation, patch);
     const folio = newDb.pmsFolios.find(item => item.reservationId === reservationId);
-    if (folio) {
+    if (folio && reservation.roomId) {
       folio.roomId = reservation.roomId;
       folio.arrivalDate = reservation.arrivalDate;
       folio.departureDate = reservation.departureDate;
@@ -540,21 +546,23 @@ export const useStockState = () => {
     if (!reservation) throw new Error('Réservation introuvable');
     const room = newDb.pmsRooms.find(item => item.id === reservation.roomId);
     const guest = newDb.pmsGuests.find(item => item.id === reservation.guestId);
-    if (!room || !guest) throw new Error('Chambre ou client introuvable');
+    if (!guest) throw new Error('Client introuvable');
+    if (['checked_in', 'checked_out'].includes(status) && !room) throw new Error('Attribuez une chambre avant cette opération');
 
     if (status === 'confirmed' && reservation.status === 'waitlisted') {
-      const conflict = newDb.pmsReservations.find(item => (
+      const conflict = reservation.roomId ? newDb.pmsReservations.find(item => (
         item.id !== reservation.id
         && item.roomId === reservation.roomId
         && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(item.status)
         && reservation.arrivalDate < item.departureDate
         && reservation.departureDate > item.arrivalDate
-      ));
+      )) : undefined;
       if (conflict) throw new Error(`La chambre reste indisponible (${conflict.confirmationNumber})`);
     }
 
     reservation.status = status;
     if (status === 'checked_in') {
+      if (!room) throw new Error('Attribuez une chambre avant le check-in');
       if (room.status === 'maintenance') throw new Error('Cette chambre est en maintenance');
       const occupant = newDb.pmsReservations.find(item => item.id !== reservation.id && item.roomId === room.id && item.status === 'checked_in');
       if (occupant) throw new Error('Cette chambre est déjà occupée');
@@ -597,6 +605,7 @@ export const useStockState = () => {
     }
 
     if (status === 'checked_out') {
+      if (!room) throw new Error('Chambre introuvable');
       const folio = newDb.pmsFolios.find(item => item.reservationId === reservation.id && item.status === 'open');
       if (folio) {
         const charges = folio.charges.reduce((sum, charge) => sum + charge.amount, 0);
@@ -617,7 +626,7 @@ export const useStockState = () => {
       });
     }
 
-    appendPMSAudit(newDb, `Réservation ${status}`, reservation.confirmationNumber, `${guest.fullName} · chambre ${room.roomNumber}`);
+    appendPMSAudit(newDb, `Réservation ${status}`, reservation.confirmationNumber, `${guest.fullName}${room ? ` · chambre ${room.roomNumber}` : ' · sans chambre attribuée'}`);
 
     saveDB(newDb);
     refresh();
@@ -638,11 +647,130 @@ export const useStockState = () => {
     const task = newDb.pmsHousekeepingTasks.find(item => item.id === taskId);
     if (!task) throw new Error("Tâche d'entretien introuvable");
     task.status = status;
+    if (status === 'in_progress' && !task.startedAt) task.startedAt = new Date().toISOString();
+    if (['completed', 'inspected'].includes(status)) task.completedAt = new Date().toISOString();
     const room = newDb.pmsRooms.find(item => item.id === task.roomId);
     if (room) {
       room.housekeepingStatus = status === 'in_progress' ? 'in_progress' : status === 'completed' ? 'clean' : status === 'inspected' ? 'inspected' : room.housekeepingStatus;
     }
     appendPMSAudit(newDb, 'Entretien chambre', `Chambre ${room?.roomNumber || task.roomId}`, `Tâche passée au statut ${status}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const assignPMSRoom = (reservationId: string, roomId: string, lockAssignment = false) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const room = newDb.pmsRooms.find(item => item.id === roomId);
+    if (!reservation || !room) throw new Error('Réservation ou chambre introuvable');
+    if (room.status === 'maintenance') throw new Error('Cette chambre est en maintenance');
+    if (room.holdUntil && new Date(room.holdUntil).getTime() > Date.now() && room.holdReservationId && room.holdReservationId !== reservationId) {
+      throw new Error(`Cette chambre est temporairement bloquée par ${room.holdBy || 'un autre agent'}`);
+    }
+    if (room.capacity < reservation.adults + reservation.children) throw new Error('La capacité de la chambre est insuffisante');
+    const conflict = newDb.pmsReservations.find(item => (
+      item.id !== reservation.id
+      && item.roomId === roomId
+      && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(item.status)
+      && reservation.arrivalDate < item.departureDate
+      && reservation.departureDate > item.arrivalDate
+    ));
+    if (conflict) throw new Error(`Chambre indisponible sur ces dates (${conflict.confirmationNumber})`);
+    const previousRoom = newDb.pmsRooms.find(item => item.id === reservation.roomId);
+    if (reservation.status === 'checked_in' && !['clean', 'inspected'].includes(room.housekeepingStatus)) {
+      throw new Error('La nouvelle chambre doit être propre et contrôlée');
+    }
+    reservation.roomId = roomId;
+    reservation.requestedRoomType = room.roomType;
+    reservation.roomAssignmentLocked = lockAssignment;
+    const folio = newDb.pmsFolios.find(item => item.reservationId === reservation.id);
+    if (folio) folio.roomId = roomId;
+    if (reservation.status === 'checked_in' && previousRoom && previousRoom.id !== room.id) {
+      previousRoom.status = 'vacant';
+      previousRoom.housekeepingStatus = 'dirty';
+      room.status = 'occupied';
+      if (!newDb.pmsHousekeepingTasks.some(task => task.roomId === previousRoom.id && !['completed', 'inspected'].includes(task.status))) {
+        newDb.pmsHousekeepingTasks.push({
+          id: `hk-${Date.now()}`,
+          roomId: previousRoom.id,
+          assignedTo: 'Équipe étage',
+          status: 'pending',
+          priority: 'urgent',
+          scheduledDate: newDb.pmsSettings.businessDate,
+          note: `Nettoyage après changement vers la chambre ${room.roomNumber}.`,
+          linenStatus: 'missing',
+          minibarStatus: 'checked',
+          photoCount: 0
+        });
+      }
+    }
+    room.holdUntil = undefined;
+    room.holdBy = undefined;
+    room.holdReservationId = undefined;
+    appendPMSAudit(newDb, 'Attribution chambre', reservation.confirmationNumber, `Chambre ${room.roomNumber}${lockAssignment ? ' verrouillée' : ' attribuée'}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const holdPMSRoom = (roomId: string, reservationId?: string) => {
+    const newDb = getDB();
+    const room = newDb.pmsRooms.find(item => item.id === roomId);
+    if (!room) throw new Error('Chambre introuvable');
+    if (room.status === 'maintenance') throw new Error('Cette chambre est en maintenance');
+    if (room.holdUntil && new Date(room.holdUntil).getTime() > Date.now() && room.holdReservationId !== reservationId) {
+      throw new Error(`Chambre déjà mise en attente par ${room.holdBy}`);
+    }
+    room.holdUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    room.holdBy = newDb.currentUser.name;
+    room.holdReservationId = reservationId;
+    appendPMSAudit(newDb, 'Mise en attente chambre', `Chambre ${room.roomNumber}`, 'Bloquée pendant 10 minutes pour finaliser l’attribution.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const releasePMSRoomHold = (roomId: string) => {
+    const newDb = getDB();
+    const room = newDb.pmsRooms.find(item => item.id === roomId);
+    if (!room) return;
+    room.holdUntil = undefined;
+    room.holdBy = undefined;
+    room.holdReservationId = undefined;
+    appendPMSAudit(newDb, 'Libération attente', `Chambre ${room.roomNumber}`, 'La chambre redevient disponible à l’attribution.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completePMSCheckIn = (reservationId: string, checklist: NonNullable<PMSReservation['checkInChecklist']>) => {
+    const required = checklist.identity && checklist.guarantee && checklist.payment && checklist.signature && checklist.keyIssued;
+    if (!required) throw new Error('Tous les contrôles du check-in doivent être validés');
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation) throw new Error('Réservation introuvable');
+    const room = newDb.pmsRooms.find(item => item.id === reservation.roomId);
+    if (!room) throw new Error('Attribuez une chambre avant le check-in');
+    if (!['clean', 'inspected'].includes(room.housekeepingStatus)) throw new Error('La chambre doit être propre et contrôlée');
+    reservation.checkInChecklist = { ...checklist, completedAt: new Date().toISOString() };
+    saveDB(newDb);
+    updatePMSReservationStatus(reservationId, 'checked_in');
+  };
+
+  const updatePMSHousekeepingDetails = (taskId: string, patch: Partial<Pick<PMSHousekeepingTask, 'assignedTo' | 'priority' | 'note' | 'linenStatus' | 'minibarStatus' | 'photoCount'>>) => {
+    const newDb = getDB();
+    const task = newDb.pmsHousekeepingTasks.find(item => item.id === taskId);
+    if (!task) throw new Error("Tâche d'entretien introuvable");
+    Object.assign(task, patch);
+    appendPMSAudit(newDb, 'Détail entretien', taskId, `Affectation ${task.assignedTo}, linge ${task.linenStatus}, minibar ${task.minibarStatus}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const routePMSFolioCharge = (chargeId: string, billingWindow: NonNullable<PMSFolioCharge['billingWindow']>) => {
+    const newDb = getDB();
+    const folio = newDb.pmsFolios.find(item => item.charges.some(charge => charge.id === chargeId));
+    const charge = folio?.charges.find(item => item.id === chargeId);
+    if (!folio || !charge) throw new Error('Charge introuvable');
+    charge.billingWindow = billingWindow;
+    appendPMSAudit(newDb, 'Routage folio', folio.reservationNumber, `${charge.label} dirigé vers ${billingWindow}.`);
     saveDB(newDb);
     refresh();
   };
@@ -895,6 +1023,14 @@ export const useStockState = () => {
 
   const runPMSNightAudit = () => {
     const newDb = getDB();
+    const pendingPOS = newDb.pmsFolios.flatMap(folio => folio.charges).filter(charge => charge.status === 'pending').length;
+    const pendingDepartures = newDb.pmsReservations.filter(reservation => reservation.status === 'checked_in' && reservation.departureDate <= newDb.pmsSettings.businessDate).length;
+    const unassignedArrivals = newDb.pmsReservations.filter(reservation => !reservation.roomId && reservation.status === 'confirmed' && reservation.arrivalDate <= newDb.pmsSettings.businessDate).length;
+    const inconsistentRooms = newDb.pmsRooms.filter(room => room.status === 'occupied' && ['dirty', 'in_progress'].includes(room.housekeepingStatus)).length;
+    const blockers = [pendingPOS, pendingDepartures, unassignedArrivals, inconsistentRooms].reduce((sum, count) => sum + count, 0);
+    if (blockers > 0) {
+      throw new Error(`Clôture bloquée : ${pendingPOS} charge(s) POS, ${pendingDepartures} départ(s), ${unassignedArrivals} arrivée(s) sans chambre et ${inconsistentRooms} chambre(s) incohérente(s).`);
+    }
     const occupiedRooms = newDb.pmsRooms.filter(room => room.status === 'occupied').length;
     const openFolios = newDb.pmsFolios.filter(folio => folio.status === 'open');
     const roomRevenue = openFolios.flatMap(folio => folio.charges).filter(charge => charge.category === 'room').reduce((sum, charge) => sum + charge.amount, 0);
@@ -1202,10 +1338,16 @@ export const useStockState = () => {
     createPMSReservation,
     updatePMSReservation,
     updatePMSReservationStatus,
+    assignPMSRoom,
+    holdPMSRoom,
+    releasePMSRoomHold,
+    completePMSCheckIn,
     updatePMSRoom,
     updatePMSHousekeepingTask,
+    updatePMSHousekeepingDetails,
     addPMSFolioPayment,
     transferPMSFolioCharge,
+    routePMSFolioCharge,
     issuePMSDocument,
     refundPMSPayment,
     updatePMSMaintenanceTicket,
