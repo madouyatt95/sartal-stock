@@ -147,11 +147,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
   };
 
   return (
-    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page dashboard-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       {/* Welcome banner */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="dashboard-welcome" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
+          <span className="page-eyebrow"><ShieldCheck size={15} /> Pilotage centralisé</span>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             Piloter vos activités depuis un seul stock
           </h1>
@@ -159,7 +160,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             Restaurant, hôtel, bar ou plateforme de livraison : chaque canal garde ses règles, le stock reste maîtrisé.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="dashboard-profile-select" style={{ display: 'flex', gap: '12px' }}>
+          <span>Vue affichée pour</span>
           <select 
             value={db.currentUser.id} 
             onChange={(e) => state.changeCurrentUser(e.target.value)}
@@ -175,12 +177,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
 
       <div className="grid-4 demo-choice-grid">
         <button
-          className="card business-entry-card"
+          className="card business-entry-card restaurant"
           onClick={() => setView('answer')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
         >
-          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Utensils size={22} />
+          <div className="business-entry-head">
+            <div className="business-entry-icon"><Utensils size={22} /></div>
+            <span className="business-entry-status">Opérationnel</span>
           </div>
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>Restaurant / POS</h2>
@@ -188,18 +191,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               Même produit, prix différent par point de vente, dépôt différent, caisse, paiements et sessions X/Z.
             </p>
           </div>
-          <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span className="business-entry-action">
             Ouvrir la réponse <ChevronRight size={17} />
           </span>
         </button>
 
         <button
-          className="card business-entry-card"
+          className="card business-entry-card hotel"
           onClick={() => setView('pms')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
         >
-          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BedDouble size={22} />
+          <div className="business-entry-head">
+            <div className="business-entry-icon"><BedDouble size={22} /></div>
+            <span className="business-entry-status">Opérationnel</span>
           </div>
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>Hôtel / PMS</h2>
@@ -207,18 +211,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               Chambres, folios, imputations restaurant/bar, exports et remplacement progressif du PMS actuel.
             </p>
           </div>
-          <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span className="business-entry-action">
             Ouvrir le PMS <ChevronRight size={17} />
           </span>
         </button>
 
         <button
-          className="card business-entry-card"
+          className="card business-entry-card delivery"
           onClick={() => setView('delivery')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
         >
-          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--success-light)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Truck size={22} />
+          <div className="business-entry-head">
+            <div className="business-entry-icon"><Truck size={22} /></div>
+            <span className="business-entry-status">Opérationnel</span>
           </div>
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>Épicerie en ligne / Livraison</h2>
@@ -226,18 +231,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               Commande client, stock disponible, réservation, préparation, substitution et sortie stock à la livraison.
             </p>
           </div>
-          <span style={{ color: 'var(--success)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span className="business-entry-action">
             Ouvrir la livraison <ChevronRight size={17} />
           </span>
         </button>
 
         <button
-          className="card business-entry-card"
+          className="card business-entry-card stock"
           onClick={() => setView('stock-control')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
         >
-          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--warning-light)', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ShieldCheck size={22} />
+          <div className="business-entry-head">
+            <div className="business-entry-icon"><ShieldCheck size={22} /></div>
+            <span className="business-entry-status">Socle commun</span>
           </div>
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>Stock commun</h2>
@@ -245,7 +251,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               Catalogue unique, stocks par dépôt, réservations, mouvements, pertes, inventaires et rapports.
             </p>
           </div>
-          <span style={{ color: 'var(--warning)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <span className="business-entry-action">
             Voir le stock réel <ChevronRight size={17} />
           </span>
         </button>
@@ -269,7 +275,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
       </div>
 
-      <div>
+      <div className="dashboard-section-heading">
         <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Vue de gestion du stock commun</h2>
         <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
           Ces indicateurs servent aux deux parcours : restaurant comme livraison.
@@ -280,7 +286,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div className="grid-4">
         
         {/* KPI 1 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+        <div className="card dashboard-kpi primary" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Valeur totale du stock</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)' }}>
@@ -296,7 +302,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
 
         {/* KPI 2 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
+        <div className="card dashboard-kpi warning" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Produits sous seuil</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--warning-light)', color: 'var(--warning)' }}>
@@ -312,7 +318,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
 
         {/* KPI 3 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
+        <div className="card dashboard-kpi danger" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setView('stock-control')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Produits bientôt périmés</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--danger-light)', color: 'var(--danger)' }}>
@@ -328,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
 
         {/* KPI 4 */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', overflow: 'hidden' }}>
+        <div className="card dashboard-kpi purple" style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', overflow: 'hidden' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Pertes ce mois</span>
             <div style={{ padding: '8px', borderRadius: '50%', backgroundColor: 'var(--purple-light)', color: 'var(--purple)' }}>
@@ -615,7 +621,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       </div>
 
       {/* Quick actions panel */}
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="card dashboard-quick-actions" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Actions rapides</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
           <button className="btn btn-secondary" onClick={() => setView('purchases')} style={{ flexGrow: 1 }}>

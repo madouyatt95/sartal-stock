@@ -113,7 +113,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
   ];
 
   return (
-    <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div className="manager-mobile-page stock-control-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Stock réel par dépôt</h1>
@@ -126,8 +126,8 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
         </button>
       </div>
 
-      <div className="grid-4">
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div className="grid-4 stock-kpi-grid">
+        <div className="card stock-kpi-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Valeur du stock</span>
             <ShieldCheck size={20} color="var(--primary)" />
@@ -136,7 +136,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{db.stocks.length} positions produit/dépôt suivies</span>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="card stock-kpi-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Alertes rupture/seuil</span>
             <AlertTriangle size={20} color="var(--warning)" />
@@ -145,7 +145,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>À commander ou transférer rapidement</span>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="card stock-kpi-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Lots à surveiller</span>
             <PackageX size={20} color="var(--danger)" />
@@ -154,7 +154,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Périmés ou DLC dans 30 jours</span>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div className="card stock-kpi-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.85rem' }}>Pertes du mois</span>
             <Trash2 size={20} color="var(--danger)" />
@@ -169,7 +169,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
           <button
             key={action.view}
             onClick={() => setView(action.view)}
-            className="card"
+            className="card stock-action-card"
             style={{ textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '14px', minHeight: '94px' }}
           >
             <div style={{ width: '38px', height: '38px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

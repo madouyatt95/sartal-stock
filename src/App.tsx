@@ -253,32 +253,33 @@ export const App: React.FC = () => {
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
         
         {/* Sidebar Brand header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <img src="./brand-mark.svg" alt="Sartal Stock" style={{ width: '34px', height: '34px', borderRadius: '10px', flexShrink: 0 }} />
-            <span style={{ fontSize: '1.15rem', fontWeight: 800, letterSpacing: '0.05em', color: 'white' }}>
-              SÁRTAL STOCK
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-lockup">
+            <img src="./brand-mark.svg" alt="" />
+            <span>
+              <strong>SÁRTAL</strong>
+              <small>Stock & opérations</small>
             </span>
           </div>
           <button 
             onClick={() => setMobileMenuOpen(false)} 
-            style={{ display: 'none', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
             className="mobile-close-btn"
+            aria-label="Fermer le menu"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* User Role Quick Indicator */}
-        <div style={{ padding: '16px 20px', backgroundColor: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        <div className="sidebar-user">
+          <div className="sidebar-user-avatar">
             <User size={14} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Rôle actif</span>
-            <span style={{ fontSize: '0.825rem', fontWeight: 700, color: 'white', textTransform: 'capitalize' }}>
+          <div>
+            <span>Session active</span>
+            <strong>
               {db.currentUser.role.replace('_', ' ')}
-            </span>
+            </strong>
           </div>
         </div>
 
@@ -302,20 +303,13 @@ export const App: React.FC = () => {
                       onClick={() => {
                         openView(link.id);
                       }}
-                      className="sidebar-link"
+                      className={`sidebar-link ${isActive ? 'active' : ''}`}
                       style={{
-                        backgroundColor: isActive ? 'var(--primary)' : 'transparent',
                         color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',
                         fontWeight: isActive ? 700 : 500
                       }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.backgroundColor = 'var(--bg-sidebar-hover)';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
                     >
-                      {link.icon}
+                      <span className="sidebar-link-icon">{link.icon}</span>
                       <span>{link.label}</span>
                     </button>
                   );
@@ -326,22 +320,12 @@ export const App: React.FC = () => {
         </nav>
 
         {/* Sidebar Footer (Light/Dark mode) */}
-        <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>Version 1.0.0</span>
+        <div className="sidebar-footer">
+          <span>Version 1.0.0</span>
           <button 
             onClick={() => setDarkMode(!darkMode)}
-            style={{
-              background: 'rgba(255,255,255,0.08)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              cursor: 'pointer'
-            }}
+            aria-label={darkMode ? 'Activer le thème clair' : 'Activer le thème sombre'}
+            title={darkMode ? 'Thème clair' : 'Thème sombre'}
           >
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -358,27 +342,17 @@ export const App: React.FC = () => {
       )}
 
       {/* Main View Area */}
-      <main className="main-content">
+      <main className="main-content" data-section={currentNavLink?.section || 'Accueil'}>
         
         {/* Global Navbar Header */}
-        <header className="app-header" style={{
-          height: '70px',
-          backgroundColor: 'var(--bg-card)',
-          borderBottom: '1px solid var(--border-color)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 24px',
-          boxShadow: 'var(--shadow-sm)',
-          transition: 'background-color var(--transition-normal), border-color var(--transition-normal)'
-        }}>
+        <header className="app-header">
 
           <div className="nav-current-wrapper">
             {/* Menu button for mobile */}
             <button
               className="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(true)}
-              style={{ display: 'none', background: 'none', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }}
+              aria-label="Ouvrir le menu"
             >
               <Menu size={24} />
             </button>
@@ -390,7 +364,7 @@ export const App: React.FC = () => {
           </div>
 
           {/* Org & Info filters */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div className="app-header-tools">
             <div className="global-search">
               <div className="input-with-icon">
                 <Search size={16} />
@@ -457,10 +431,10 @@ export const App: React.FC = () => {
       <style>{`
         @media (max-width: 768px) {
           .mobile-menu-toggle {
-            display: block !important;
+            display: grid !important;
           }
           .mobile-close-btn {
-            display: block !important;
+            display: grid !important;
           }
           .nav-company-details, .nav-site-details, .nav-divider {
             display: none !important;

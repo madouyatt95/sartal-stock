@@ -43,6 +43,7 @@ import {
 interface PMSHotelProps {
   state: StockState;
   setView: (view: string) => void;
+  initialTab?: PMSTab;
 }
 
 type PMSTab = 'dashboard' | 'planning' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping' | 'audit' | 'reports' | 'settings';
@@ -86,7 +87,7 @@ const taskLabels = {
 
 const getNights = (arrival: string, departure: string) => Math.max(1, Math.ceil((new Date(departure).getTime() - new Date(arrival).getTime()) / 86400000));
 
-export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView }) => {
+export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab = 'dashboard' }) => {
   const {
     db,
     togglePMSExport,
@@ -100,7 +101,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView }) => {
     runPMSNightAudit,
     updatePMSSettings
   } = state;
-  const [activeTab, setActiveTab] = useState<PMSTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<PMSTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [roomFilter, setRoomFilter] = useState('all');
@@ -178,13 +179,23 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView }) => {
   ];
 
   const openCreateReservation = () => {
-    const room = db.pmsRooms.find(item => item.status === 'vacant' && item.housekeepingStatus !== 'dirty');
     const departure = new Date(`${today}T12:00:00`);
     departure.setDate(departure.getDate() + 2);
+    const departureDate = departure.toISOString().slice(0, 10);
+    const room = db.pmsRooms.find(item => (
+      item.status === 'vacant'
+      && item.housekeepingStatus !== 'dirty'
+      && !db.pmsReservations.some(reservation => (
+        reservation.roomId === item.id
+        && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(reservation.status)
+        && today < reservation.departureDate
+        && departureDate > reservation.arrivalDate
+      ))
+    ));
     setEditingReservationId(null);
     setReservationForm({
       guestName: '', phone: '', email: '', roomId: room?.id || '', arrivalDate: today,
-      departureDate: departure.toISOString().slice(0, 10), adults: 1, children: 0,
+      departureDate, adults: 1, children: 0,
       source: 'direct', nightlyRate: room?.nightlyRate || 0, depositAmount: 0, notes: '',
       ratePlanId: '', guaranteeType: 'none'
     });
