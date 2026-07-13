@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sartal-stock-v9';
+const CACHE_NAME = 'sartal-stock-v11';
 const STATIC_ASSETS = [
   './favicon.svg',
   './brand-mark.svg',

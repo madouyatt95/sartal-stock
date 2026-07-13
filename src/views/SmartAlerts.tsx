@@ -14,7 +14,7 @@ interface SmartAlert {
   title: string;
   detail: string;
   severity: AlertSeverity;
-  family: 'stock' | 'pricing' | 'mapping' | 'delivery' | 'loss';
+  family: 'stock' | 'pricing' | 'mapping' | 'delivery' | 'pms' | 'loss';
   view: string;
   action: string;
   value?: number;
@@ -131,6 +131,22 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
       }
     });
 
+  const pendingPmsCharges = db.pmsFolios.flatMap(folio => (
+    folio.charges.filter(charge => charge.status === 'pending').map(charge => ({ folio, charge }))
+  ));
+  if (pendingPmsCharges.length > 0) {
+    alerts.push({
+      id: 'pms-pending-charges',
+      title: `${pendingPmsCharges.length} imputation(s) chambre à envoyer`,
+      detail: 'Des consommations restaurant/bar doivent encore être transmises ou rapprochées côté PMS.',
+      severity: 'warning',
+      family: 'pms',
+      view: 'pms',
+      action: 'Contrôler PMS',
+      value: pendingPmsCharges.reduce((sum, row) => sum + row.charge.amount, 0)
+    });
+  }
+
   const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
   const lossesByWarehouse = db.losses
     .filter(loss => new Date(loss.date).getTime() >= thirtyDaysAgo)
@@ -225,6 +241,7 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
               <option value="pricing">Prix</option>
               <option value="mapping">Données</option>
               <option value="delivery">Livraison</option>
+              <option value="pms">PMS hôtel</option>
               <option value="loss">Pertes</option>
             </select>
           </div>

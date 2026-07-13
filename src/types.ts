@@ -379,13 +379,20 @@ export interface CashSession {
 
 export type PMSFolioStatus = 'open' | 'closed';
 export type PMSChargeStatus = 'pending' | 'exported' | 'reconciled';
+export type PMSReservationStatus = 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled' | 'no_show' | 'waitlisted';
+export type PMSHousekeepingStatus = 'clean' | 'dirty' | 'inspected' | 'in_progress';
 
 export interface PMSRoom {
   id: string;
   siteId: string;
   roomNumber: string;
   roomType: string;
+  floor: string;
+  capacity: number;
+  nightlyRate: number;
   status: 'occupied' | 'vacant' | 'maintenance';
+  housekeepingStatus: PMSHousekeepingStatus;
+  maintenanceNote?: string;
 }
 
 export interface PMSFolioCharge {
@@ -397,17 +404,217 @@ export interface PMSFolioCharge {
   amount: number;
   date: string;
   status: PMSChargeStatus;
+  category?: 'room' | 'restaurant' | 'service' | 'tax' | 'adjustment';
+}
+
+export interface PMSFolioPayment {
+  id: string;
+  amount: number;
+  method: PaymentType;
+  date: string;
+  reference?: string;
+  kind?: 'deposit' | 'payment' | 'refund' | 'guarantee';
+  originPaymentId?: string;
 }
 
 export interface PMSFolio {
   id: string;
   roomId: string;
+  guestId?: string;
+  reservationId?: string;
   guestName: string;
   reservationNumber: string;
   arrivalDate: string;
   departureDate: string;
   status: PMSFolioStatus;
   charges: PMSFolioCharge[];
+  payments: PMSFolioPayment[];
+}
+
+export interface PMSGuest {
+  id: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  nationality?: string;
+  company?: string;
+  preferences?: string;
+  stays: number;
+  documentType?: 'passport' | 'identity_card' | 'residence_permit';
+  documentNumber?: string;
+  loyaltyTier?: 'standard' | 'silver' | 'gold';
+  incidentNote?: string;
+}
+
+export interface PMSReservation {
+  id: string;
+  confirmationNumber: string;
+  guestId: string;
+  roomId: string;
+  arrivalDate: string;
+  departureDate: string;
+  adults: number;
+  children: number;
+  status: PMSReservationStatus;
+  source: 'direct' | 'phone' | 'agency' | 'company' | 'online';
+  nightlyRate: number;
+  depositAmount: number;
+  notes?: string;
+  ratePlanId?: string;
+  guaranteeType?: 'deposit' | 'company' | 'card' | 'none';
+  guaranteeStatus?: 'secured' | 'pending';
+  groupId?: string;
+}
+
+export interface PMSHousekeepingTask {
+  id: string;
+  roomId: string;
+  assignedTo: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'inspected';
+  priority: 'normal' | 'urgent';
+  scheduledDate: string;
+  note?: string;
+}
+
+export interface PMSNightAudit {
+  id: string;
+  businessDate: string;
+  completedAt: string;
+  completedBy: string;
+  occupiedRooms: number;
+  roomRevenue: number;
+  posRevenue: number;
+  openBalance: number;
+  status: 'completed';
+}
+
+export interface PMSMigrationRun {
+  id: string;
+  source: string;
+  importedAt: string;
+  rooms: number;
+  guests: number;
+  reservations: number;
+  warnings: number;
+  status: 'validated' | 'review';
+  mappedFields?: number;
+  rejectedRows?: number;
+  balanceDifference?: number;
+}
+
+export interface PMSSettings {
+  hotelName: string;
+  checkInTime: string;
+  checkOutTime: string;
+  cityTax: number;
+  vatRate: number;
+  currency: 'XOF';
+  businessDate: string;
+  allowOverbooking: boolean;
+  overbookingLimit: number;
+}
+
+export interface PMSRatePlan {
+  id: string;
+  name: string;
+  roomType: string;
+  baseRate: number;
+  weekendMultiplier: number;
+  validFrom: string;
+  validTo: string;
+  audience: 'public' | 'company' | 'agency' | 'group';
+  active: boolean;
+}
+
+export interface PMSGroupBooking {
+  id: string;
+  name: string;
+  contactName: string;
+  contactPhone: string;
+  roomIds: string[];
+  arrivalDate: string;
+  departureDate: string;
+  billingMode: 'central' | 'individual' | 'mixed';
+  status: 'option' | 'confirmed' | 'in_house' | 'closed';
+  depositAmount: number;
+}
+
+export interface PMSEvent {
+  id: string;
+  name: string;
+  type: 'seminar' | 'meeting' | 'ceremony' | 'banquet';
+  date: string;
+  venue: string;
+  attendees: number;
+  cateringAmount: number;
+  status: 'option' | 'confirmed' | 'completed';
+  groupId?: string;
+}
+
+export interface PMSInvoice {
+  id: string;
+  folioId: string;
+  number: string;
+  type: 'proforma' | 'invoice' | 'credit_note' | 'receipt';
+  status: 'draft' | 'issued' | 'paid' | 'cancelled';
+  issuedAt: string;
+  billedTo: string;
+  subtotal: number;
+  taxAmount: number;
+  cityTaxAmount: number;
+  total: number;
+}
+
+export interface PMSMaintenanceTicket {
+  id: string;
+  roomId: string;
+  equipment: string;
+  priority: 'normal' | 'urgent' | 'critical';
+  status: 'open' | 'in_progress' | 'resolved' | 'verified';
+  assignedTo: string;
+  openedAt: string;
+  estimatedCost: number;
+  note: string;
+}
+
+export interface PMSChannel {
+  id: string;
+  name: string;
+  type: 'direct' | 'ota' | 'agency' | 'corporate';
+  status: 'connected' | 'warning' | 'disconnected';
+  lastSync: string;
+  reservationsToday: number;
+  availabilityIssues: number;
+}
+
+export interface PMSNotification {
+  id: string;
+  reservationId: string;
+  channel: 'whatsapp' | 'sms' | 'email';
+  type: 'confirmation' | 'arrival_reminder' | 'room_ready' | 'balance_due' | 'post_stay';
+  recipient: string;
+  status: 'scheduled' | 'sent' | 'failed';
+  scheduledAt: string;
+  sentAt?: string;
+}
+
+export interface PMSAuditLog {
+  id: string;
+  date: string;
+  userName: string;
+  action: string;
+  entity: string;
+  detail: string;
+}
+
+export interface PMSPropertySummary {
+  id: string;
+  name: string;
+  city: string;
+  rooms: number;
+  occupiedRooms: number;
+  revenueToday: number;
+  alerts: number;
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

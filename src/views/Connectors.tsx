@@ -234,9 +234,9 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Caisse POS & Connexion PMS</h1>
+        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Caisse POS</h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Encaissez les ventes par point de vente, déduisez le stock du dépôt lié au POS et imputez les consommations sur chambre.
+          Encaissez les ventes, déduisez le bon dépôt et choisissez l’imputation chambre comme moyen de paiement lorsque nécessaire.
         </p>
       </div>
 
@@ -252,12 +252,6 @@ export const Connectors: React.FC<ConnectorsProps> = ({ state }) => {
           style={{ padding: '12px 6px', fontSize: '0.95rem', fontWeight: 700, border: 'none', background: 'none', borderBottom: activeSubTab === 'sessions' ? '3px solid var(--primary)' : 'none', color: activeSubTab === 'sessions' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
         >
           Sessions X/Z
-        </button>
-        <button
-          onClick={() => setActiveSubTab('pms')}
-          style={{ padding: '12px 6px', fontSize: '0.95rem', fontWeight: 700, border: 'none', background: 'none', borderBottom: activeSubTab === 'pms' ? '3px solid var(--primary)' : 'none', color: activeSubTab === 'pms' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
-        >
-          Imputations Chambre (PMS)
         </button>
       </div>
 

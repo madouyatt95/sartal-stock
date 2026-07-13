@@ -1,7 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
-import { createEmptyPaymentTotals, ExternalPOSSaleRow, LossReason, PaymentTotals, PaymentType, POSType, Product, Supplier } from '../types';
+import {
+  createEmptyPaymentTotals,
+  ExternalPOSSaleRow,
+  LossReason,
+  PaymentTotals,
+  PaymentType,
+  PMSHousekeepingStatus,
+  PMSInvoice,
+  PMSReservation,
+  PMSReservationStatus,
+  PMSSettings,
+  POSType,
+  Product,
+  Supplier
+} from '../types';
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -394,19 +408,547 @@ export const useStockState = () => {
     refresh();
   };
 
+  const appendPMSAudit = (targetDb: ReturnType<typeof getDB>, action: string, entity: string, detail: string) => {
+    targetDb.pmsAuditLogs.unshift({
+      id: `pms-audit-${Date.now()}-${targetDb.pmsAuditLogs.length}`,
+      date: new Date().toISOString(),
+      userName: targetDb.currentUser.name,
+      action,
+      entity,
+      detail
+    });
+  };
+
   const togglePMSExport = (saleId: string) => {
     const newDb = getDB();
     const sale = newDb.externalSales.find(s => s.id === saleId);
-    if (sale) {
-      sale.exportedToPms = !sale.exportedToPms;
-      const folio = newDb.pmsFolios.find(f => f.id === sale.paymentContext.folioId);
-      const folioCharge = folio?.charges.find(charge => charge.saleId === sale.id);
-      if (folioCharge) {
-        folioCharge.status = sale.exportedToPms ? 'exported' : 'pending';
-      }
+    const folio = sale
+      ? newDb.pmsFolios.find(f => f.id === sale.paymentContext.folioId)
+      : newDb.pmsFolios.find(item => item.charges.some(charge => charge.saleId === saleId));
+    const folioCharge = folio?.charges.find(charge => charge.saleId === saleId);
+    if (folioCharge) {
+      folioCharge.status = folioCharge.status === 'pending'
+        ? 'exported'
+        : folioCharge.status === 'exported'
+          ? 'reconciled'
+          : 'pending';
+      if (sale) sale.exportedToPms = folioCharge.status !== 'pending';
+      appendPMSAudit(newDb, 'Statut imputation POS', folio?.reservationNumber || saleId, `${folioCharge.label} : ${folioCharge.status}`);
       saveDB(newDb);
       refresh();
     }
+  };
+
+  const createPMSReservation = (payload: {
+    guestId?: string;
+    guestName: string;
+    phone: string;
+    email?: string;
+    roomId: string;
+    arrivalDate: string;
+    departureDate: string;
+    adults: number;
+    children: number;
+    source: PMSReservation['source'];
+    nightlyRate: number;
+    depositAmount: number;
+    notes?: string;
+    ratePlanId?: string;
+    guaranteeType?: PMSReservation['guaranteeType'];
+  }) => {
+    const newDb = getDB();
+    const conflicts = newDb.pmsReservations.filter(item => (
+      item.roomId === payload.roomId
+      && !['cancelled', 'no_show', 'checked_out'].includes(item.status)
+      && payload.arrivalDate < item.departureDate
+      && payload.departureDate > item.arrivalDate
+    ));
+    const overbookingAllowed = newDb.pmsSettings.allowOverbooking && conflicts.length <= newDb.pmsSettings.overbookingLimit;
+    let guest = payload.guestId ? newDb.pmsGuests.find(item => item.id === payload.guestId) : undefined;
+    if (!guest) {
+      guest = {
+        id: `guest-${Date.now()}`,
+        fullName: payload.guestName.trim(),
+        phone: payload.phone.trim(),
+        email: payload.email?.trim(),
+        nationality: 'Sénégalaise',
+        stays: 0
+      };
+      newDb.pmsGuests.push(guest);
+    }
+
+    const reservation: PMSReservation = {
+      id: `res-${Date.now()}`,
+      confirmationNumber: `RSV-${Date.now().toString().slice(-6)}`,
+      guestId: guest.id,
+      roomId: payload.roomId,
+      arrivalDate: payload.arrivalDate,
+      departureDate: payload.departureDate,
+      adults: payload.adults,
+      children: payload.children,
+      status: conflicts.length > 0 && !overbookingAllowed ? 'waitlisted' : 'confirmed',
+      source: payload.source,
+      nightlyRate: payload.nightlyRate,
+      depositAmount: payload.depositAmount,
+      notes: payload.notes?.trim(),
+      ratePlanId: payload.ratePlanId,
+      guaranteeType: payload.guaranteeType || (payload.depositAmount > 0 ? 'deposit' : 'none'),
+      guaranteeStatus: payload.depositAmount > 0 ? 'secured' : 'pending'
+    };
+    newDb.pmsReservations.push(reservation);
+    appendPMSAudit(
+      newDb,
+      reservation.status === 'waitlisted' ? 'Ajout liste d’attente' : 'Création réservation',
+      reservation.confirmationNumber,
+      `${guest.fullName} · chambre ${newDb.pmsRooms.find(item => item.id === reservation.roomId)?.roomNumber || ''}`
+    );
+    saveDB(newDb);
+    refresh();
+    return reservation.id;
+  };
+
+  const updatePMSReservation = (reservationId: string, patch: Partial<Pick<PMSReservation, 'roomId' | 'arrivalDate' | 'departureDate' | 'adults' | 'children' | 'source' | 'nightlyRate' | 'depositAmount' | 'notes' | 'ratePlanId' | 'guaranteeType'>>) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation) throw new Error('Réservation introuvable');
+    const nextRoomId = patch.roomId || reservation.roomId;
+    const nextArrival = patch.arrivalDate || reservation.arrivalDate;
+    const nextDeparture = patch.departureDate || reservation.departureDate;
+    const conflict = newDb.pmsReservations.find(item => (
+      item.id !== reservationId
+      && item.roomId === nextRoomId
+      && !['cancelled', 'no_show', 'checked_out'].includes(item.status)
+      && nextArrival < item.departureDate
+      && nextDeparture > item.arrivalDate
+    ));
+    if (conflict) throw new Error(`La chambre est déjà réservée sur cette période (${conflict.confirmationNumber})`);
+    Object.assign(reservation, patch);
+    const folio = newDb.pmsFolios.find(item => item.reservationId === reservationId);
+    if (folio) {
+      folio.roomId = reservation.roomId;
+      folio.arrivalDate = reservation.arrivalDate;
+      folio.departureDate = reservation.departureDate;
+    }
+    appendPMSAudit(newDb, 'Modification réservation', reservation.confirmationNumber, 'Dates, chambre ou conditions du séjour modifiées.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSReservationStatus = (reservationId: string, status: PMSReservationStatus) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation) throw new Error('Réservation introuvable');
+    const room = newDb.pmsRooms.find(item => item.id === reservation.roomId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation.guestId);
+    if (!room || !guest) throw new Error('Chambre ou client introuvable');
+
+    if (status === 'confirmed' && reservation.status === 'waitlisted') {
+      const conflict = newDb.pmsReservations.find(item => (
+        item.id !== reservation.id
+        && item.roomId === reservation.roomId
+        && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(item.status)
+        && reservation.arrivalDate < item.departureDate
+        && reservation.departureDate > item.arrivalDate
+      ));
+      if (conflict) throw new Error(`La chambre reste indisponible (${conflict.confirmationNumber})`);
+    }
+
+    reservation.status = status;
+    if (status === 'checked_in') {
+      if (room.status === 'maintenance') throw new Error('Cette chambre est en maintenance');
+      const occupant = newDb.pmsReservations.find(item => item.id !== reservation.id && item.roomId === room.id && item.status === 'checked_in');
+      if (occupant) throw new Error('Cette chambre est déjà occupée');
+      room.status = 'occupied';
+      room.housekeepingStatus = 'inspected';
+      guest.stays += 1;
+      const existingFolio = newDb.pmsFolios.find(item => item.reservationId === reservation.id && item.status === 'open');
+      if (!existingFolio) {
+        const nights = Math.max(1, Math.ceil((new Date(reservation.departureDate).getTime() - new Date(reservation.arrivalDate).getTime()) / 86400000));
+        newDb.pmsFolios.push({
+          id: `folio-${Date.now()}`,
+          roomId: room.id,
+          guestId: guest.id,
+          reservationId: reservation.id,
+          guestName: guest.fullName,
+          reservationNumber: reservation.confirmationNumber,
+          arrivalDate: reservation.arrivalDate,
+          departureDate: reservation.departureDate,
+          status: 'open',
+          charges: [{
+            id: `charge-room-${Date.now()}`,
+            saleId: `stay-${reservation.id}`,
+            externalSaleId: `SEJOUR-${room.roomNumber}-${reservation.confirmationNumber.slice(-4)}`,
+            posId: newDb.posList[0]?.id || '',
+            label: `${nights} nuitée(s) ${room.roomType}`,
+            amount: nights * reservation.nightlyRate,
+            date: new Date().toISOString(),
+            status: 'reconciled',
+            category: 'room'
+          }],
+          payments: reservation.depositAmount > 0 ? [{
+            id: `pay-deposit-${Date.now()}`,
+            amount: reservation.depositAmount,
+            method: 'other',
+            date: new Date().toISOString(),
+            reference: 'Acompte réservation'
+          }] : []
+        });
+      }
+    }
+
+    if (status === 'checked_out') {
+      const folio = newDb.pmsFolios.find(item => item.reservationId === reservation.id && item.status === 'open');
+      if (folio) {
+        const charges = folio.charges.reduce((sum, charge) => sum + charge.amount, 0);
+        const payments = folio.payments.reduce((sum, payment) => sum + payment.amount, 0);
+        if (charges - payments > 0) throw new Error(`Le folio doit encore être soldé : ${charges - payments} FCFA`);
+      }
+      room.status = 'vacant';
+      room.housekeepingStatus = 'dirty';
+      if (folio) folio.status = 'closed';
+      newDb.pmsHousekeepingTasks.push({
+        id: `hk-${Date.now()}`,
+        roomId: room.id,
+        assignedTo: 'À affecter',
+        status: 'pending',
+        priority: 'normal',
+        scheduledDate: new Date().toISOString().slice(0, 10),
+        note: 'Nettoyage après départ.'
+      });
+    }
+
+    appendPMSAudit(newDb, `Réservation ${status}`, reservation.confirmationNumber, `${guest.fullName} · chambre ${room.roomNumber}`);
+
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSRoom = (roomId: string, patch: { status?: 'occupied' | 'vacant' | 'maintenance'; housekeepingStatus?: PMSHousekeepingStatus; maintenanceNote?: string; nightlyRate?: number }) => {
+    const newDb = getDB();
+    const room = newDb.pmsRooms.find(item => item.id === roomId);
+    if (!room) throw new Error('Chambre introuvable');
+    Object.assign(room, patch);
+    appendPMSAudit(newDb, 'Modification chambre', `Chambre ${room.roomNumber}`, patch.maintenanceNote || `Statut ${patch.status || room.status}, entretien ${patch.housekeepingStatus || room.housekeepingStatus}`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSHousekeepingTask = (taskId: string, status: 'pending' | 'in_progress' | 'completed' | 'inspected') => {
+    const newDb = getDB();
+    const task = newDb.pmsHousekeepingTasks.find(item => item.id === taskId);
+    if (!task) throw new Error("Tâche d'entretien introuvable");
+    task.status = status;
+    const room = newDb.pmsRooms.find(item => item.id === task.roomId);
+    if (room) {
+      room.housekeepingStatus = status === 'in_progress' ? 'in_progress' : status === 'completed' ? 'clean' : status === 'inspected' ? 'inspected' : room.housekeepingStatus;
+    }
+    appendPMSAudit(newDb, 'Entretien chambre', `Chambre ${room?.roomNumber || task.roomId}`, `Tâche passée au statut ${status}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addPMSFolioPayment = (folioId: string, amount: number, method: PaymentType, reference?: string) => {
+    const newDb = getDB();
+    const folio = newDb.pmsFolios.find(item => item.id === folioId);
+    if (!folio) throw new Error('Folio introuvable');
+    folio.payments.push({ id: `pay-${Date.now()}`, amount, method, date: new Date().toISOString(), reference, kind: 'payment' });
+    appendPMSAudit(newDb, 'Paiement folio', folio.reservationNumber, `${amount} FCFA par ${method}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const transferPMSFolioCharge = (chargeId: string, targetFolioId: string, amount: number) => {
+    const newDb = getDB();
+    const sourceFolio = newDb.pmsFolios.find(item => item.charges.some(charge => charge.id === chargeId));
+    const targetFolio = newDb.pmsFolios.find(item => item.id === targetFolioId && item.status === 'open');
+    const charge = sourceFolio?.charges.find(item => item.id === chargeId);
+    if (!sourceFolio || !targetFolio || !charge) throw new Error('Charge ou folio de destination introuvable');
+    if (sourceFolio.id === targetFolio.id) throw new Error('Choisissez un autre folio');
+    if (amount <= 0 || amount > charge.amount) throw new Error('Montant de transfert invalide');
+
+    if (amount === charge.amount) {
+      sourceFolio.charges = sourceFolio.charges.filter(item => item.id !== chargeId);
+    } else {
+      charge.amount -= amount;
+    }
+    targetFolio.charges.push({
+      ...charge,
+      id: `charge-transfer-${Date.now()}`,
+      amount,
+      label: `${charge.label} (transféré depuis ${sourceFolio.reservationNumber})`,
+      status: 'pending'
+    });
+    appendPMSAudit(newDb, 'Transfert de charge', sourceFolio.reservationNumber, `${amount} FCFA transférés vers ${targetFolio.reservationNumber}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const issuePMSDocument = (folioId: string, type: PMSInvoice['type'], billedTo: string) => {
+    const newDb = getDB();
+    const folio = newDb.pmsFolios.find(item => item.id === folioId);
+    if (!folio) throw new Error('Folio introuvable');
+    const baseSubtotal = folio.charges.reduce((sum, charge) => sum + charge.amount, 0);
+    const subtotal = type === 'credit_note' ? -baseSubtotal : baseSubtotal;
+    const nights = Math.max(1, Math.ceil((new Date(folio.departureDate).getTime() - new Date(folio.arrivalDate).getTime()) / 86400000));
+    const taxAmount = Math.round(subtotal * (newDb.pmsSettings.vatRate / 100));
+    const cityTaxAmount = type === 'credit_note' ? 0 : nights * newDb.pmsSettings.cityTax;
+    const prefix = type === 'proforma' ? 'PRO' : type === 'credit_note' ? 'AVO' : type === 'receipt' ? 'REC' : 'FAC';
+    const document: PMSInvoice = {
+      id: `invoice-${Date.now()}`,
+      folioId,
+      number: `${prefix}-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`,
+      type,
+      status: type === 'proforma' ? 'draft' : 'issued',
+      issuedAt: new Date().toISOString(),
+      billedTo: billedTo.trim() || folio.guestName,
+      subtotal,
+      taxAmount,
+      cityTaxAmount,
+      total: subtotal + taxAmount + cityTaxAmount
+    };
+    newDb.pmsInvoices.unshift(document);
+    appendPMSAudit(newDb, 'Document de facturation', folio.reservationNumber, `${document.number} émis pour ${document.billedTo}.`);
+    saveDB(newDb);
+    refresh();
+    return document.id;
+  };
+
+  const refundPMSPayment = (folioId: string, paymentId: string, amount: number) => {
+    const newDb = getDB();
+    const folio = newDb.pmsFolios.find(item => item.id === folioId);
+    const payment = folio?.payments.find(item => item.id === paymentId);
+    if (!folio || !payment) throw new Error('Paiement introuvable');
+    const alreadyRefunded = Math.abs(folio.payments.filter(item => item.kind === 'refund' && item.originPaymentId === paymentId).reduce((sum, item) => sum + item.amount, 0));
+    if (amount <= 0 || amount > payment.amount - alreadyRefunded) throw new Error('Montant de remboursement invalide');
+    folio.payments.push({
+      id: `refund-${Date.now()}`,
+      amount: -amount,
+      method: payment.method,
+      date: new Date().toISOString(),
+      reference: `Remboursement ${payment.reference || payment.id}`,
+      kind: 'refund',
+      originPaymentId: payment.id
+    });
+    appendPMSAudit(newDb, 'Remboursement', folio.reservationNumber, `${amount} FCFA remboursés par ${payment.method}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSMaintenanceTicket = (ticketId: string, status: 'open' | 'in_progress' | 'resolved' | 'verified') => {
+    const newDb = getDB();
+    const ticket = newDb.pmsMaintenanceTickets.find(item => item.id === ticketId);
+    if (!ticket) throw new Error('Ticket de maintenance introuvable');
+    ticket.status = status;
+    const room = newDb.pmsRooms.find(item => item.id === ticket.roomId);
+    if (room && status === 'verified') {
+      room.status = 'vacant';
+      room.housekeepingStatus = 'inspected';
+      room.maintenanceNote = '';
+    }
+    appendPMSAudit(newDb, 'Maintenance', `Chambre ${room?.roomNumber || ticket.roomId}`, `${ticket.equipment} : ${status}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const sendPMSNotification = (notificationId: string) => {
+    const newDb = getDB();
+    const notification = newDb.pmsNotifications.find(item => item.id === notificationId);
+    if (!notification) throw new Error('Notification introuvable');
+    notification.status = 'sent';
+    notification.sentAt = new Date().toISOString();
+    appendPMSAudit(newDb, 'Notification client', notification.reservationId, `${notification.type} envoyé par ${notification.channel}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const syncPMSChannel = (channelId: string) => {
+    const newDb = getDB();
+    const channel = newDb.pmsChannels.find(item => item.id === channelId);
+    if (!channel) throw new Error('Canal introuvable');
+    channel.status = 'connected';
+    channel.lastSync = new Date().toISOString();
+    channel.availabilityIssues = 0;
+    appendPMSAudit(newDb, 'Synchronisation canal', channel.name, 'Disponibilités et tarifs synchronisés.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSRatePlan = (ratePlanId: string, patch: { baseRate?: number; weekendMultiplier?: number; active?: boolean }) => {
+    const newDb = getDB();
+    const plan = newDb.pmsRatePlans.find(item => item.id === ratePlanId);
+    if (!plan) throw new Error('Plan tarifaire introuvable');
+    Object.assign(plan, patch);
+    appendPMSAudit(newDb, 'Modification tarif', plan.name, `Tarif de base ${plan.baseRate} FCFA.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const advancePMSDayScenario = () => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === 'res-118');
+    const room = newDb.pmsRooms.find(item => item.id === 'room-118');
+    const guest = newDb.pmsGuests.find(item => item.id === 'guest-sarah');
+    if (!reservation || !room || !guest) throw new Error('Scénario hôtel indisponible');
+    const step = newDb.pmsScenarioStep;
+
+    if (step === 1) {
+      const existingSale = newDb.externalSales.find(item => item.externalSaleId === 'SCENARIO-PMS-118');
+      if (!existingSale) {
+        const result = stockEngine.processExternalSale(
+          {
+            externalSaleId: 'SCENARIO-PMS-118',
+            siteId: 'site-1',
+            posId: 'pos-1',
+            items: [{ productId: 'prod-thieb-signature', quantity: 1 }],
+            paymentContext: { type: 'room_charge', roomNumber: '118', folioId: 'folio-118', amount: 9500 }
+          },
+          newDb.currentUser.id,
+          newDb.currentUser.name
+        );
+        if (!result.success) throw new Error(result.error || 'Vente POS impossible');
+      }
+      const updatedDb = getDB();
+      updatedDb.pmsScenarioStep = 2;
+      appendPMSAudit(updatedDb, 'Scénario : vente POS', reservation.confirmationNumber, 'Thieboudienne à 9 500 FCFA imputé sur la chambre et déduit du dépôt restaurant.');
+      saveDB(updatedDb);
+      refresh();
+      return;
+    }
+
+    if (step === 0) {
+      reservation.status = 'checked_in';
+      room.status = 'occupied';
+      room.housekeepingStatus = 'inspected';
+      if (!newDb.pmsFolios.some(item => item.id === 'folio-118')) {
+        newDb.pmsFolios.push({
+          id: 'folio-118', roomId: room.id, guestId: guest.id, reservationId: reservation.id,
+          guestName: guest.fullName, reservationNumber: reservation.confirmationNumber,
+          arrivalDate: reservation.arrivalDate, departureDate: reservation.departureDate, status: 'open',
+          charges: [{ id: 'charge-118-room', saleId: 'stay-118', externalSaleId: 'SEJOUR-118', posId: newDb.posList[0]?.id || '', label: '2 nuitées Chambre Supérieure', amount: 110000, date: new Date().toISOString(), status: 'reconciled', category: 'room' }],
+          payments: [{ id: 'deposit-118', amount: 25000, method: 'wave', date: new Date().toISOString(), reference: 'Acompte réservation', kind: 'deposit' }]
+        });
+      }
+      appendPMSAudit(newDb, 'Scénario : check-in', reservation.confirmationNumber, 'Client installé en chambre 118.');
+    } else if (step === 2) {
+      const charge = newDb.pmsFolios.find(item => item.id === 'folio-118')?.charges.find(item => item.externalSaleId === 'SCENARIO-PMS-118');
+      if (charge) charge.status = 'reconciled';
+      appendPMSAudit(newDb, 'Scénario : rapprochement', reservation.confirmationNumber, 'Ticket restaurant rapproché avec le folio.');
+    } else if (step === 3) {
+      const folio = newDb.pmsFolios.find(item => item.id === 'folio-118');
+      if (folio) {
+        const balance = folio.charges.reduce((sum, item) => sum + item.amount, 0) - folio.payments.reduce((sum, item) => sum + item.amount, 0);
+        if (balance > 0) folio.payments.push({ id: 'payment-118-final', amount: balance, method: 'orange_money', date: new Date().toISOString(), reference: 'OM-SOLDE-118', kind: 'payment' });
+      }
+      appendPMSAudit(newDb, 'Scénario : paiement', reservation.confirmationNumber, 'Solde réglé par Orange Money.');
+    } else if (step === 4) {
+      reservation.status = 'checked_out';
+      room.status = 'vacant';
+      room.housekeepingStatus = 'dirty';
+      const folio = newDb.pmsFolios.find(item => item.id === 'folio-118');
+      if (folio) folio.status = 'closed';
+      if (!newDb.pmsHousekeepingTasks.some(item => item.id === 'hk-scenario-118')) newDb.pmsHousekeepingTasks.push({ id: 'hk-scenario-118', roomId: room.id, assignedTo: 'Mariama Sarr', status: 'pending', priority: 'urgent', scheduledDate: newDb.pmsSettings.businessDate, note: 'Nettoyage après départ scénario.' });
+      appendPMSAudit(newDb, 'Scénario : check-out', reservation.confirmationNumber, 'Folio soldé et chambre libérée.');
+    } else if (step === 5) {
+      const task = newDb.pmsHousekeepingTasks.find(item => item.id === 'hk-scenario-118');
+      if (task) task.status = 'inspected';
+      room.housekeepingStatus = 'inspected';
+      appendPMSAudit(newDb, 'Scénario : chambre prête', 'Chambre 118', 'Nettoyage terminé et contrôlé.');
+    }
+    newDb.pmsScenarioStep = Math.min(6, step + 1);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const resetPMSDayScenario = () => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === 'res-118');
+    const room = newDb.pmsRooms.find(item => item.id === 'room-118');
+    if (reservation) reservation.status = 'confirmed';
+    if (room) { room.status = 'vacant'; room.housekeepingStatus = 'inspected'; }
+    newDb.pmsFolios = newDb.pmsFolios.filter(item => item.id !== 'folio-118');
+    newDb.pmsHousekeepingTasks = newDb.pmsHousekeepingTasks.filter(item => item.id !== 'hk-scenario-118');
+    const scenarioSales = newDb.externalSales.filter(item => item.externalSaleId === 'SCENARIO-PMS-118');
+    const scenarioSaleIds = new Set(scenarioSales.map(item => item.id));
+    const scenarioMovements = newDb.movements.filter(item => item.externalReference === 'SCENARIO-PMS-118');
+    scenarioMovements.forEach(movement => {
+      const quantityToRestore = Math.abs(movement.quantity);
+      const batch = newDb.batches.find(item => item.id === movement.batchId);
+      const stock = newDb.stocks.find(item => item.productId === movement.productId && item.warehouseId === movement.warehouseId);
+      if (batch) batch.quantity += quantityToRestore;
+      if (stock) stock.quantityAvailable += quantityToRestore;
+    });
+    scenarioSales.forEach(sale => {
+      const session = newDb.cashSessions.find(item => item.id === sale.cashSessionId);
+      if (session) {
+        session.totalSales = Math.max(0, session.totalSales - sale.paymentContext.amount);
+        session.paymentTotals[sale.paymentContext.type] = Math.max(0, session.paymentTotals[sale.paymentContext.type] - sale.paymentContext.amount);
+      }
+    });
+    newDb.externalSales = newDb.externalSales.filter(item => item.externalSaleId !== 'SCENARIO-PMS-118');
+    newDb.movements = newDb.movements.filter(item => item.externalReference !== 'SCENARIO-PMS-118');
+    newDb.cashSessions = newDb.cashSessions.map(session => ({ ...session, saleIds: session.saleIds.filter(id => !scenarioSaleIds.has(id)) }));
+    newDb.pmsScenarioStep = 0;
+    appendPMSAudit(newDb, 'Réinitialisation scénario', 'Parcours journée hôtel', 'Le scénario est prêt à être rejoué.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const runPMSNightAudit = () => {
+    const newDb = getDB();
+    const occupiedRooms = newDb.pmsRooms.filter(room => room.status === 'occupied').length;
+    const openFolios = newDb.pmsFolios.filter(folio => folio.status === 'open');
+    const roomRevenue = openFolios.flatMap(folio => folio.charges).filter(charge => charge.category === 'room').reduce((sum, charge) => sum + charge.amount, 0);
+    const posRevenue = openFolios.flatMap(folio => folio.charges).filter(charge => charge.category === 'restaurant').reduce((sum, charge) => sum + charge.amount, 0);
+    const openBalance = openFolios.reduce((sum, folio) => {
+      const charges = folio.charges.reduce((total, charge) => total + charge.amount, 0);
+      const payments = folio.payments.reduce((total, payment) => total + payment.amount, 0);
+      return sum + Math.max(0, charges - payments);
+    }, 0);
+    newDb.pmsNightAudits.unshift({
+      id: `audit-night-${Date.now()}`,
+      businessDate: newDb.pmsSettings.businessDate,
+      completedAt: new Date().toISOString(),
+      completedBy: newDb.currentUser.name,
+      occupiedRooms,
+      roomRevenue,
+      posRevenue,
+      openBalance,
+      status: 'completed'
+    });
+    appendPMSAudit(newDb, 'Clôture journalière', newDb.pmsSettings.businessDate, `${occupiedRooms} chambres occupées, solde ouvert ${openBalance} FCFA.`);
+    const nextDate = new Date(`${newDb.pmsSettings.businessDate}T12:00:00`);
+    nextDate.setDate(nextDate.getDate() + 1);
+    newDb.pmsSettings.businessDate = nextDate.toISOString().slice(0, 10);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSSettings = (settings: PMSSettings) => {
+    const newDb = getDB();
+    newDb.pmsSettings = settings;
+    appendPMSAudit(newDb, 'Réglages PMS', settings.hotelName, `Journée hôtelière ${settings.businessDate}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const simulatePMSMigration = () => {
+    const newDb = getDB();
+    newDb.pmsMigrationRuns.unshift({
+      id: `migration-${Date.now()}`,
+      source: 'Orchestra - fichier de reprise',
+      importedAt: new Date().toISOString(),
+      rooms: newDb.pmsRooms.length,
+      guests: newDb.pmsGuests.length,
+      reservations: newDb.pmsReservations.length,
+      warnings: 0,
+      status: 'validated',
+      mappedFields: 24,
+      rejectedRows: 0,
+      balanceDifference: 0
+    });
+    appendPMSAudit(newDb, 'Migration Orchestra', 'Reprise des données', 'Import contrôlé, soldes équilibrés et aucune ligne rejetée.');
+    saveDB(newDb);
+    refresh();
   };
 
   const importExternalPOSSales = (sourceName: string, rows: ExternalPOSSaleRow[]) => {
@@ -657,6 +1199,24 @@ export const useStockState = () => {
     updateSupplier,
     deleteSupplier,
     togglePMSExport,
+    createPMSReservation,
+    updatePMSReservation,
+    updatePMSReservationStatus,
+    updatePMSRoom,
+    updatePMSHousekeepingTask,
+    addPMSFolioPayment,
+    transferPMSFolioCharge,
+    issuePMSDocument,
+    refundPMSPayment,
+    updatePMSMaintenanceTicket,
+    sendPMSNotification,
+    syncPMSChannel,
+    updatePMSRatePlan,
+    advancePMSDayScenario,
+    resetPMSDayScenario,
+    runPMSNightAudit,
+    updatePMSSettings,
+    simulatePMSMigration,
     importExternalPOSSales,
     openCashSession,
     closeCashSession,

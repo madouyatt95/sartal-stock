@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle, ClipboardCheck, Package, PlayCircle, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight, BedDouble, CheckCircle, ClipboardCheck, Package, PlayCircle, ShieldCheck, Truck } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 
 interface GuidedDemoProps {
@@ -7,7 +7,7 @@ interface GuidedDemoProps {
   setView: (view: string) => void;
 }
 
-type DemoPath = 'restaurant' | 'delivery';
+type DemoPath = 'restaurant' | 'pms' | 'delivery';
 
 export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
   const { db } = state;
@@ -85,7 +85,40 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
     }
   ];
 
-  const steps = path === 'restaurant' ? restaurantSteps : deliverySteps;
+  const pmsSteps = [
+    {
+      title: 'Voir les chambres et folios',
+      detail: 'Contrôler les chambres occupées, les clients présents, les réservations et les folios ouverts.',
+      view: 'pms',
+      action: 'Ouvrir PMS'
+    },
+    {
+      title: 'Créer une consommation chambre',
+      detail: 'Depuis la caisse POS, choisir le paiement chambre et rattacher le ticket au folio du client.',
+      view: 'connectors',
+      action: 'Ouvrir caisse'
+    },
+    {
+      title: 'Contrôler l’imputation',
+      detail: 'Vérifier que la consommation est liée à la chambre, au client, au ticket caisse et au point de vente.',
+      view: 'pms',
+      action: 'Voir journal PMS'
+    },
+    {
+      title: 'Préparer le rapprochement',
+      detail: 'Suivre les consommations à envoyer, envoyées ou à rapprocher avec la facture séjour.',
+      view: 'pms',
+      action: 'Contrôler statuts'
+    },
+    {
+      title: 'Lire les rapports',
+      detail: 'Retrouver les ventes imputées chambre, le stock consommé et les montants à exporter.',
+      view: 'exports',
+      action: 'Voir rapports'
+    }
+  ];
+
+  const steps = path === 'restaurant' ? restaurantSteps : path === 'pms' ? pmsSteps : deliverySteps;
 
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -104,6 +137,10 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
           <ClipboardCheck size={18} />
           Restaurant / POS
         </button>
+        <button className={path === 'pms' ? 'active' : ''} onClick={() => setPath('pms')}>
+          <BedDouble size={18} />
+          Hôtel / PMS
+        </button>
         <button className={path === 'delivery' ? 'active' : ''} onClick={() => setPath('delivery')}>
           <Truck size={18} />
           Épicerie / Livraison
@@ -114,13 +151,19 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <PlayCircle size={22} color="var(--primary)" />
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>
-            {path === 'restaurant' ? 'Parcours conseillé pour un restaurant ou hôtel' : 'Parcours conseillé pour une plateforme de livraison'}
+            {path === 'restaurant'
+              ? 'Parcours conseillé pour un restaurant'
+              : path === 'pms'
+                ? 'Parcours conseillé pour un hôtel'
+                : 'Parcours conseillé pour une plateforme de livraison'}
           </h3>
         </div>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
           {path === 'restaurant'
             ? 'Le fil rouge : même produit, prix différent, dépôt différent, puis preuve dans les rapports.'
-            : 'Le fil rouge : commande client, stock disponible, réservation, préparation puis livraison.'}
+            : path === 'pms'
+              ? 'Le fil rouge : chambre occupée, consommation restaurant, imputation folio, puis rapprochement PMS.'
+              : 'Le fil rouge : commande client, stock disponible, réservation, préparation puis livraison.'}
         </p>
       </div>
 

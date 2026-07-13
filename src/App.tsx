@@ -28,7 +28,8 @@ import {
   User,
   Truck,
   Search,
-  Bell
+  Bell,
+  BedDouble
 } from 'lucide-react';
 
 // Subviews
@@ -58,6 +59,7 @@ import DeliveryDemo from './views/DeliveryDemo';
 import GuidedDemo from './views/GuidedDemo';
 import BusinessProblems from './views/BusinessProblems';
 import SmartAlerts from './views/SmartAlerts';
+import PMSHotel from './views/PMSHotel';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -84,8 +86,10 @@ export const App: React.FC = () => {
 
     { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
-    { id: 'connectors', label: 'Caisse & PMS hôtel', icon: <Network size={18} />, roles: ['admin'], section: 'Restaurant' },
+    { id: 'connectors', label: 'Caisse POS', icon: <Network size={18} />, roles: ['admin'], section: 'Restaurant' },
     { id: 'pos-imports', label: 'Reprendre ventes caisse', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Restaurant' },
+
+    { id: 'pms', label: 'Hôtel / PMS', mobileLabel: 'PMS', icon: <BedDouble size={18} />, roles: ['admin', 'director', 'pos_manager', 'auditor'], section: 'Hôtel' },
 
     { id: 'delivery', label: 'Parcours livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Livraison' },
 
@@ -115,6 +119,7 @@ export const App: React.FC = () => {
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
     { id: 'Restaurant', label: 'Parcours restaurant' },
+    { id: 'Hôtel', label: 'Module Hôtel / PMS' },
     { id: 'Livraison', label: 'Parcours livraison' },
     { id: 'Socle stock', label: 'Socle stock commun' },
     { id: 'Opérations', label: 'Opérations stock' },
@@ -145,7 +150,19 @@ export const App: React.FC = () => {
       .filter(order => `${order.id} ${order.customerName} ${order.address}`.toLowerCase().includes(query))
       .slice(0, 3)
       .map(order => ({ id: `order-${order.id}`, label: order.id, detail: `${order.customerName} · Livraison`, view: 'delivery' }));
-    return [...navMatches, ...productMatches, ...warehouseMatches, ...orderMatches].slice(0, 8);
+    const pmsMatches = db.pmsReservations
+      .filter(reservation => {
+        const room = db.pmsRooms.find(item => item.id === reservation.roomId);
+        const guest = db.pmsGuests.find(item => item.id === reservation.guestId);
+        return `${guest?.fullName || ''} ${guest?.phone || ''} ${reservation.confirmationNumber} ${room?.roomNumber || ''}`.toLowerCase().includes(query);
+      })
+      .slice(0, 3)
+      .map(reservation => {
+        const room = db.pmsRooms.find(item => item.id === reservation.roomId);
+        const guest = db.pmsGuests.find(item => item.id === reservation.guestId);
+        return { id: `reservation-${reservation.id}`, label: `Chambre ${room?.roomNumber || ''}`, detail: `${guest?.fullName || reservation.confirmationNumber} · PMS`, view: 'pms' };
+      });
+    return [...navMatches, ...productMatches, ...warehouseMatches, ...orderMatches, ...pmsMatches].slice(0, 8);
   })();
 
   const openView = (nextView: string) => {
@@ -182,6 +199,8 @@ export const App: React.FC = () => {
         return <BehaviorSimulation state={state} setView={setView} />;
       case 'delivery':
         return <DeliveryDemo state={state} setView={setView} />;
+      case 'pms':
+        return <PMSHotel state={state} setView={setView} />;
       case 'stock-control':
         return <StockControl state={state} setView={setView} />;
       case 'mapping-control':

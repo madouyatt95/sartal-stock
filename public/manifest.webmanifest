@@ -1,7 +1,7 @@
 {
   "name": "Sartal Stock",
   "short_name": "Sartal",
-  "description": "Pilotage stock multi-sites pour restaurants, bars, dépôts et points de vente.",
+  "description": "Gestion multi-sites des stocks, restaurants, livraisons et opérations hôtelières.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",

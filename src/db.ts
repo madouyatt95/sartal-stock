@@ -22,6 +22,21 @@ import {
   CashSession,
   PMSRoom,
   PMSFolio,
+  PMSGuest,
+  PMSReservation,
+  PMSHousekeepingTask,
+  PMSNightAudit,
+  PMSMigrationRun,
+  PMSSettings,
+  PMSRatePlan,
+  PMSGroupBooking,
+  PMSEvent,
+  PMSInvoice,
+  PMSMaintenanceTicket,
+  PMSChannel,
+  PMSNotification,
+  PMSAuditLog,
+  PMSPropertySummary,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -50,12 +65,28 @@ export interface DatabaseState {
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
+  pmsGuests: PMSGuest[];
+  pmsReservations: PMSReservation[];
+  pmsHousekeepingTasks: PMSHousekeepingTask[];
+  pmsNightAudits: PMSNightAudit[];
+  pmsMigrationRuns: PMSMigrationRun[];
+  pmsSettings: PMSSettings;
+  pmsRatePlans: PMSRatePlan[];
+  pmsGroups: PMSGroupBooking[];
+  pmsEvents: PMSEvent[];
+  pmsInvoices: PMSInvoice[];
+  pmsMaintenanceTickets: PMSMaintenanceTicket[];
+  pmsChannels: PMSChannel[];
+  pmsNotifications: PMSNotification[];
+  pmsAuditLogs: PMSAuditLog[];
+  pmsPropertySummaries: PMSPropertySummary[];
+  pmsScenarioStep: number;
   users: User[];
   currentUser: User;
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v9';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v11';
 
 const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string => {
   if (product.category.includes('Boissons premium')) return 'sup-premium';
@@ -639,44 +670,173 @@ const initialDB = (): DatabaseState => {
     { id: 'user-auditor', name: 'Auditeur Externe', role: 'auditor' }
   ];
 
+  const hotelDate = (offset: number) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + offset);
+    return date.toISOString().slice(0, 10);
+  };
+  const today = hotelDate(0);
+
   const pmsRooms: PMSRoom[] = [
-    { id: 'room-204', siteId: 'site-1', roomNumber: '204', roomType: 'Suite Junior', status: 'occupied' },
-    { id: 'room-305', siteId: 'site-1', roomNumber: '305', roomType: 'Chambre Deluxe', status: 'occupied' },
-    { id: 'room-118', siteId: 'site-1', roomNumber: '118', roomType: 'Standard', status: 'occupied' },
-    { id: 'room-410', siteId: 'site-1', roomNumber: '410', roomType: 'Suite Présidentielle', status: 'vacant' }
+    { id: 'room-101', siteId: 'site-1', roomNumber: '101', roomType: 'Standard', floor: '1er étage', capacity: 2, nightlyRate: 45000, status: 'vacant', housekeepingStatus: 'clean' },
+    { id: 'room-102', siteId: 'site-1', roomNumber: '102', roomType: 'Standard', floor: '1er étage', capacity: 2, nightlyRate: 45000, status: 'vacant', housekeepingStatus: 'dirty' },
+    { id: 'room-118', siteId: 'site-1', roomNumber: '118', roomType: 'Supérieure', floor: '1er étage', capacity: 2, nightlyRate: 55000, status: 'vacant', housekeepingStatus: 'inspected' },
+    { id: 'room-204', siteId: 'site-1', roomNumber: '204', roomType: 'Suite Junior', floor: '2e étage', capacity: 3, nightlyRate: 85000, status: 'occupied', housekeepingStatus: 'inspected' },
+    { id: 'room-205', siteId: 'site-1', roomNumber: '205', roomType: 'Suite Junior', floor: '2e étage', capacity: 3, nightlyRate: 85000, status: 'vacant', housekeepingStatus: 'clean' },
+    { id: 'room-301', siteId: 'site-1', roomNumber: '301', roomType: 'Chambre Deluxe', floor: '3e étage', capacity: 2, nightlyRate: 70000, status: 'occupied', housekeepingStatus: 'inspected' },
+    { id: 'room-305', siteId: 'site-1', roomNumber: '305', roomType: 'Chambre Deluxe', floor: '3e étage', capacity: 2, nightlyRate: 70000, status: 'occupied', housekeepingStatus: 'clean' },
+    { id: 'room-410', siteId: 'site-1', roomNumber: '410', roomType: 'Suite Présidentielle', floor: '4e étage', capacity: 4, nightlyRate: 160000, status: 'maintenance', housekeepingStatus: 'dirty', maintenanceNote: 'Climatisation à contrôler avant remise en vente.' }
+  ];
+
+  const pmsGuests: PMSGuest[] = [
+    { id: 'guest-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', nationality: 'Sénégalaise', preferences: 'Petit-déjeuner sans sucre', stays: 3, documentType: 'identity_card', documentNumber: 'SN-1987-****-421', loyaltyTier: 'gold' },
+    { id: 'guest-jean', fullName: 'Jean Morel', phone: '+33 6 24 18 40 10', email: 'jean.morel@example.com', nationality: 'Française', company: 'Sahel Conseil', stays: 2, documentType: 'passport', documentNumber: 'FR-22****19', loyaltyTier: 'silver' },
+    { id: 'guest-sarah', fullName: 'Sarah Johnson', phone: '+44 7700 900123', email: 'sarah.j@example.com', nationality: 'Britannique', preferences: 'Chambre calme', stays: 1, documentType: 'passport', documentNumber: 'GB-51****83', loyaltyTier: 'standard' },
+    { id: 'guest-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 610 44 20', email: 'm.ndiaye@example.com', nationality: 'Sénégalaise', company: 'Ndar Distribution', stays: 5 },
+    { id: 'guest-fatou', fullName: 'Fatou Kane', phone: '+221 76 812 33 05', nationality: 'Sénégalaise', stays: 1 },
+    { id: 'guest-ibrahima', fullName: 'Ibrahima Fall', phone: '+221 77 901 24 61', email: 'i.fall@example.com', nationality: 'Sénégalaise', stays: 0 }
+  ];
+
+  const pmsReservations: PMSReservation[] = [
+    { id: 'res-204', confirmationNumber: 'RSV-240701', guestId: 'guest-aminata', roomId: 'room-204', arrivalDate: hotelDate(-1), departureDate: hotelDate(3), adults: 2, children: 0, status: 'checked_in', source: 'direct', nightlyRate: 85000, depositAmount: 50000, notes: 'Arrivée confirmée par téléphone.', ratePlanId: 'rate-flex-suite', guaranteeType: 'deposit', guaranteeStatus: 'secured' },
+    { id: 'res-305', confirmationNumber: 'RSV-240702', guestId: 'guest-jean', roomId: 'room-305', arrivalDate: hotelDate(-2), departureDate: hotelDate(1), adults: 1, children: 0, status: 'checked_in', source: 'company', nightlyRate: 70000, depositAmount: 40000, notes: 'Facturation société à valider au départ.', ratePlanId: 'rate-corporate', guaranteeType: 'company', guaranteeStatus: 'secured' },
+    { id: 'res-301', confirmationNumber: 'RSV-240704', guestId: 'guest-moussa', roomId: 'room-301', arrivalDate: hotelDate(-1), departureDate: hotelDate(2), adults: 2, children: 1, status: 'checked_in', source: 'phone', nightlyRate: 70000, depositAmount: 70000 },
+    { id: 'res-118', confirmationNumber: 'RSV-240703', guestId: 'guest-sarah', roomId: 'room-118', arrivalDate: today, departureDate: hotelDate(2), adults: 1, children: 0, status: 'confirmed', source: 'online', nightlyRate: 55000, depositAmount: 25000 },
+    { id: 'res-101', confirmationNumber: 'RSV-240705', guestId: 'guest-fatou', roomId: 'room-101', arrivalDate: hotelDate(1), departureDate: hotelDate(4), adults: 2, children: 0, status: 'confirmed', source: 'agency', nightlyRate: 45000, depositAmount: 45000 },
+    { id: 'res-302', confirmationNumber: 'RSV-240706', guestId: 'guest-ibrahima', roomId: 'room-205', arrivalDate: hotelDate(-1), departureDate: hotelDate(1), adults: 1, children: 0, status: 'no_show', source: 'phone', nightlyRate: 85000, depositAmount: 0, notes: 'Client non présenté, relance à effectuer.' }
   ];
 
   const pmsFolios: PMSFolio[] = [
     {
       id: 'folio-204',
       roomId: 'room-204',
+      guestId: 'guest-aminata',
+      reservationId: 'res-204',
       guestName: 'Aminata Diop',
       reservationNumber: 'RSV-240701',
-      arrivalDate: '2026-07-01',
-      departureDate: '2026-07-05',
+      arrivalDate: hotelDate(-1),
+      departureDate: hotelDate(3),
       status: 'open',
-      charges: []
+      charges: [
+        { id: 'charge-204-room', saleId: 'stay-204-night', externalSaleId: 'NUIT-204-01', posId: 'pos-1', label: 'Nuitée Suite Junior', amount: 85000, date: `${hotelDate(-1)}T22:00:00.000Z`, status: 'reconciled', category: 'room' },
+        { id: 'charge-204-resto', saleId: 'sale-204-resto', externalSaleId: 'REST-204-0142', posId: 'pos-1', label: 'Dîner Restaurant La Terrasse', amount: 12500, date: `${today}T20:15:00.000Z`, status: 'pending', category: 'restaurant' },
+        { id: 'charge-204-service', saleId: 'service-204-laundry', externalSaleId: 'SERV-204-008', posId: 'pos-1', label: 'Service blanchisserie', amount: 6000, date: `${today}T10:20:00.000Z`, status: 'exported', category: 'service' }
+      ],
+      payments: [{ id: 'pay-204', amount: 50000, method: 'wave', date: `${hotelDate(-1)}T14:05:00.000Z`, reference: 'WV-204-50000' }]
     },
     {
       id: 'folio-305',
       roomId: 'room-305',
+      guestId: 'guest-jean',
+      reservationId: 'res-305',
       guestName: 'Jean Morel',
       reservationNumber: 'RSV-240702',
-      arrivalDate: '2026-06-30',
-      departureDate: '2026-07-03',
+      arrivalDate: hotelDate(-2),
+      departureDate: hotelDate(1),
       status: 'open',
-      charges: []
+      charges: [
+        { id: 'charge-305-room', saleId: 'stay-305-night', externalSaleId: 'NUIT-305-01', posId: 'pos-1', label: 'Nuitée Chambre Deluxe', amount: 140000, date: `${hotelDate(-1)}T23:05:00.000Z`, status: 'reconciled', category: 'room' },
+        { id: 'charge-305-resto', saleId: 'sale-305-resto', externalSaleId: 'REST-305-0098', posId: 'pos-1', label: 'Déjeuner Restaurant La Terrasse', amount: 18500, date: `${today}T13:10:00.000Z`, status: 'exported', category: 'restaurant' }
+      ],
+      payments: [{ id: 'pay-305', amount: 40000, method: 'card', date: `${hotelDate(-2)}T16:30:00.000Z`, reference: 'TPE-845102' }]
     },
     {
-      id: 'folio-118',
-      roomId: 'room-118',
-      guestName: 'Sarah Johnson',
-      reservationNumber: 'RSV-240703',
-      arrivalDate: '2026-07-01',
-      departureDate: '2026-07-02',
+      id: 'folio-301',
+      roomId: 'room-301',
+      guestId: 'guest-moussa',
+      reservationId: 'res-301',
+      guestName: 'Moussa Ndiaye',
+      reservationNumber: 'RSV-240704',
+      arrivalDate: hotelDate(-1),
+      departureDate: hotelDate(2),
       status: 'open',
-      charges: []
+      charges: [
+        { id: 'charge-301-room', saleId: 'stay-301-night', externalSaleId: 'NUIT-301-01', posId: 'pos-1', label: 'Nuitée Chambre Deluxe', amount: 70000, date: `${hotelDate(-1)}T22:45:00.000Z`, status: 'reconciled', category: 'room' },
+        { id: 'charge-301-resto', saleId: 'sale-301-resto', externalSaleId: 'REST-301-0115', posId: 'pos-1', label: 'Petit-déjeuner en chambre', amount: 9000, date: `${today}T08:30:00.000Z`, status: 'pending', category: 'restaurant' }
+      ],
+      payments: [{ id: 'pay-301', amount: 70000, method: 'orange_money', date: `${hotelDate(-1)}T15:10:00.000Z`, reference: 'OM-301-70000' }]
     }
+  ];
+
+  const pmsHousekeepingTasks: PMSHousekeepingTask[] = [
+    { id: 'hk-102', roomId: 'room-102', assignedTo: 'Mariama Sarr', status: 'pending', priority: 'urgent', scheduledDate: today, note: 'Préparer avant l’arrivée de 14h.' },
+    { id: 'hk-204', roomId: 'room-204', assignedTo: 'Awa Cissé', status: 'completed', priority: 'normal', scheduledDate: today, note: 'Recouche effectuée.' },
+    { id: 'hk-305', roomId: 'room-305', assignedTo: 'Mariama Sarr', status: 'in_progress', priority: 'normal', scheduledDate: today },
+    { id: 'hk-410', roomId: 'room-410', assignedTo: 'Service technique', status: 'pending', priority: 'urgent', scheduledDate: today, note: 'Contrôle climatisation.' }
+  ];
+
+  const pmsNightAudits: PMSNightAudit[] = [
+    { id: 'audit-night-1', businessDate: hotelDate(-1), completedAt: `${today}T01:45:00.000Z`, completedBy: 'Responsable de nuit', occupiedRooms: 3, roomRevenue: 225000, posRevenue: 31500, openBalance: 221000, status: 'completed' }
+  ];
+
+  const pmsMigrationRuns: PMSMigrationRun[] = [
+    { id: 'migration-orchestra-1', source: 'Orchestra - reprise test', importedAt: `${hotelDate(-3)}T11:00:00.000Z`, rooms: 8, guests: 6, reservations: 6, warnings: 1, status: 'review' }
+  ];
+
+  const pmsSettings: PMSSettings = {
+    hotelName: 'Complexe Hôtelier Dakar',
+    checkInTime: '14:00',
+    checkOutTime: '12:00',
+    cityTax: 1000,
+    vatRate: 18,
+    currency: 'XOF',
+    businessDate: today,
+    allowOverbooking: false,
+    overbookingLimit: 0
+  };
+
+  const pmsRatePlans: PMSRatePlan[] = [
+    { id: 'rate-flex-standard', name: 'Flexible public', roomType: 'Standard', baseRate: 45000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
+    { id: 'rate-flex-superior', name: 'Flexible Supérieure', roomType: 'Supérieure', baseRate: 55000, weekendMultiplier: 1.1, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
+    { id: 'rate-flex-suite', name: 'Flexible Suite', roomType: 'Suite Junior', baseRate: 85000, weekendMultiplier: 1.15, validFrom: hotelDate(-90), validTo: hotelDate(180), audience: 'public', active: true },
+    { id: 'rate-corporate', name: 'Contrat entreprise Dakar', roomType: 'Chambre Deluxe', baseRate: 63000, weekendMultiplier: 1, validFrom: hotelDate(-120), validTo: hotelDate(240), audience: 'company', active: true },
+    { id: 'rate-group', name: 'Groupe & séminaire', roomType: 'Standard', baseRate: 40000, weekendMultiplier: 1, validFrom: hotelDate(-30), validTo: hotelDate(120), audience: 'group', active: true }
+  ];
+
+  const pmsGroups: PMSGroupBooking[] = [
+    { id: 'group-sahel', name: 'Séminaire Sahel Conseil', contactName: 'Jean Morel', contactPhone: '+33 6 24 18 40 10', roomIds: ['room-101', 'room-102', 'room-305'], arrivalDate: hotelDate(1), departureDate: hotelDate(4), billingMode: 'central', status: 'confirmed', depositAmount: 150000 },
+    { id: 'group-lions', name: 'Délégation sportive Dakar', contactName: 'Mamadou Sow', contactPhone: '+221 77 330 41 20', roomIds: ['room-118', 'room-204', 'room-205'], arrivalDate: hotelDate(8), departureDate: hotelDate(11), billingMode: 'mixed', status: 'option', depositAmount: 0 }
+  ];
+
+  const pmsEvents: PMSEvent[] = [
+    { id: 'event-sahel', name: 'Journée stratégique Sahel Conseil', type: 'seminar', date: hotelDate(2), venue: 'Salle Gorée', attendees: 28, cateringAmount: 420000, status: 'confirmed', groupId: 'group-sahel' },
+    { id: 'event-teranga', name: 'Réception Teranga Digital', type: 'banquet', date: hotelDate(6), venue: 'Terrasse panoramique', attendees: 80, cateringAmount: 1200000, status: 'option' }
+  ];
+
+  const pmsInvoices: PMSInvoice[] = [
+    { id: 'invoice-305', folioId: 'folio-305', number: 'FAC-2026-00305', type: 'invoice', status: 'draft', issuedAt: `${today}T10:00:00.000Z`, billedTo: 'Sahel Conseil', subtotal: 158500, taxAmount: 28530, cityTaxAmount: 3000, total: 190030 },
+    { id: 'proforma-204', folioId: 'folio-204', number: 'PRO-2026-00204', type: 'proforma', status: 'issued', issuedAt: `${hotelDate(-1)}T15:00:00.000Z`, billedTo: 'Aminata Diop', subtotal: 103500, taxAmount: 18630, cityTaxAmount: 4000, total: 126130 }
+  ];
+
+  const pmsMaintenanceTickets: PMSMaintenanceTicket[] = [
+    { id: 'maint-410', roomId: 'room-410', equipment: 'Climatisation', priority: 'critical', status: 'in_progress', assignedTo: 'Moussa Technique', openedAt: `${hotelDate(-1)}T09:20:00.000Z`, estimatedCost: 85000, note: 'Compresseur à contrôler avant remise en vente.' },
+    { id: 'maint-102', roomId: 'room-102', equipment: 'Serrure électronique', priority: 'normal', status: 'open', assignedTo: 'Service technique', openedAt: `${today}T08:10:00.000Z`, estimatedCost: 15000, note: 'Pile faible signalée par l’entretien.' }
+  ];
+
+  const pmsChannels: PMSChannel[] = [
+    { id: 'channel-direct', name: 'Site direct Sartal', type: 'direct', status: 'connected', lastSync: `${today}T11:45:00.000Z`, reservationsToday: 3, availabilityIssues: 0 },
+    { id: 'channel-agency', name: 'Agences partenaires', type: 'agency', status: 'connected', lastSync: `${today}T11:40:00.000Z`, reservationsToday: 2, availabilityIssues: 0 },
+    { id: 'channel-ota', name: 'Plateforme de réservation', type: 'ota', status: 'warning', lastSync: `${today}T10:58:00.000Z`, reservationsToday: 4, availabilityIssues: 1 },
+    { id: 'channel-corporate', name: 'Contrats entreprises', type: 'corporate', status: 'connected', lastSync: `${today}T09:30:00.000Z`, reservationsToday: 1, availabilityIssues: 0 }
+  ];
+
+  const pmsNotifications: PMSNotification[] = [
+    { id: 'notif-118', reservationId: 'res-118', channel: 'whatsapp', type: 'arrival_reminder', recipient: '+44 7700 900123', status: 'sent', scheduledAt: `${hotelDate(-1)}T18:00:00.000Z`, sentAt: `${hotelDate(-1)}T18:01:00.000Z` },
+    { id: 'notif-101', reservationId: 'res-101', channel: 'sms', type: 'arrival_reminder', recipient: '+221 76 812 33 05', status: 'scheduled', scheduledAt: `${today}T18:00:00.000Z` },
+    { id: 'notif-305', reservationId: 'res-305', channel: 'email', type: 'balance_due', recipient: 'jean.morel@example.com', status: 'scheduled', scheduledAt: `${today}T17:00:00.000Z` }
+  ];
+
+  const pmsAuditLogs: PMSAuditLog[] = [
+    { id: 'audit-log-1', date: `${today}T10:20:00.000Z`, userName: 'Responsable de nuit', action: 'Transfert de charge', entity: 'Folio RSV-240701', detail: 'Blanchisserie transférée vers le folio chambre 204.' },
+    { id: 'audit-log-2', date: `${today}T09:15:00.000Z`, userName: 'Admin', action: 'Modification tarif', entity: 'Réservation RSV-240702', detail: 'Application du contrat entreprise Sahel Conseil.' },
+    { id: 'audit-log-3', date: `${hotelDate(-1)}T23:50:00.000Z`, userName: 'Responsable de nuit', action: 'Clôture journalière', entity: hotelDate(-1), detail: 'Clôture validée avec 3 chambres occupées.' }
+  ];
+
+  const pmsPropertySummaries: PMSPropertySummary[] = [
+    { id: 'property-dakar', name: 'Complexe Hôtelier Dakar', city: 'Dakar', rooms: 48, occupiedRooms: 35, revenueToday: 4860000, alerts: 2 },
+    { id: 'property-saly', name: 'Résidence Sartal Saly', city: 'Saly', rooms: 26, occupiedRooms: 20, revenueToday: 2410000, alerts: 1 },
+    { id: 'property-saint-louis', name: 'Maison Sartal Saint-Louis', city: 'Saint-Louis', rooms: 18, occupiedRooms: 11, revenueToday: 1260000, alerts: 0 }
   ];
 
   const deliveryOrders: DeliveryOrder[] = [
@@ -944,6 +1104,22 @@ const initialDB = (): DatabaseState => {
     cashSessions: [],
     pmsRooms,
     pmsFolios,
+    pmsGuests,
+    pmsReservations,
+    pmsHousekeepingTasks,
+    pmsNightAudits,
+    pmsMigrationRuns,
+    pmsSettings,
+    pmsRatePlans,
+    pmsGroups,
+    pmsEvents,
+    pmsInvoices,
+    pmsMaintenanceTickets,
+    pmsChannels,
+    pmsNotifications,
+    pmsAuditLogs,
+    pmsPropertySummaries,
+    pmsScenarioStep: 0,
     users,
     currentUser: users[0] // Admin by default
   };
@@ -1472,7 +1648,33 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     deliveryOrders: state.deliveryOrders || [],
     cashSessions,
     pmsRooms: state.pmsRooms || [],
-    pmsFolios: state.pmsFolios || [],
+    pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [] })),
+    pmsGuests: state.pmsGuests || [],
+    pmsReservations: state.pmsReservations || [],
+    pmsHousekeepingTasks: state.pmsHousekeepingTasks || [],
+    pmsNightAudits: state.pmsNightAudits || [],
+    pmsMigrationRuns: state.pmsMigrationRuns || [],
+    pmsRatePlans: state.pmsRatePlans || [],
+    pmsGroups: state.pmsGroups || [],
+    pmsEvents: state.pmsEvents || [],
+    pmsInvoices: state.pmsInvoices || [],
+    pmsMaintenanceTickets: state.pmsMaintenanceTickets || [],
+    pmsChannels: state.pmsChannels || [],
+    pmsNotifications: state.pmsNotifications || [],
+    pmsAuditLogs: state.pmsAuditLogs || [],
+    pmsPropertySummaries: state.pmsPropertySummaries || [],
+    pmsScenarioStep: state.pmsScenarioStep || 0,
+    pmsSettings: state.pmsSettings || {
+      hotelName: state.sites?.[0]?.name || 'Complexe Hôtelier Dakar',
+      checkInTime: '14:00',
+      checkOutTime: '12:00',
+      cityTax: 1000,
+      vatRate: 18,
+      currency: 'XOF',
+      businessDate: new Date().toISOString().slice(0, 10),
+      allowOverbooking: false,
+      overbookingLimit: 0
+    },
     users: state.users || [],
     currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
   };

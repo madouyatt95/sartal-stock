@@ -6,6 +6,7 @@ import {
   Bell,
   Calendar, 
   Trash2, 
+  BedDouble,
   ShoppingCart, 
   ArrowRightLeft, 
   ClipboardList, 
@@ -172,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         </div>
       </div>
 
-      <div className="grid-3 demo-choice-grid">
+      <div className="grid-4 demo-choice-grid">
         <button
           className="card business-entry-card"
           onClick={() => setView('answer')}
@@ -184,11 +185,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <div>
             <h2 style={{ fontSize: '1.2rem' }}>Restaurant / POS</h2>
             <p style={{ color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
-              Même produit, prix différent par point de vente, dépôt différent, caisse, paiements et PMS hôtel.
+              Même produit, prix différent par point de vente, dépôt différent, caisse, paiements et sessions X/Z.
             </p>
           </div>
           <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             Ouvrir la réponse <ChevronRight size={17} />
+          </span>
+        </button>
+
+        <button
+          className="card business-entry-card"
+          onClick={() => setView('pms')}
+          style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
+        >
+          <div style={{ width: '44px', height: '44px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BedDouble size={22} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.2rem' }}>Hôtel / PMS</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '6px', lineHeight: 1.5 }}>
+              Chambres, folios, imputations restaurant/bar, exports et remplacement progressif du PMS actuel.
+            </p>
+          </div>
+          <span style={{ color: 'var(--primary)', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            Ouvrir le PMS <ChevronRight size={17} />
           </span>
         </button>
 
