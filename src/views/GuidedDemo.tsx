@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, BedDouble, CheckCircle, ClipboardCheck, Package, PlayCircle, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight, BedDouble, CheckCircle, ClipboardCheck, Package, PlayCircle, ShoppingBag, Sparkles, Truck, Users } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 
 interface GuidedDemoProps {
@@ -8,10 +8,23 @@ interface GuidedDemoProps {
 }
 
 type DemoPath = 'restaurant' | 'pms' | 'delivery';
+type CommercialScenario = 'hotel_restaurant' | 'family_delivery' | 'group_payment';
 
 export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
-  const { db } = state;
+  const { db, runSartalCommercialScenario } = state;
   const [path, setPath] = useState<DemoPath>('restaurant');
+  const [scenarioResult, setScenarioResult] = useState<{ label: string; evidence: string[] } | null>(null);
+
+  const commercialScenarios: Array<{ id: CommercialScenario; title: string; persona: string; detail: string; icon: React.ReactNode }> = [
+    { id: 'hotel_restaurant', title: 'Séjour + dîner', persona: 'Aminata · cliente hôtel', detail: 'Reconnaître son séjour, prendre le dîner puis prouver l’imputation folio et la sortie stock.', icon: <BedDouble size={22} /> },
+    { id: 'family_delivery', title: 'Panier de famille', persona: 'Awa · cliente livraison', detail: 'Réutiliser ses habitudes, son compte famille et son panier récurrent sans perdre le stock réel.', icon: <ShoppingBag size={22} /> },
+    { id: 'group_payment', title: 'Table entre proches', persona: 'Famille Diop · restaurant', detail: 'Inviter les convives, partager l’addition et suivre chaque paiement jusqu’au solde.', icon: <Users size={22} /> }
+  ];
+
+  const playScenario = (scenario: CommercialScenario) => {
+    const result = runSartalCommercialScenario(scenario);
+    setScenarioResult(result);
+  };
 
   const restaurantSteps = [
     {
@@ -132,6 +145,12 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
         <span className="badge badge-blue">Exemples réalistes</span>
       </div>
 
+      <section className="commercial-demo-stage">
+        <header><div><Sparkles size={21} /><span><strong>Choisissez une histoire client</strong><small>Chaque scénario s’appuie sur les ventes, folios, paiements et mouvements réellement présents.</small></span></div><b>3 minutes par scénario</b></header>
+        <div>{commercialScenarios.map(scenario => <article key={scenario.id}><span>{scenario.icon}</span><div><small>{scenario.persona}</small><h2>{scenario.title}</h2><p>{scenario.detail}</p></div><button onClick={() => playScenario(scenario.id)}>Jouer et vérifier <ArrowRight size={15} /></button></article>)}</div>
+        {scenarioResult && <aside><CheckCircle size={22} /><div><span>SCÉNARIO VÉRIFIÉ</span><h3>{scenarioResult.label}</h3><ul>{scenarioResult.evidence.map(item => <li key={item}>{item}</li>)}</ul></div></aside>}
+      </section>
+
       <div className="demo-switcher">
         <button className={path === 'restaurant' ? 'active' : ''} onClick={() => setPath('restaurant')}>
           <ClipboardCheck size={18} />
@@ -194,11 +213,11 @@ export const GuidedDemo: React.FC<GuidedDemoProps> = ({ state, setView }) => {
           <Package size={22} color="var(--primary)" />
           <div>
             <h3 style={{ fontSize: '0.98rem', fontWeight: 800 }}>{db.products.length} produits</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Catalogue commun aux deux métiers.</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Catalogue commun à tous les services activés.</p>
           </div>
         </div>
         <div className="card" style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-          <ShieldCheck size={22} color="var(--warning)" />
+          <ClipboardCheck size={22} color="var(--warning)" />
           <div>
             <h3 style={{ fontSize: '0.98rem', fontWeight: 800 }}>{db.warehouses.length} dépôts</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '4px' }}>Stocks séparés mais pilotés ensemble.</p>

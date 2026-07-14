@@ -308,6 +308,11 @@ export interface DeliveryOrder {
   deliveryInstructions?: string;
   verificationCode?: string;
   proofStatus?: 'pending' | 'code_verified' | 'photo_confirmed';
+  proofPhotoLabel?: string;
+  proofSignature?: string;
+  proofLatitude?: number;
+  proofLongitude?: number;
+  proofCompletedAt?: string;
   returnAction?: 'restocked' | 'loss_declared' | 'pending_manager_review';
   createdAt: string;
   updatedAt: string;
@@ -342,6 +347,10 @@ export interface SartalCustomer {
   allergies?: string;
   profileConsent: boolean;
   marketingConsent?: boolean;
+  favoriteProductIds?: string[];
+  lowBandwidthMode?: boolean;
+  householdId?: string;
+  corporateAccountId?: string;
   loyaltyPoints: number;
   loyaltyTier: 'welcome' | 'teranga' | 'signature';
   visits: number;
@@ -376,6 +385,7 @@ export interface RestaurantGuestOrderPayment {
   method: PaymentType;
   paidAt: string;
   payerName?: string;
+  cashSessionId?: string;
 }
 
 export interface RestaurantGuestOrder {
@@ -477,6 +487,114 @@ export interface SartalLoyaltyTransaction {
   label: string;
   referenceId?: string;
   date: string;
+}
+
+export interface SartalJourneyItem {
+  id: string;
+  customerId: string;
+  context: 'restaurant' | 'delivery' | 'hotel' | 'transport';
+  title: string;
+  detail: string;
+  scheduledAt: string;
+  status: 'upcoming' | 'in_progress' | 'completed' | 'cancelled';
+  assignedTo?: string;
+  referenceId?: string;
+}
+
+export interface SartalOccasionPlan {
+  id: string;
+  customerId: string;
+  reservationId: string;
+  occasion: 'birthday' | 'business' | 'family' | 'romantic' | 'ceremony';
+  label: string;
+  status: 'planned' | 'ready' | 'completed';
+  checklist: Array<{ id: string; label: string; assignedTo: string; completed: boolean }>;
+}
+
+export interface SartalHousehold {
+  id: string;
+  name: string;
+  primaryCustomerId: string;
+  memberCustomerIds: string[];
+  sharedPoints: number;
+  sharedPaymentAllowed: boolean;
+}
+
+export interface SartalCorporateAccount {
+  id: string;
+  name: string;
+  contactName: string;
+  contactPhone: string;
+  employeeCustomerIds: string[];
+  monthlyLimit: number;
+  currentBalance: number;
+  billingDay: number;
+  status: 'active' | 'suspended';
+  benefits: string[];
+}
+
+export interface SartalRecurringOrder {
+  id: string;
+  customerId: string;
+  name: string;
+  items: Array<{ productId: string; quantity: number }>;
+  cadence: 'weekly' | 'biweekly' | 'monthly';
+  nextRunAt: string;
+  active: boolean;
+  lastOrderId?: string;
+}
+
+export interface RestaurantWaitlistEntry {
+  id: string;
+  customerId: string;
+  posId: string;
+  guests: number;
+  quotedMinutes: number;
+  status: 'waiting' | 'notified' | 'seated' | 'cancelled';
+  joinedAt: string;
+  notifiedAt?: string;
+  tableNumber?: string;
+}
+
+export interface SartalRecoveryPlaybook {
+  id: string;
+  name: string;
+  context: 'restaurant' | 'delivery' | 'all';
+  maxScore: number;
+  solution: string;
+  compensationPoints: number;
+  targetMinutes: number;
+  managerApproval: boolean;
+  active: boolean;
+}
+
+export interface SartalBrandSettings {
+  establishmentName: string;
+  clientAppName: string;
+  primaryColor: string;
+  accentColor: string;
+  welcomeTone: 'warm' | 'formal' | 'concise';
+  supportPhone: string;
+  lowBandwidthDefault: boolean;
+}
+
+export interface SartalOfflineAction {
+  id: string;
+  customerId: string;
+  actionType: 'service_request' | 'message' | 'feedback' | 'profile';
+  summary: string;
+  status: 'queued' | 'synced' | 'error';
+  createdAt: string;
+  syncedAt?: string;
+}
+
+export interface SartalDemoRun {
+  id: string;
+  scenario: 'hotel_restaurant' | 'family_delivery' | 'group_payment';
+  label: string;
+  evidence: string[];
+  status: 'completed';
+  completedAt: string;
 }
 
 export interface ExternalPOSSaleRow {
@@ -928,6 +1046,95 @@ export interface PMSBookingEngineSettings {
   instantConfirmation: boolean;
   lastBookingAt?: string;
   bookingsToday: number;
+}
+
+export type EmployeeRole =
+  | 'waiter'
+  | 'cashier'
+  | 'kitchen'
+  | 'receptionist'
+  | 'housekeeper'
+  | 'storekeeper'
+  | 'picker'
+  | 'driver'
+  | 'customer_experience'
+  | 'service_manager';
+
+export interface EmployeeProfile {
+  id: string;
+  employeeNumber: string;
+  name: string;
+  role: EmployeeRole;
+  siteId: string;
+  phone: string;
+  posId?: string;
+  warehouseId?: string;
+  active: boolean;
+}
+
+export interface EmployeeShift {
+  id: string;
+  employeeId: string;
+  siteId: string;
+  role: EmployeeRole;
+  assignmentId?: string;
+  assignmentLabel: string;
+  deviceLabel: string;
+  status: 'open' | 'closed';
+  startedAt: string;
+  endedAt?: string;
+}
+
+export interface EmployeeHandover {
+  id: string;
+  shiftId: string;
+  employeeId: string;
+  employeeName: string;
+  role: EmployeeRole;
+  notes: string;
+  incidents: string;
+  amountsToCheck: string;
+  customersToFollow: string;
+  status: 'submitted' | 'acknowledged';
+  submittedAt: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+}
+
+export interface EmployeeMessage {
+  id: string;
+  siteId: string;
+  senderId: string;
+  senderName: string;
+  audience: EmployeeRole | 'all';
+  content: string;
+  priority: 'normal' | 'urgent';
+  sentAt: string;
+  readByEmployeeIds: string[];
+}
+
+export type EmployeeApprovalType =
+  | 'discount'
+  | 'complimentary'
+  | 'void'
+  | 'cash_difference'
+  | 'stock_loss'
+  | 'substitution';
+
+export interface EmployeeApproval {
+  id: string;
+  type: EmployeeApprovalType;
+  referenceId: string;
+  requestedBy: string;
+  requestedByName: string;
+  label: string;
+  reason: string;
+  amount?: number;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

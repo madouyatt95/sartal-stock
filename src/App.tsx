@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
@@ -30,40 +30,44 @@ import {
   Search,
   Bell,
   BedDouble,
-  HeartHandshake
+  HeartHandshake,
+  UsersRound
 } from 'lucide-react';
 
-// Subviews
-import Dashboard from './views/Dashboard';
-import ManagerAnswer from './views/ManagerAnswer';
-import BehaviorSimulation from './views/BehaviorSimulation';
-import StockControl from './views/StockControl';
-import StockAudit from './views/StockAudit';
-import MappingControl from './views/MappingControl';
-import Products from './views/Products';
-import Warehouses from './views/Warehouses';
-import Stocks from './views/Stocks';
-import Purchases from './views/Purchases';
-import Receiving from './views/Receiving';
-import Transfers from './views/Transfers';
-import Inventories from './views/Inventories';
-import Losses from './views/Losses';
-import Movements from './views/Movements';
-import Reorder from './views/Reorder';
-import Suppliers from './views/Suppliers';
-import Settings from './views/Settings';
-import Connectors from './views/Connectors';
-import POSImports from './views/POSImports';
-import Exports from './views/Exports';
-import POSPricing from './views/POSPricing';
-import DeliveryDemo from './views/DeliveryDemo';
-import GuidedDemo from './views/GuidedDemo';
-import BusinessProblems from './views/BusinessProblems';
-import SmartAlerts from './views/SmartAlerts';
-import PMSHotel from './views/PMSHotel';
-import { PMSGuestExperiencePortal } from './views/PMSSignatureExperience';
-import SartalClient from './views/SartalClient';
-import CustomerExperienceCockpit from './views/CustomerExperienceCockpit';
+const Dashboard = lazy(() => import('./views/Dashboard'));
+const ManagerAnswer = lazy(() => import('./views/ManagerAnswer'));
+const BehaviorSimulation = lazy(() => import('./views/BehaviorSimulation'));
+const StockControl = lazy(() => import('./views/StockControl'));
+const StockAudit = lazy(() => import('./views/StockAudit'));
+const MappingControl = lazy(() => import('./views/MappingControl'));
+const Products = lazy(() => import('./views/Products'));
+const Warehouses = lazy(() => import('./views/Warehouses'));
+const Stocks = lazy(() => import('./views/Stocks'));
+const Purchases = lazy(() => import('./views/Purchases'));
+const Receiving = lazy(() => import('./views/Receiving'));
+const Transfers = lazy(() => import('./views/Transfers'));
+const Inventories = lazy(() => import('./views/Inventories'));
+const Losses = lazy(() => import('./views/Losses'));
+const Movements = lazy(() => import('./views/Movements'));
+const Reorder = lazy(() => import('./views/Reorder'));
+const Suppliers = lazy(() => import('./views/Suppliers'));
+const Settings = lazy(() => import('./views/Settings'));
+const Connectors = lazy(() => import('./views/Connectors'));
+const POSImports = lazy(() => import('./views/POSImports'));
+const Exports = lazy(() => import('./views/Exports'));
+const POSPricing = lazy(() => import('./views/POSPricing'));
+const DeliveryDemo = lazy(() => import('./views/DeliveryDemo'));
+const GuidedDemo = lazy(() => import('./views/GuidedDemo'));
+const BusinessProblems = lazy(() => import('./views/BusinessProblems'));
+const SmartAlerts = lazy(() => import('./views/SmartAlerts'));
+const PMSHotel = lazy(() => import('./views/PMSHotel'));
+const PMSGuestExperiencePortal = lazy(() => import('./views/PMSSignatureExperience').then(module => ({ default: module.PMSGuestExperiencePortal })));
+const SartalClient = lazy(() => import('./views/SartalClient'));
+const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
+const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
+
+const AppLoading = () => <div className="app-route-loading"><img src="./brand-mark.svg" alt="" /><span>Chargement du poste…</span></div>;
+const PublicAccessError: React.FC<{ eyebrow: string; title: string; message: string; supportPhone?: string }> = ({ eyebrow, title, message, supportPhone }) => <main className="public-access-error"><section><img src="./brand-mark.svg" alt="Sártal" /><span>{eyebrow}</span><h1>{title}</h1><p>{message}</p>{supportPhone && <a href={`tel:${supportPhone.replace(/\s/g, '')}`}><HeartHandshake size={17} /> Contacter l’établissement · {supportPhone}</a>}<small>Vos données restent protégées. Aucun accès au back-office n’a été ouvert.</small></section></main>;
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -83,19 +87,38 @@ export const App: React.FC = () => {
   }, [darkMode]);
 
   const guestReservationId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sejour') : null;
-  if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
-    return <main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main>;
+  if (guestReservationId !== null) {
+    if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
+      return <Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main></Suspense>;
+    }
+    return <PublicAccessError eyebrow="MON SÉJOUR" title="Ce lien de séjour n’est plus disponible" message="Demandez un nouveau lien privé à la réception pour retrouver votre chambre, vos services et votre folio." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
   const publicClientMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null;
+  const publicEmployeeMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('equipe') : null;
   const publicAccessToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('access') : null;
   const publicAccess = db.sartalClientAccess.find(item => item.linkToken === publicAccessToken && item.status === 'active' && new Date(item.expiresAt).getTime() > Date.now());
-  if (publicAccess) {
-    const accessCustomer = db.sartalCustomers.find(item => item.id === publicAccess.customerId);
-    const accessMode = db.restaurantGuestOrders.some(item => item.customerId === accessCustomer?.id && !['paid', 'cancelled'].includes(item.status)) ? 'restaurant' : 'delivery';
-    return <main className="sartal-public-client-app"><SartalClient state={state} initialMode={accessMode} initialCustomerId={publicAccess.customerId} initialHub standalone /></main>;
+  if (publicAccessToken !== null) {
+    if (publicAccess) {
+      const accessCustomer = db.sartalCustomers.find(item => item.id === publicAccess.customerId);
+      if (!accessCustomer) {
+        return <PublicAccessError eyebrow="MON SÁRTAL" title="Profil client indisponible" message="Ce lien ne correspond plus à un profil actif. Demandez un nouvel accès personnel à l’établissement." supportPhone={db.sartalBrandSettings.supportPhone} />;
+      }
+      const accessMode = db.restaurantGuestOrders.some(item => item.customerId === accessCustomer?.id && !['paid', 'cancelled'].includes(item.status)) ? 'restaurant' : 'delivery';
+      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={accessMode} initialCustomerId={publicAccess.customerId} initialHub standalone /></main></Suspense>;
+    }
+    return <PublicAccessError eyebrow="MON SÁRTAL" title="Votre accès personnel a expiré" message="Ce lien temporaire a été fermé pour protéger votre compte. Demandez simplement un nouveau lien par WhatsApp, SMS ou QR code." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
-  if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
-    return <main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone /></main>;
+  if (publicClientMode !== null) {
+    if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
+      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone /></main></Suspense>;
+    }
+    return <PublicAccessError eyebrow="MON SÁRTAL" title="Adresse client incorrecte" message="Le service demandé n’existe pas ou n’est plus actif. Utilisez le lien transmis par l’établissement." supportPhone={db.sartalBrandSettings.supportPhone} />;
+  }
+  if (publicEmployeeMode !== null) {
+    if (publicEmployeeMode === '1') {
+      return <Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={state} /></main></Suspense>;
+    }
+    return <PublicAccessError eyebrow="SÁRTAL ÉQUIPE" title="Poste employé introuvable" message="Ouvrez Sártal Équipe depuis le raccourci installé sur votre appareil ou contactez votre responsable." />;
   }
 
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
@@ -103,7 +126,9 @@ export const App: React.FC = () => {
     { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
-    { id: 'client', label: 'Expérience client', mobileLabel: 'Client', icon: <HeartHandshake size={18} />, roles: ['admin', 'director', 'pos_manager'], section: 'Accueil' },
+    { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, roles: ['admin', 'director', 'pos_manager'], section: 'Accueil' },
+
+    { id: 'employees', label: 'Aperçu espace équipes', mobileLabel: 'Équipe', icon: <UsersRound size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager'], section: 'Équipes' },
 
     { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
@@ -139,6 +164,7 @@ export const App: React.FC = () => {
   const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
+    { id: 'Équipes', label: 'Interfaces employés' },
     { id: 'Restaurant', label: 'Parcours restaurant' },
     { id: 'Hôtel', label: 'Module Hôtel / PMS' },
     { id: 'Livraison', label: 'Parcours livraison' },
@@ -147,7 +173,7 @@ export const App: React.FC = () => {
     { id: 'Contrôle', label: 'Contrôle & rapports' },
     { id: 'Réglages', label: 'Réglages' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'client', 'pms', 'delivery', 'stock-control'];
+  const mobilePrimaryOrder = ['dashboard', 'employees', 'client', 'pms', 'stock-control'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -216,6 +242,8 @@ export const App: React.FC = () => {
         return <BusinessProblems state={state} setView={setView} />;
       case 'client':
         return <CustomerExperienceCockpit state={state} />;
+      case 'employees':
+        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>Sártal Équipe</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={state} /></section>;
       case 'answer':
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
@@ -410,7 +438,7 @@ export const App: React.FC = () => {
                 </div>
               )}
             </div>
-            <span className="demo-mode-pill">Mode découverte</span>
+            <span className="demo-mode-pill">Back-office · Démo</span>
             
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-company-details">
               <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Entreprise</span>
@@ -430,7 +458,7 @@ export const App: React.FC = () => {
 
         {/* Tab View Component Render */}
         <div className="main-view-scroll" style={{ flexGrow: 1, overflowY: 'auto' }}>
-          {renderView()}
+          <Suspense fallback={<AppLoading />}>{renderView()}</Suspense>
         </div>
 
         <nav className="mobile-bottom-nav" aria-label="Navigation principale mobile">

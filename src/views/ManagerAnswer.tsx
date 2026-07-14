@@ -46,7 +46,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Expérience client</button>
+          <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>
           <button className="btn btn-secondary" onClick={() => setView('pricing')}>
             Prix par canal
           </button>
@@ -162,7 +162,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
             <h2>Le service en temps réel</h2>
             <p>Les demandes du client deviennent immédiatement des actions pour la salle, la cuisine et le responsable.</p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Voir le parcours client <ArrowRight size={16} /></button>
+          <button className="btn btn-secondary" onClick={() => setView('client')}>Suivre l’expérience client <ArrowRight size={16} /></button>
         </header>
         <div className="restaurant-operations-grid">
           <article className="restaurant-operation-panel">

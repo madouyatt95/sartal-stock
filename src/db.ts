@@ -56,6 +56,21 @@ import {
   SartalServiceRequest,
   RestaurantGuestInvite,
   SartalLoyaltyTransaction,
+  SartalJourneyItem,
+  SartalOccasionPlan,
+  SartalHousehold,
+  SartalCorporateAccount,
+  SartalRecurringOrder,
+  RestaurantWaitlistEntry,
+  SartalRecoveryPlaybook,
+  SartalBrandSettings,
+  SartalOfflineAction,
+  SartalDemoRun,
+  EmployeeProfile,
+  EmployeeShift,
+  EmployeeHandover,
+  EmployeeMessage,
+  EmployeeApproval,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -90,6 +105,21 @@ export interface DatabaseState {
   sartalServiceRequests: SartalServiceRequest[];
   restaurantGuestInvites: RestaurantGuestInvite[];
   sartalLoyaltyTransactions: SartalLoyaltyTransaction[];
+  sartalJourneyItems: SartalJourneyItem[];
+  sartalOccasionPlans: SartalOccasionPlan[];
+  sartalHouseholds: SartalHousehold[];
+  sartalCorporateAccounts: SartalCorporateAccount[];
+  sartalRecurringOrders: SartalRecurringOrder[];
+  restaurantWaitlist: RestaurantWaitlistEntry[];
+  sartalRecoveryPlaybooks: SartalRecoveryPlaybook[];
+  sartalBrandSettings: SartalBrandSettings;
+  sartalOfflineActions: SartalOfflineAction[];
+  sartalDemoRuns: SartalDemoRun[];
+  employeeProfiles: EmployeeProfile[];
+  employeeShifts: EmployeeShift[];
+  employeeHandovers: EmployeeHandover[];
+  employeeMessages: EmployeeMessage[];
+  employeeApprovals: EmployeeApproval[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -708,6 +738,36 @@ const initialDB = (): DatabaseState => {
     { id: 'user-auditor', name: 'Auditeur Externe', role: 'auditor' }
   ];
 
+  const employeeProfiles: EmployeeProfile[] = [
+    { id: 'emp-waiter', employeeNumber: 'SAL-104', name: 'Moussa Sarr', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 14', posId: 'pos-1', active: true },
+    { id: 'emp-cashier', employeeNumber: 'SAL-208', name: 'Ndeye Fall', role: 'cashier', siteId: 'site-1', phone: '+221 76 420 18 08', posId: 'pos-1', active: true },
+    { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
+    { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
+    { id: 'emp-housekeeper', employeeNumber: 'HOT-031', name: 'Fatou Mbaye', role: 'housekeeper', siteId: 'site-1', phone: '+221 76 270 11 31', active: true },
+    { id: 'emp-storekeeper', employeeNumber: 'STK-007', name: 'Ibrahima Diop', role: 'storekeeper', siteId: 'site-1', phone: '+221 77 890 24 07', warehouseId: 'wh-central', active: true },
+    { id: 'emp-picker', employeeNumber: 'LIV-018', name: 'Mariama Sow', role: 'picker', siteId: 'site-1', phone: '+221 76 340 17 18', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-driver', employeeNumber: 'LIV-024', name: 'Mamadou Ba', role: 'driver', siteId: 'site-1', phone: '+221 77 420 10 10', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
+    { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
+  ];
+
+  const employeeShifts: EmployeeShift[] = [];
+  const employeeHandovers: EmployeeHandover[] = [
+    { id: 'handover-restaurant', shiftId: 'shift-restaurant-morning', employeeId: 'previous-waiter', employeeName: 'Astou Diallo', role: 'waiter', notes: 'Table T12 en cours, addition à préparer après le dessert.', incidents: 'Aucun incident bloquant.', amountsToCheck: 'Partage Wave et Orange Money demandé.', customersToFollow: 'Aminata Diop, allergie arachides confirmée.', status: 'submitted', submittedAt: new Date(Date.now() - 45 * 60000).toISOString() },
+    { id: 'handover-reception', shiftId: 'shift-reception-morning', employeeId: 'previous-reception', employeeName: 'Rokhaya Seck', role: 'receptionist', notes: 'Deux arrivées à préparer et une chambre encore sans attribution.', incidents: 'Serrure chambre 102 signalée au service technique.', amountsToCheck: 'Garantie de la réservation RSV-240707.', customersToFollow: 'Jean Morel demande un départ rapide demain.', status: 'submitted', submittedAt: new Date(Date.now() - 65 * 60000).toISOString() },
+    { id: 'handover-stock', shiftId: 'shift-stock-morning', employeeId: 'previous-storekeeper', employeeName: 'Babacar Sy', role: 'storekeeper', notes: 'Réception fournisseur boissons à contrôler avant rangement.', incidents: 'Écart de deux unités sur le dernier comptage eau 50 cl.', amountsToCheck: 'Bon fournisseur à rapprocher.', customersToFollow: 'Sans objet.', status: 'submitted', submittedAt: new Date(Date.now() - 90 * 60000).toISOString() },
+    { id: 'handover-delivery', shiftId: 'shift-delivery-morning', employeeId: 'previous-picker', employeeName: 'Khady Faye', role: 'picker', notes: 'CMD-1024 prioritaire pour Point E.', incidents: 'Substitution Coca à confirmer si le seuil est atteint.', amountsToCheck: 'Paiement Wave déjà confirmé.', customersToFollow: 'Awa Diop préfère être appelée avant le départ.', status: 'submitted', submittedAt: new Date(Date.now() - 35 * 60000).toISOString() }
+  ];
+  const employeeMessages: EmployeeMessage[] = [
+    { id: 'staff-message-brief', siteId: 'site-1', senderId: 'emp-manager', senderName: 'Ousmane · Manager', audience: 'all', content: 'Brief de service à 18 h 45. Priorité aux allergies, aux arrivées et aux commandes déjà promises.', priority: 'normal', sentAt: new Date(Date.now() - 55 * 60000).toISOString(), readByEmployeeIds: [] },
+    { id: 'staff-message-allergy', siteId: 'site-1', senderId: 'emp-waiter', senderName: 'Moussa · Salle', audience: 'kitchen', content: 'Table T12 : allergie aux arachides confirmée. Utiliser le protocole dédié et signaler le plat prêt.', priority: 'urgent', sentAt: new Date(Date.now() - 12 * 60000).toISOString(), readByEmployeeIds: [] },
+    { id: 'staff-message-room', siteId: 'site-1', senderId: 'emp-reception', senderName: 'Awa · Réception', audience: 'housekeeper', content: 'Chambre 102 prioritaire après intervention serrure. Prévenir dès qu’elle est contrôlée.', priority: 'urgent', sentAt: new Date(Date.now() - 8 * 60000).toISOString(), readByEmployeeIds: [] }
+  ];
+  const employeeApprovals: EmployeeApproval[] = [
+    { id: 'approval-discount-t12', type: 'discount', referenceId: 'REST-CLIENT-204', requestedBy: 'emp-waiter', requestedByName: 'Moussa Sarr', label: 'Remise commerciale table T12', reason: 'Attente supérieure à la promesse annoncée.', amount: 1950, status: 'pending', createdAt: new Date(Date.now() - 9 * 60000).toISOString() },
+    { id: 'approval-substitution-1024', type: 'substitution', referenceId: 'CMD-1024', requestedBy: 'emp-picker', requestedByName: 'Mariama Sow', label: 'Substitution commande CMD-1024', reason: 'Seuil de sécurité bientôt atteint sur le Coca-Cola 33 cl.', status: 'pending', createdAt: new Date(Date.now() - 5 * 60000).toISOString() }
+  ];
+
   const hotelDate = (offset: number) => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
@@ -939,9 +999,9 @@ const initialDB = (): DatabaseState => {
   };
 
   const sartalCustomers: SartalCustomer[] = [
-    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferredChannel: 'whatsapp', birthday: '1987-09-18', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, marketingConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
-    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferredChannel: 'whatsapp', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, marketingConsent: false, loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
-    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
+    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferredChannel: 'whatsapp', birthday: '1987-09-18', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, marketingConsent: true, favoriteProductIds: ['prod-yassa-poulet', 'prod-jus-gingembre'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
+    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferredChannel: 'whatsapp', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, marketingConsent: false, favoriteProductIds: ['prod-riz-5kg', 'prod-huile-1l'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
+    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, favoriteProductIds: ['prod-cafe-touba'], lowBandwidthMode: true, corporateAccountId: 'corporate-ndar', loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
   ];
 
   const restaurantReservations: RestaurantTableReservation[] = [
@@ -981,6 +1041,50 @@ const initialDB = (): DatabaseState => {
     { id: 'loyalty-aminata-welcome', customerId: 'customer-aminata', type: 'bonus', points: 150, label: 'Attention Teranga Signature', date: `${today}T09:00:00.000Z` },
     { id: 'loyalty-awa-delivery', customerId: 'customer-awa', type: 'earned', points: 90, label: 'Commande épicerie', referenceId: 'CMD-1024', date: `${today}T10:04:00.000Z` }
   ];
+
+  const sartalJourneyItems: SartalJourneyItem[] = [
+    { id: 'journey-aminata-breakfast', customerId: 'customer-aminata', context: 'hotel', title: 'Petit-déjeuner sans sucre', detail: 'Servi au restaurant La Terrasse', scheduledAt: `${today}T08:30:00.000Z`, status: 'completed', assignedTo: 'Restaurant', referenceId: 'res-204' },
+    { id: 'journey-aminata-housekeeping', customerId: 'customer-aminata', context: 'hotel', title: 'Passage en chambre', detail: 'Créneau demandé entre 11 h et 12 h', scheduledAt: `${today}T11:00:00.000Z`, status: 'completed', assignedTo: 'Équipe étage', referenceId: 'res-204' },
+    { id: 'journey-aminata-dinner', customerId: 'customer-aminata', context: 'restaurant', title: 'Dîner familial', detail: 'Table T12 · allergie transmise à la cuisine', scheduledAt: `${today}T20:00:00.000Z`, status: 'in_progress', assignedTo: 'Moussa · Salle', referenceId: 'REST-CLIENT-204' },
+    { id: 'journey-aminata-transfer', customerId: 'customer-aminata', context: 'transport', title: 'Transfert aéroport', detail: 'Départ depuis le lobby', scheduledAt: `${hotelDate(3)}T10:30:00.000Z`, status: 'upcoming', assignedTo: 'Conciergerie', referenceId: 'res-204' },
+    { id: 'journey-awa-delivery', customerId: 'customer-awa', context: 'delivery', title: 'Panier familial', detail: 'Livraison au Point E', scheduledAt: `${today}T18:30:00.000Z`, status: 'upcoming', assignedTo: 'Sártal Livraison', referenceId: 'CMD-1024' }
+  ];
+
+  const sartalOccasionPlans: SartalOccasionPlan[] = [
+    { id: 'occasion-aminata-family', customerId: 'customer-aminata', reservationId: 'table-res-aminata', occasion: 'family', label: 'Dîner familial de bienvenue', status: 'planned', checklist: [
+      { id: 'occasion-table', label: 'Table calme préparée', assignedTo: 'Salle', completed: true },
+      { id: 'occasion-allergy', label: 'Allergie confirmée en cuisine', assignedTo: 'Cuisine', completed: true },
+      { id: 'occasion-attention', label: 'Jus de gingembre d’accueil', assignedTo: 'Bar', completed: false }
+    ] }
+  ];
+
+  const sartalHouseholds: SartalHousehold[] = [
+    { id: 'household-diop', name: 'Famille Diop', primaryCustomerId: 'customer-aminata', memberCustomerIds: ['customer-aminata', 'customer-awa'], sharedPoints: 2600, sharedPaymentAllowed: true }
+  ];
+
+  const sartalCorporateAccounts: SartalCorporateAccount[] = [
+    { id: 'corporate-ndar', name: 'Ndar Distribution', contactName: 'Moussa Ndiaye', contactPhone: '+221 78 500 30 20', employeeCustomerIds: ['customer-moussa'], monthlyLimit: 500000, currentBalance: 81500, billingDay: 30, status: 'active', benefits: ['Facturation mensuelle', 'Livraisons prioritaires', 'Tarif entreprise'] }
+  ];
+
+  const sartalRecurringOrders: SartalRecurringOrder[] = [
+    { id: 'recurring-awa-family', customerId: 'customer-awa', name: 'Panier familial du samedi', items: [{ productId: 'prod-riz-5kg', quantity: 1 }, { productId: 'prod-huile-1l', quantity: 1 }, { productId: 'prod-lait-poudre', quantity: 2 }], cadence: 'weekly', nextRunAt: `${hotelDate(4)}T09:00:00.000Z`, active: true, lastOrderId: 'CMD-1024' }
+  ];
+
+  const restaurantWaitlist: RestaurantWaitlistEntry[] = [
+    { id: 'waitlist-moussa', customerId: 'customer-moussa', posId: 'pos-1', guests: 3, quotedMinutes: 20, status: 'waiting', joinedAt: `${today}T19:42:00.000Z` }
+  ];
+
+  const sartalRecoveryPlaybooks: SartalRecoveryPlaybook[] = [
+    { id: 'playbook-delivery-product', name: 'Produit manquant ou endommagé', context: 'delivery', maxScore: 3, solution: 'Rappel immédiat, remplacement prioritaire ou remboursement confirmé.', compensationPoints: 250, targetMinutes: 20, managerApproval: false, active: true },
+    { id: 'playbook-restaurant-delay', name: 'Attente restaurant anormale', context: 'restaurant', maxScore: 3, solution: 'Passage manager, nouvelle estimation et attention sur l’addition.', compensationPoints: 300, targetMinutes: 10, managerApproval: false, active: true },
+    { id: 'playbook-signature', name: 'Reprise signature', context: 'all', maxScore: 2, solution: 'Appel direction, solution personnalisée et suivi le lendemain.', compensationPoints: 500, targetMinutes: 10, managerApproval: true, active: true }
+  ];
+
+  const sartalBrandSettings: SartalBrandSettings = { establishmentName: 'Complexe Sártal Dakar', clientAppName: 'Mon Sártal', primaryColor: '#123f3a', accentColor: '#f2bd4c', welcomeTone: 'warm', supportPhone: '+221 33 800 00 00', lowBandwidthDefault: false };
+  const sartalOfflineActions: SartalOfflineAction[] = [
+    { id: 'offline-synced-demo', customerId: 'customer-moussa', actionType: 'message', summary: 'Message conservé pendant une coupure puis synchronisé', status: 'synced', createdAt: `${hotelDate(-1)}T18:12:00.000Z`, syncedAt: `${hotelDate(-1)}T18:18:00.000Z` }
+  ];
+  const sartalDemoRuns: SartalDemoRun[] = [];
 
   const deliveryOrders: DeliveryOrder[] = [
     {
@@ -1309,6 +1413,21 @@ const initialDB = (): DatabaseState => {
     sartalServiceRequests,
     restaurantGuestInvites,
     sartalLoyaltyTransactions,
+    sartalJourneyItems,
+    sartalOccasionPlans,
+    sartalHouseholds,
+    sartalCorporateAccounts,
+    sartalRecurringOrders,
+    restaurantWaitlist,
+    sartalRecoveryPlaybooks,
+    sartalBrandSettings,
+    sartalOfflineActions,
+    sartalDemoRuns,
+    employeeProfiles,
+    employeeShifts,
+    employeeHandovers,
+    employeeMessages,
+    employeeApprovals,
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -1898,10 +2017,21 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       guaranteeType: 'deposit', guaranteeStatus: 'secured', estimatedArrivalTime: '16:30'
     });
   }
-  const sartalCustomers = (state.sartalCustomers || [
+  const sartalCustomers: SartalCustomer[] = (state.sartalCustomers || [
     { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr' as const, preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature' as const, visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
     { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr' as const, preferences: 'Produits locaux et paniers familiaux', profileConsent: true, loyaltyPoints: 760, loyaltyTier: 'teranga' as const, visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] }
-  ]).map(customer => ({ ...customer, preferredChannel: customer.preferredChannel || 'whatsapp' as const, marketingConsent: customer.marketingConsent ?? false }));
+  ]).map(customer => ({
+    ...customer,
+    preferredChannel: customer.preferredChannel || 'whatsapp' as const,
+    marketingConsent: customer.marketingConsent ?? false,
+    favoriteProductIds: customer.favoriteProductIds || (customer.id === 'customer-aminata' ? ['prod-yassa-poulet', 'prod-jus-gingembre'] : customer.id === 'customer-awa' ? ['prod-riz-5kg', 'prod-huile-1l'] : customer.id === 'customer-moussa' ? ['prod-cafe-touba'] : []),
+    lowBandwidthMode: customer.lowBandwidthMode ?? customer.id === 'customer-moussa',
+    householdId: customer.householdId || (['customer-aminata', 'customer-awa'].includes(customer.id) ? 'household-diop' : undefined),
+    corporateAccountId: customer.corporateAccountId || (customer.id === 'customer-moussa' ? 'corporate-ndar' : undefined)
+  }));
+  if (!sartalCustomers.some(customer => customer.id === 'customer-moussa')) {
+    sartalCustomers.push({ id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, favoriteProductIds: ['prod-cafe-touba'], lowBandwidthMode: true, corporateAccountId: 'corporate-ndar', loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] });
+  }
   const deliveryOrders = (state.deliveryOrders || []).map(order => {
     const customer = sartalCustomers.find(item => item.id === order.customerId || item.phone === order.phone);
     return {
@@ -1914,6 +2044,34 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       items: order.items.map(item => ({ ...item, substitutionPolicy: item.substitutionPolicy || (item.substitutionProductId ? 'replace' as const : 'contact' as const) }))
     };
   });
+
+  const employeeProfiles: EmployeeProfile[] = state.employeeProfiles?.length ? state.employeeProfiles : [
+    { id: 'emp-waiter', employeeNumber: 'SAL-104', name: 'Moussa Sarr', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 14', posId: 'pos-1', active: true },
+    { id: 'emp-cashier', employeeNumber: 'SAL-208', name: 'Ndeye Fall', role: 'cashier', siteId: 'site-1', phone: '+221 76 420 18 08', posId: 'pos-1', active: true },
+    { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
+    { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
+    { id: 'emp-housekeeper', employeeNumber: 'HOT-031', name: 'Fatou Mbaye', role: 'housekeeper', siteId: 'site-1', phone: '+221 76 270 11 31', active: true },
+    { id: 'emp-storekeeper', employeeNumber: 'STK-007', name: 'Ibrahima Diop', role: 'storekeeper', siteId: 'site-1', phone: '+221 77 890 24 07', warehouseId: 'wh-central', active: true },
+    { id: 'emp-picker', employeeNumber: 'LIV-018', name: 'Mariama Sow', role: 'picker', siteId: 'site-1', phone: '+221 76 340 17 18', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-driver', employeeNumber: 'LIV-024', name: 'Mamadou Ba', role: 'driver', siteId: 'site-1', phone: '+221 77 420 10 10', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
+    { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
+  ];
+  const employeeHandovers: EmployeeHandover[] = state.employeeHandovers?.length ? state.employeeHandovers : [
+    { id: 'handover-restaurant', shiftId: 'shift-restaurant-morning', employeeId: 'previous-waiter', employeeName: 'Astou Diallo', role: 'waiter', notes: 'Table T12 en cours, addition à préparer après le dessert.', incidents: 'Aucun incident bloquant.', amountsToCheck: 'Partage Wave et Orange Money demandé.', customersToFollow: 'Aminata Diop, allergie arachides confirmée.', status: 'submitted', submittedAt: new Date(Date.now() - 45 * 60000).toISOString() },
+    { id: 'handover-reception', shiftId: 'shift-reception-morning', employeeId: 'previous-reception', employeeName: 'Rokhaya Seck', role: 'receptionist', notes: 'Deux arrivées à préparer et une chambre encore sans attribution.', incidents: 'Serrure chambre 102 signalée au service technique.', amountsToCheck: 'Garantie de la réservation RSV-240707.', customersToFollow: 'Jean Morel demande un départ rapide demain.', status: 'submitted', submittedAt: new Date(Date.now() - 65 * 60000).toISOString() },
+    { id: 'handover-stock', shiftId: 'shift-stock-morning', employeeId: 'previous-storekeeper', employeeName: 'Babacar Sy', role: 'storekeeper', notes: 'Réception fournisseur boissons à contrôler avant rangement.', incidents: 'Écart de deux unités sur le dernier comptage eau 50 cl.', amountsToCheck: 'Bon fournisseur à rapprocher.', customersToFollow: 'Sans objet.', status: 'submitted', submittedAt: new Date(Date.now() - 90 * 60000).toISOString() },
+    { id: 'handover-delivery', shiftId: 'shift-delivery-morning', employeeId: 'previous-picker', employeeName: 'Khady Faye', role: 'picker', notes: 'CMD-1024 prioritaire pour Point E.', incidents: 'Substitution Coca à confirmer si le seuil est atteint.', amountsToCheck: 'Paiement Wave déjà confirmé.', customersToFollow: 'Awa Diop préfère être appelée avant le départ.', status: 'submitted', submittedAt: new Date(Date.now() - 35 * 60000).toISOString() }
+  ];
+  const employeeMessages: EmployeeMessage[] = state.employeeMessages?.length ? state.employeeMessages : [
+    { id: 'staff-message-brief', siteId: 'site-1', senderId: 'emp-manager', senderName: 'Ousmane · Manager', audience: 'all', content: 'Brief de service à 18 h 45. Priorité aux allergies, aux arrivées et aux commandes déjà promises.', priority: 'normal', sentAt: new Date(Date.now() - 55 * 60000).toISOString(), readByEmployeeIds: [] },
+    { id: 'staff-message-allergy', siteId: 'site-1', senderId: 'emp-waiter', senderName: 'Moussa · Salle', audience: 'kitchen', content: 'Table T12 : allergie aux arachides confirmée. Utiliser le protocole dédié et signaler le plat prêt.', priority: 'urgent', sentAt: new Date(Date.now() - 12 * 60000).toISOString(), readByEmployeeIds: [] },
+    { id: 'staff-message-room', siteId: 'site-1', senderId: 'emp-reception', senderName: 'Awa · Réception', audience: 'housekeeper', content: 'Chambre 102 prioritaire après intervention serrure. Prévenir dès qu’elle est contrôlée.', priority: 'urgent', sentAt: new Date(Date.now() - 8 * 60000).toISOString(), readByEmployeeIds: [] }
+  ];
+  const employeeApprovals: EmployeeApproval[] = state.employeeApprovals?.length ? state.employeeApprovals : [
+    { id: 'approval-discount-t12', type: 'discount', referenceId: 'REST-CLIENT-204', requestedBy: 'emp-waiter', requestedByName: 'Moussa Sarr', label: 'Remise commerciale table T12', reason: 'Attente supérieure à la promesse annoncée.', amount: 1950, status: 'pending', createdAt: new Date(Date.now() - 9 * 60000).toISOString() },
+    { id: 'approval-substitution-1024', type: 'substitution', referenceId: 'CMD-1024', requestedBy: 'emp-picker', requestedByName: 'Mariama Sow', label: 'Substitution commande CMD-1024', reason: 'Seuil de sécurité bientôt atteint sur le Coca-Cola 33 cl.', status: 'pending', createdAt: new Date(Date.now() - 5 * 60000).toISOString() }
+  ];
 
   const migratedState: DatabaseState = {
     ...state,
@@ -1966,6 +2124,52 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       { id: 'loyalty-aminata-welcome', customerId: 'customer-aminata', type: 'bonus', points: 150, label: 'Attention Teranga Signature', date: new Date().toISOString() },
       { id: 'loyalty-awa-delivery', customerId: 'customer-awa', type: 'earned', points: 90, label: 'Commande épicerie', referenceId: 'CMD-1024', date: new Date().toISOString() }
     ],
+    sartalJourneyItems: state.sartalJourneyItems || [
+      { id: 'journey-aminata-breakfast', customerId: 'customer-aminata', context: 'hotel', title: 'Petit-déjeuner sans sucre', detail: 'Servi au restaurant La Terrasse', scheduledAt: new Date().toISOString(), status: 'completed', assignedTo: 'Restaurant', referenceId: 'res-204' },
+      { id: 'journey-aminata-dinner', customerId: 'customer-aminata', context: 'restaurant', title: 'Dîner familial', detail: 'Table T12 · allergie transmise à la cuisine', scheduledAt: new Date().toISOString(), status: 'in_progress', assignedTo: 'Moussa · Salle', referenceId: 'REST-CLIENT-204' },
+      { id: 'journey-awa-delivery', customerId: 'customer-awa', context: 'delivery', title: 'Panier familial', detail: 'Livraison au Point E', scheduledAt: new Date(Date.now() + 3 * 3600000).toISOString(), status: 'upcoming', assignedTo: 'Sártal Livraison', referenceId: 'CMD-1024' }
+    ],
+    sartalOccasionPlans: state.sartalOccasionPlans || [
+      { id: 'occasion-aminata-family', customerId: 'customer-aminata', reservationId: 'table-res-aminata', occasion: 'family', label: 'Dîner familial de bienvenue', status: 'planned', checklist: [
+        { id: 'occasion-table', label: 'Table calme préparée', assignedTo: 'Salle', completed: true },
+        { id: 'occasion-allergy', label: 'Allergie confirmée en cuisine', assignedTo: 'Cuisine', completed: true },
+        { id: 'occasion-attention', label: 'Jus de gingembre d’accueil', assignedTo: 'Bar', completed: false }
+      ] }
+    ],
+    sartalHouseholds: state.sartalHouseholds || [
+      { id: 'household-diop', name: 'Famille Diop', primaryCustomerId: 'customer-aminata', memberCustomerIds: ['customer-aminata', 'customer-awa'], sharedPoints: 2600, sharedPaymentAllowed: true }
+    ],
+    sartalCorporateAccounts: state.sartalCorporateAccounts || [
+      { id: 'corporate-ndar', name: 'Ndar Distribution', contactName: 'Moussa Ndiaye', contactPhone: '+221 78 500 30 20', employeeCustomerIds: ['customer-moussa'], monthlyLimit: 500000, currentBalance: 81500, billingDay: 30, status: 'active', benefits: ['Facturation mensuelle', 'Livraisons prioritaires', 'Tarif entreprise'] }
+    ],
+    sartalRecurringOrders: state.sartalRecurringOrders || [
+      { id: 'recurring-awa-family', customerId: 'customer-awa', name: 'Panier familial du samedi', items: [{ productId: 'prod-riz-5kg', quantity: 1 }, { productId: 'prod-huile-1l', quantity: 1 }, { productId: 'prod-lait-poudre', quantity: 2 }], cadence: 'weekly', nextRunAt: new Date(Date.now() + 4 * 86400000).toISOString(), active: true, lastOrderId: 'CMD-1024' }
+    ],
+    restaurantWaitlist: state.restaurantWaitlist || [
+      { id: 'waitlist-moussa', customerId: 'customer-moussa', posId: 'pos-1', guests: 3, quotedMinutes: 20, status: 'waiting', joinedAt: new Date().toISOString() }
+    ],
+    sartalRecoveryPlaybooks: state.sartalRecoveryPlaybooks || [
+      { id: 'playbook-delivery-product', name: 'Produit manquant ou endommagé', context: 'delivery', maxScore: 3, solution: 'Rappel immédiat, remplacement prioritaire ou remboursement confirmé.', compensationPoints: 250, targetMinutes: 20, managerApproval: false, active: true },
+      { id: 'playbook-restaurant-delay', name: 'Attente restaurant anormale', context: 'restaurant', maxScore: 3, solution: 'Passage manager, nouvelle estimation et attention sur l’addition.', compensationPoints: 300, targetMinutes: 10, managerApproval: false, active: true },
+      { id: 'playbook-signature', name: 'Reprise signature', context: 'all', maxScore: 2, solution: 'Appel direction, solution personnalisée et suivi le lendemain.', compensationPoints: 500, targetMinutes: 10, managerApproval: true, active: true }
+    ],
+    sartalBrandSettings: {
+      establishmentName: 'Complexe Sártal Dakar',
+      clientAppName: 'Mon Sártal',
+      primaryColor: '#123f3a',
+      accentColor: '#f2bd4c',
+      welcomeTone: 'warm',
+      supportPhone: '+221 33 800 00 00',
+      lowBandwidthDefault: false,
+      ...(state.sartalBrandSettings || {})
+    },
+    sartalOfflineActions: state.sartalOfflineActions || [],
+    sartalDemoRuns: state.sartalDemoRuns || [],
+    employeeProfiles,
+    employeeShifts: state.employeeShifts || [],
+    employeeHandovers,
+    employeeMessages,
+    employeeApprovals,
     cashSessions,
     pmsRooms,
     pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [], charges: (folio.charges || []).map(charge => ({ ...charge, billingWindow: charge.billingWindow || 'guest' })) })),

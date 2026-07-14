@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sartal-stock-v11';
+const CACHE_NAME = 'sartal-stock-v13';
 const STATIC_ASSETS = [
   './favicon.svg',
   './brand-mark.svg',
@@ -29,6 +29,10 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
@@ -36,7 +40,14 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (event.request.mode === 'navigate' || url.pathname.endsWith('/index.html')) {
-    event.respondWith(fetch(event.request).catch(() => caches.match('./index.html')));
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', response.clone()));
+          return response;
+        })
+        .catch(() => caches.match('./index.html')),
+    );
     return;
   }
 
@@ -51,7 +62,10 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => cachedResponse);
+        .catch(async () => {
+          if (event.request.destination === 'image') return caches.match('./brand-mark.svg');
+          return new Response('Contenu indisponible hors connexion', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+        });
     }),
   );
 });

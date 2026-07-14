@@ -54,6 +54,7 @@ try {
 
   const guestPortalHtml = renderToStaticMarkup(React.createElement(PMSGuestExperiencePortal, { state, initialReservationId: 'res-204', standalone: true }));
   ['Mon séjour Sártal', 'Services', 'Conciergerie', 'Ma chambre', 'Départ'].forEach(marker => assert(guestPortalHtml.includes(marker), `Portail client incomplet : ${marker} absent`));
+  assert(!guestPortalHtml.includes('Quitter'), 'Le portail séjour ne doit pas revenir vers le back-office par l’historique navigateur');
   assert(!guestPortalHtml.includes('Accueil Stock'), 'Le portail public ne doit pas afficher la navigation interne');
 
   const unifiedJourney = buildPMSUnifiedJourney(getDB(), 'res-204');

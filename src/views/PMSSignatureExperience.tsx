@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
-  ArrowLeft,
   BedDouble,
   BellRing,
   Building2,
@@ -262,7 +261,17 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  if (!reservation || !guest) return null;
+  if (!reservation || !guest) {
+    return <main className="portal-unavailable">
+      <section>
+        <img src="./brand-mark.svg" alt="Sártal" />
+        <span>MON SÉJOUR</span>
+        <h1>Aucun séjour actif</h1>
+        <p>Votre séjour n’est pas encore disponible dans cet espace. La réception peut vérifier votre réservation et vous transmettre un nouveau lien privé.</p>
+        <a href={`tel:${db.sartalBrandSettings.supportPhone.replace(/\s/g, '')}`}><MessageCircle size={17} /> Contacter l’établissement · {db.sartalBrandSettings.supportPhone}</a>
+      </section>
+    </main>;
+  }
   const preCheckComplete = guest.preCheckInStatus === 'completed';
   const roomReady = room && ['clean', 'inspected'].includes(room.housekeepingStatus);
   const nights = Math.max(1, Math.ceil((new Date(reservation.departureDate).getTime() - new Date(reservation.arrivalDate).getTime()) / 86400000));
@@ -284,7 +293,7 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
   return (
     <section className={`pms-guest-experience ${standalone ? 'standalone' : ''} ${lowData ? 'low-data' : ''}`}>
       <div className="pms-guest-experience-heading">
-        <div>{standalone && <button className="pms-guest-back" onClick={() => window.history.back()}><ArrowLeft size={17} /> Quitter</button>}<span className="pms-eyebrow"><MessageCircle size={15} /> {standalone ? db.pmsSettings.hotelName : 'Aperçu de l’expérience client'}</span><h2>Mon séjour Sártal</h2><p>Votre chambre, vos services et votre équipe au même endroit.</p></div>
+        <div><span className="pms-eyebrow"><MessageCircle size={15} /> {standalone ? db.pmsSettings.hotelName : 'Aperçu du portail séjour'}</span><h2>Mon séjour Sártal</h2><p>Votre chambre, vos services et votre équipe au même endroit.</p></div>
         {!standalone && <div className="pms-guest-preview-tools"><select className="form-control" value={reservationId} onChange={event => chooseReservation(event.target.value)}>{active.map(item => <option key={item.id} value={item.id}>{item.confirmationNumber} · {db.pmsGuests.find(guestItem => guestItem.id === item.guestId)?.fullName}</option>)}</select><button className="btn btn-primary" onClick={openGuestPortal}><ExternalLink size={16} /> Ouvrir le portail client</button></div>}
         {standalone && <div className="pms-guest-accessibility"><label><Languages size={16} /><select value={language} onChange={event => setLanguage(event.target.value as 'fr' | 'en' | 'wo')}><option value="fr">Français</option><option value="en">English</option><option value="wo">Wolof</option></select></label><button className={lowData ? 'active' : ''} onClick={() => setLowData(value => !value)}><WifiOff size={16} /> Mode léger</button></div>}
       </div>

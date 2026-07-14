@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Camera,
   CheckCircle,
   CircleDollarSign,
   ClipboardCheck,
@@ -12,6 +13,7 @@ import {
   Phone,
   RefreshCcw,
   ShoppingBag,
+  ShieldCheck,
   Truck,
   Undo2,
   Warehouse
@@ -83,6 +85,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
     failDeliveryOrder,
     returnDeliveryOrder,
     deliverDeliveryOrder,
+    completeDeliveryProof,
     cancelDeliveryOrder,
     resetAllData
   } = state;
@@ -92,8 +95,10 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
   const activeOrderFallback = orders.find(order => !['delivered', 'returned', 'cancelled'].includes(order.status)) || orders[0];
   const [selectedOrderId, setSelectedOrderId] = useState(activeOrderFallback?.id || '');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [proofDrafts, setProofDrafts] = useState<Record<string, { code: string; signature: string; photoLabel: string; latitude: number; longitude: number }>>({});
 
   const selectedOrder = orders.find(order => order.id === selectedOrderId) || activeOrderFallback;
+  const proofDraft = selectedOrder ? proofDrafts[selectedOrder.id] || { code: '', signature: selectedOrder.customerName, photoLabel: `Remise ${selectedOrder.id}`, latitude: 14.7167, longitude: -17.4677 } : null;
 
   const formatFCFA = (value: number) => (
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
@@ -169,6 +174,21 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
     }
   };
 
+  const updateProofDraft = (patch: Partial<NonNullable<typeof proofDraft>>) => {
+    if (!selectedOrder || !proofDraft) return;
+    setProofDrafts(current => ({ ...current, [selectedOrder.id]: { ...proofDraft, ...patch } }));
+  };
+
+  const validateProof = () => {
+    if (!selectedOrder || !proofDraft) return;
+    try {
+      completeDeliveryProof(selectedOrder.id, proofDraft);
+      setMessage({ type: 'success', text: 'Preuve complète enregistrée : code, signature, photo et position GPS.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Preuve de livraison invalide' });
+    }
+  };
+
   if (!deliveryChannel || !deliveryWarehouse || !selectedOrder) {
     return (
       <div className="manager-mobile-page" style={{ padding: '24px' }}>
@@ -204,7 +224,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Expérience client</button>
+          <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>
           <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
             Stock réel
           </button>
@@ -344,6 +364,11 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             })}
           </div>
 
+          <section className={`delivery-proof-panel ${selectedOrder.proofStatus === 'photo_confirmed' ? 'complete' : ''}`}>
+            <header><div><ShieldCheck size={20} /><span><strong>Preuve de remise</strong><small>La sortie finale exige le code client, une signature, une photo et la position.</small></span></div><b>{selectedOrder.proofStatus === 'photo_confirmed' ? 'Complète' : 'À recueillir'}</b></header>
+            {selectedOrder.proofStatus === 'photo_confirmed' ? <div className="delivery-proof-summary"><CheckCircle size={20} /><span><strong>{selectedOrder.proofSignature}</strong><small>{selectedOrder.proofPhotoLabel} · {selectedOrder.proofLatitude?.toFixed(4)}, {selectedOrder.proofLongitude?.toFixed(4)} · {selectedOrder.proofCompletedAt ? new Date(selectedOrder.proofCompletedAt).toLocaleString('fr-FR') : ''}</small></span></div> : <div className="delivery-proof-form"><label>Code client<input className="form-control" inputMode="numeric" placeholder="4 chiffres" value={proofDraft?.code || ''} onChange={event => updateProofDraft({ code: event.target.value })} /></label><label>Nom / signature<input className="form-control" value={proofDraft?.signature || ''} onChange={event => updateProofDraft({ signature: event.target.value })} /></label><label><Camera size={14} /> Photo de remise<input className="form-control" value={proofDraft?.photoLabel || ''} onChange={event => updateProofDraft({ photoLabel: event.target.value })} /></label><div className="delivery-proof-coordinates"><label>Latitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.latitude || 0} onChange={event => updateProofDraft({ latitude: Number(event.target.value) })} /></label><label>Longitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.longitude || 0} onChange={event => updateProofDraft({ longitude: Number(event.target.value) })} /></label></div><small>Code client de démonstration : <strong>{selectedOrder.verificationCode}</strong></small><button className="btn btn-secondary" disabled={selectedOrder.status !== 'out_for_delivery'} onClick={validateProof}><ShieldCheck size={16} /> Certifier la remise</button></div>}
+          </section>
+
           {message && (
             <div className={`badge ${message.type === 'success' ? 'badge-green' : 'badge-red'}`} style={{ justifyContent: 'flex-start', whiteSpace: 'normal', lineHeight: 1.4 }}>
               {message.text}
@@ -381,7 +406,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             </button>
             <button
               className="btn btn-primary"
-              disabled={!['reserved', 'preparing', 'ready', 'out_for_delivery'].includes(selectedOrder.status)}
+              disabled={selectedOrder.status !== 'out_for_delivery' || selectedOrder.proofStatus !== 'photo_confirmed'}
               onClick={() => runAction('Livraison validée', () => deliverDeliveryOrder(selectedOrder.id))}
             >
               Valider livraison <ArrowRight size={16} />
@@ -422,6 +447,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             ['Préparation', "L'équipe sait quoi prendre dans le dépôt de livraison."],
             ['Zones', 'Les frais, délais et livreurs changent selon le quartier.'],
             ['Incidents', 'Une commande non livrée garde sa trace et peut revenir au dépôt.'],
+            ['Preuve de remise', 'Code client, signature, photo et position sont exigés avant la sortie définitive.'],
             ['Livraison', 'La validation crée la sortie stock et la vente dans les rapports.']
           ].map(item => (
             <div key={item[0]} className="proof-row">

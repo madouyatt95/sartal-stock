@@ -4,6 +4,10 @@ import * as stockEngine from '../services/stockEngine';
 import {
   createEmptyPaymentTotals,
   DeliveryOrder,
+  EmployeeApproval,
+  EmployeeHandover,
+  EmployeeMessage,
+  EmployeeShift,
   ExternalPOSSaleRow,
   LossReason,
   PaymentTotals,
@@ -30,10 +34,15 @@ import {
   PMSServiceRequest,
   PMSSettings,
   RestaurantGuestOrder,
+  RestaurantWaitlistEntry,
   RestaurantTableReservation,
+  SartalBrandSettings,
   SartalCustomer,
   SartalCustomerFeedback,
   SartalCustomerMessage,
+  SartalDemoRun,
+  SartalJourneyItem,
+  SartalOfflineAction,
   SartalServiceRequest,
   POSType,
   Product,
@@ -70,6 +79,8 @@ type PMSConfigRecord =
   | PMSDebtorAccount
   | PMSPropertySummary;
 
+const isOffline = () => typeof navigator !== 'undefined' && !navigator.onLine;
+
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
 
@@ -95,6 +106,118 @@ export const useStockState = () => {
       saveDB(newDb);
       setDb(newDb);
     }
+  };
+
+  const startEmployeeShift = (employeeId: string, assignmentId?: string, deviceLabel = 'Terminal partagé') => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId && item.active);
+    if (!employee) throw new Error('Profil employé introuvable ou inactif');
+    if (newDb.employeeShifts.some(item => item.employeeId === employeeId && item.status === 'open')) {
+      throw new Error('Un service est déjà ouvert pour cet employé');
+    }
+    const effectiveAssignmentId = assignmentId || employee.posId || employee.warehouseId;
+    const assignmentLabel = newDb.posList.find(item => item.id === effectiveAssignmentId)?.name
+      || newDb.warehouses.find(item => item.id === effectiveAssignmentId)?.name
+      || (['receptionist', 'housekeeper'].includes(employee.role) ? 'Hôtel / PMS' : newDb.sites.find(item => item.id === employee.siteId)?.name)
+      || 'Affectation générale';
+    const shift: EmployeeShift = {
+      id: `SHIFT-${Date.now().toString().slice(-7)}`,
+      employeeId: employee.id,
+      siteId: employee.siteId,
+      role: employee.role,
+      assignmentId: effectiveAssignmentId,
+      assignmentLabel,
+      deviceLabel,
+      status: 'open',
+      startedAt: new Date().toISOString()
+    };
+    newDb.employeeShifts.unshift(shift);
+    saveDB(newDb);
+    refresh();
+    return shift.id;
+  };
+
+  const closeEmployeeShift = (
+    shiftId: string,
+    payload: Pick<EmployeeHandover, 'notes' | 'incidents' | 'amountsToCheck' | 'customersToFollow'>
+  ) => {
+    const newDb = getDB();
+    const shift = newDb.employeeShifts.find(item => item.id === shiftId && item.status === 'open');
+    const employee = shift && newDb.employeeProfiles.find(item => item.id === shift.employeeId);
+    if (!shift || !employee) throw new Error('Service employé introuvable');
+    if (!payload.notes.trim()) throw new Error('Indiquez au moins ce qui reste à faire');
+    const now = new Date().toISOString();
+    shift.status = 'closed';
+    shift.endedAt = now;
+    newDb.employeeHandovers.unshift({
+      id: `HANDOVER-${Date.now().toString().slice(-7)}`,
+      shiftId: shift.id,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      role: employee.role,
+      notes: payload.notes.trim(),
+      incidents: payload.incidents.trim() || 'Aucun incident signalé.',
+      amountsToCheck: payload.amountsToCheck.trim() || 'Aucun montant à contrôler.',
+      customersToFollow: payload.customersToFollow.trim() || 'Aucun client à suivre.',
+      status: 'submitted',
+      submittedAt: now
+    });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const acknowledgeEmployeeHandover = (handoverId: string, employeeId: string) => {
+    const newDb = getDB();
+    const handover = newDb.employeeHandovers.find(item => item.id === handoverId);
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
+    if (!handover || !employee) throw new Error('Passation ou employé introuvable');
+    handover.status = 'acknowledged';
+    handover.acknowledgedAt = new Date().toISOString();
+    handover.acknowledgedBy = employee.name;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const sendEmployeeMessage = (payload: Omit<EmployeeMessage, 'id' | 'sentAt' | 'readByEmployeeIds'>) => {
+    const newDb = getDB();
+    if (!payload.content.trim()) throw new Error('Le message est vide');
+    const id = `STAFF-MSG-${Date.now().toString().slice(-7)}`;
+    newDb.employeeMessages.unshift({ ...payload, id, content: payload.content.trim(), sentAt: new Date().toISOString(), readByEmployeeIds: [payload.senderId] });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const markEmployeeMessageRead = (messageId: string, employeeId: string) => {
+    const newDb = getDB();
+    const message = newDb.employeeMessages.find(item => item.id === messageId);
+    if (!message) throw new Error('Message introuvable');
+    if (!message.readByEmployeeIds.includes(employeeId)) message.readByEmployeeIds.push(employeeId);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const requestEmployeeApproval = (payload: Omit<EmployeeApproval, 'id' | 'status' | 'createdAt' | 'decidedAt' | 'decidedBy' | 'decisionNote'>) => {
+    const newDb = getDB();
+    if (!payload.reason.trim()) throw new Error('Le motif est obligatoire');
+    const id = `APPROVAL-${Date.now().toString().slice(-7)}`;
+    newDb.employeeApprovals.unshift({ ...payload, id, reason: payload.reason.trim(), status: 'pending', createdAt: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const decideEmployeeApproval = (approvalId: string, managerId: string, decision: 'approved' | 'rejected', note = '') => {
+    const newDb = getDB();
+    const approval = newDb.employeeApprovals.find(item => item.id === approvalId && item.status === 'pending');
+    const manager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager');
+    if (!approval || !manager) throw new Error('Validation ou manager introuvable');
+    approval.status = decision;
+    approval.decidedAt = new Date().toISOString();
+    approval.decidedBy = manager.name;
+    approval.decisionNote = note.trim();
+    saveDB(newDb);
+    refresh();
   };
 
   const handleProcessSale = (salePayload: {
@@ -126,14 +249,15 @@ export const useStockState = () => {
       quantityReceived: number;
       expiryDate?: string;
       batchNumber?: string;
-    }>
+    }>,
+    actor?: { id: string; name: string }
   ) => {
     stockEngine.receiveSupplierOrder(
       orderId,
       targetWarehouseId,
       itemsReceived,
-      db.currentUser.id,
-      db.currentUser.name
+      actor?.id || db.currentUser.id,
+      actor?.name || db.currentUser.name
     );
     refresh();
   };
@@ -141,27 +265,29 @@ export const useStockState = () => {
   const handleTransfer = (
     sourceWarehouseId: string,
     destinationWarehouseId: string,
-    items: Array<{ productId: string; quantity: number }>
+    items: Array<{ productId: string; quantity: number }>,
+    actor?: { id: string; name: string }
   ) => {
     stockEngine.executeTransfer(
       sourceWarehouseId,
       destinationWarehouseId,
       items,
-      db.currentUser.id,
-      db.currentUser.name
+      actor?.id || db.currentUser.id,
+      actor?.name || db.currentUser.name
     );
     refresh();
   };
 
   const handleInventory = (
     warehouseId: string,
-    items: Array<{ productId: string; realQty: number }>
+    items: Array<{ productId: string; realQty: number }>,
+    actor?: { id: string; name: string }
   ) => {
     stockEngine.executeInventoryAdjustment(
       warehouseId,
       items,
-      db.currentUser.id,
-      db.currentUser.name
+      actor?.id || db.currentUser.id,
+      actor?.name || db.currentUser.name
     );
     refresh();
   };
@@ -171,7 +297,8 @@ export const useStockState = () => {
     warehouseId: string,
     quantity: number,
     reason: LossReason,
-    note: string
+    note: string,
+    actor?: { id: string; name: string }
   ) => {
     stockEngine.declareLoss(
       productId,
@@ -179,8 +306,8 @@ export const useStockState = () => {
       quantity,
       reason,
       note,
-      db.currentUser.id,
-      db.currentUser.name
+      actor?.id || db.currentUser.id,
+      actor?.name || db.currentUser.name
     );
     refresh();
   };
@@ -361,6 +488,7 @@ export const useStockState = () => {
       charges: folio.charges.filter(charge => charge.posId !== posId)
     }));
     newDb.users = newDb.users.map(user => user.posId === posId ? { ...user, posId: undefined } : user);
+    newDb.employeeProfiles = newDb.employeeProfiles.map(employee => employee.posId === posId ? { ...employee, posId: undefined } : employee);
 
     saveDB(newDb);
     refresh();
@@ -413,6 +541,10 @@ export const useStockState = () => {
     newDb.losses = newDb.losses.filter(item => item.warehouseId !== warehouseId);
     newDb.transfers = newDb.transfers.filter(item => item.sourceWarehouseId !== warehouseId && item.destinationWarehouseId !== warehouseId);
     newDb.inventories = newDb.inventories.filter(item => item.warehouseId !== warehouseId);
+    newDb.employeeProfiles = newDb.employeeProfiles.map(employee => employee.warehouseId === warehouseId
+      ? { ...employee, warehouseId: fallbackWarehouse?.id }
+      : employee
+    );
 
     saveDB(newDb);
     refresh();
@@ -461,11 +593,11 @@ export const useStockState = () => {
     refresh();
   };
 
-  const appendPMSAudit = (targetDb: ReturnType<typeof getDB>, action: string, entity: string, detail: string) => {
+  const appendPMSAudit = (targetDb: ReturnType<typeof getDB>, action: string, entity: string, detail: string, actorName?: string) => {
     targetDb.pmsAuditLogs.unshift({
       id: `pms-audit-${Date.now()}-${targetDb.pmsAuditLogs.length}`,
       date: new Date().toISOString(),
-      userName: targetDb.currentUser.name,
+      userName: actorName || targetDb.currentUser.name,
       action,
       entity,
       detail
@@ -835,7 +967,7 @@ export const useStockState = () => {
     refresh();
   };
 
-  const updatePMSHousekeepingTask = (taskId: string, status: 'pending' | 'in_progress' | 'completed' | 'inspected') => {
+  const updatePMSHousekeepingTask = (taskId: string, status: 'pending' | 'in_progress' | 'completed' | 'inspected', actorName?: string) => {
     const newDb = getDB();
     const task = newDb.pmsHousekeepingTasks.find(item => item.id === taskId);
     if (!task) throw new Error("Tâche d'entretien introuvable");
@@ -846,7 +978,7 @@ export const useStockState = () => {
     if (room) {
       room.housekeepingStatus = status === 'in_progress' ? 'in_progress' : status === 'completed' ? 'clean' : status === 'inspected' ? 'inspected' : room.housekeepingStatus;
     }
-    appendPMSAudit(newDb, 'Entretien chambre', `Chambre ${room?.roomNumber || task.roomId}`, `Tâche passée au statut ${status}.`);
+    appendPMSAudit(newDb, 'Entretien chambre', `Chambre ${room?.roomNumber || task.roomId}`, `Tâche passée au statut ${status}.`, actorName);
     saveDB(newDb);
     refresh();
   };
@@ -947,12 +1079,12 @@ export const useStockState = () => {
     updatePMSReservationStatus(reservationId, 'checked_in');
   };
 
-  const updatePMSHousekeepingDetails = (taskId: string, patch: Partial<Pick<PMSHousekeepingTask, 'assignedTo' | 'priority' | 'note' | 'linenStatus' | 'minibarStatus' | 'photoCount'>>) => {
+  const updatePMSHousekeepingDetails = (taskId: string, patch: Partial<Pick<PMSHousekeepingTask, 'assignedTo' | 'priority' | 'note' | 'linenStatus' | 'minibarStatus' | 'photoCount'>>, actorName?: string) => {
     const newDb = getDB();
     const task = newDb.pmsHousekeepingTasks.find(item => item.id === taskId);
     if (!task) throw new Error("Tâche d'entretien introuvable");
     Object.assign(task, patch);
-    appendPMSAudit(newDb, 'Détail entretien', taskId, `Affectation ${task.assignedTo}, linge ${task.linenStatus}, minibar ${task.minibarStatus}.`);
+    appendPMSAudit(newDb, 'Détail entretien', taskId, `Affectation ${task.assignedTo}, linge ${task.linenStatus}, minibar ${task.minibarStatus}.`, actorName);
     saveDB(newDb);
     refresh();
   };
@@ -1115,12 +1247,12 @@ export const useStockState = () => {
     return request.id;
   };
 
-  const updatePMSServiceRequest = (requestId: string, status: PMSServiceRequest['status']) => {
+  const updatePMSServiceRequest = (requestId: string, status: PMSServiceRequest['status'], actorName?: string) => {
     const newDb = getDB();
     const request = newDb.pmsServiceRequests.find(item => item.id === requestId);
     if (!request) throw new Error('Demande client introuvable');
     request.status = status;
-    appendPMSAudit(newDb, 'Suivi demande client', request.label, `Statut ${status}, responsable ${request.assignedTo}.`);
+    appendPMSAudit(newDb, 'Suivi demande client', request.label, `Statut ${status}, responsable ${request.assignedTo}.`, actorName);
     saveDB(newDb);
     refresh();
   };
@@ -1670,7 +1802,7 @@ export const useStockState = () => {
     return run;
   };
 
-  const openCashSession = (posId: string, openingFloat: number) => {
+  const openCashSession = (posId: string, openingFloat: number, actor?: { id: string; name: string }) => {
     const newDb = getDB();
     const pos = newDb.posList.find(p => p.id === posId);
     if (!pos) throw new Error("Point de vente introuvable");
@@ -1684,8 +1816,8 @@ export const useStockState = () => {
     newDb.cashSessions.push({
       id: sessionId,
       posId,
-      userId: newDb.currentUser.id,
-      userName: newDb.currentUser.name,
+      userId: actor?.id || newDb.currentUser.id,
+      userName: actor?.name || newDb.currentUser.name,
       openedAt: new Date().toISOString(),
       openingFloat,
       status: 'open',
@@ -1698,17 +1830,23 @@ export const useStockState = () => {
     return sessionId;
   };
 
-  const closeCashSession = (sessionId: string, closingCashDeclared: number, notes?: string) => {
+  const closeCashSession = (sessionId: string, closingCashDeclared: number, notes?: string, actor?: { id: string; name: string }) => {
     const newDb = getDB();
     const session = newDb.cashSessions.find(s => s.id === sessionId);
     if (!session) throw new Error("Session de caisse introuvable");
     if (session.status === 'closed') throw new Error("Cette session est déjà clôturée");
 
     const sessionSales = newDb.externalSales.filter(sale => sale.cashSessionId === session.id);
+    const restaurantPayments = newDb.restaurantGuestOrders.flatMap(order => (
+      order.payments.filter(payment => payment.cashSessionId === session.id).map(payment => ({ orderId: order.id, payment }))
+    ));
     const paymentTotals: PaymentTotals = createEmptyPaymentTotals();
 
     sessionSales.forEach(sale => {
       paymentTotals[sale.paymentContext.type] += sale.paymentContext.amount;
+    });
+    restaurantPayments.forEach(({ payment }) => {
+      paymentTotals[payment.method] += payment.amount;
     });
 
     const totalSales = Object.values(paymentTotals).reduce((sum, amount) => sum + amount, 0);
@@ -1716,14 +1854,14 @@ export const useStockState = () => {
 
     session.status = 'closed';
     session.closedAt = new Date().toISOString();
-    session.closedBy = newDb.currentUser.id;
-    session.closedByName = newDb.currentUser.name;
+    session.closedBy = actor?.id || newDb.currentUser.id;
+    session.closedByName = actor?.name || newDb.currentUser.name;
     session.closingCashDeclared = closingCashDeclared;
     session.expectedCash = expectedCash;
     session.cashDifference = closingCashDeclared - expectedCash;
     session.paymentTotals = paymentTotals;
     session.totalSales = totalSales;
-    session.saleIds = sessionSales.map(sale => sale.id);
+    session.saleIds = [...new Set([...sessionSales.map(sale => sale.id), ...restaurantPayments.map(item => item.orderId)])];
     session.zReportNumber = `Z-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${session.id.slice(-4)}`;
     session.notes = notes;
 
@@ -1731,50 +1869,57 @@ export const useStockState = () => {
     refresh();
   };
 
-  const reserveDeliveryOrder = (orderId: string) => {
-    const result = stockEngine.reserveDeliveryOrder(orderId, db.currentUser.id, db.currentUser.name);
+  const reserveDeliveryOrder = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.reserveDeliveryOrder(orderId, actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const startDeliveryPreparation = (orderId: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'preparing', db.currentUser.id, db.currentUser.name);
+  const startDeliveryPreparation = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'preparing', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const markDeliveryReady = (orderId: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'ready', db.currentUser.id, db.currentUser.name);
+  const markDeliveryReady = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'ready', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const dispatchDeliveryOrder = (orderId: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'out_for_delivery', db.currentUser.id, db.currentUser.name);
+  const dispatchDeliveryOrder = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'out_for_delivery', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const failDeliveryOrder = (orderId: string, issue?: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'failed', db.currentUser.id, db.currentUser.name, issue);
+  const failDeliveryOrder = (orderId: string, issue?: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'failed', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name, issue);
     refresh();
     return result;
   };
 
-  const returnDeliveryOrder = (orderId: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'returned', db.currentUser.id, db.currentUser.name);
+  const returnDeliveryOrder = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'returned', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const cancelDeliveryOrder = (orderId: string) => {
-    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'cancelled', db.currentUser.id, db.currentUser.name);
+  const cancelDeliveryOrder = (orderId: string, actor?: { id: string; name: string }) => {
+    const result = stockEngine.updateDeliveryOrderStatus(orderId, 'cancelled', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
 
-  const deliverDeliveryOrder = (orderId: string) => {
-    const result = stockEngine.deliverDeliveryOrder(orderId, db.currentUser.id, db.currentUser.name);
+  const deliverDeliveryOrder = (orderId: string, actor?: { id: string; name: string }) => {
+    const order = getDB().deliveryOrders.find(item => item.id === orderId);
+    if (!order || order.status !== 'out_for_delivery') {
+      return { success: false, error: 'La commande doit être confiée au livreur avant validation', movements: [] };
+    }
+    if (order.proofStatus !== 'photo_confirmed') {
+      return { success: false, error: 'Code, signature et photo sont requis avant de clôturer la livraison', movements: [] };
+    }
+    const result = stockEngine.deliverDeliveryOrder(orderId, actor?.id || db.currentUser.id, actor?.name || db.currentUser.name);
     refresh();
     return result;
   };
@@ -1787,6 +1932,15 @@ export const useStockState = () => {
     if (payload.guests < 1 || payload.guests > 20) throw new Error('Nombre de personnes invalide');
     const id = `TABLE-${Date.now().toString().slice(-6)}`;
     newDb.restaurantReservations.unshift({ ...payload, id, status: 'confirmed', createdAt: new Date().toISOString() });
+    if (payload.occasion !== 'meal') {
+      const labels = { birthday: 'Anniversaire à préparer', business: 'Accueil déjeuner professionnel', family: 'Repas familial à préparer' } as const;
+      const attention = payload.occasion === 'birthday' ? 'Attention anniversaire préparée' : payload.occasion === 'business' ? 'Table et rythme de service confirmés' : 'Accueil familial préparé';
+      newDb.sartalOccasionPlans.unshift({ id: `occasion-${id}`, customerId: customer.id, reservationId: id, occasion: payload.occasion, label: labels[payload.occasion], status: 'planned', checklist: [
+        { id: `occasion-${id}-table`, label: 'Table et placement confirmés', assignedTo: 'Salle', completed: false },
+        { id: `occasion-${id}-kitchen`, label: customer.allergies ? `Allergie ${customer.allergies} transmise` : 'Préférences transmises à la cuisine', assignedTo: 'Cuisine', completed: false },
+        { id: `occasion-${id}-attention`, label: attention, assignedTo: 'Responsable expérience', completed: false }
+      ] });
+    }
     newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'restaurant', referenceId: id, sender: 'team', senderName: `${pos.name} · Réservations`, content: `Votre table pour ${payload.guests} personne(s) est confirmée le ${payload.date} à ${payload.time}.`, sentAt: new Date().toISOString(), status: 'sent' });
     saveDB(newDb);
     refresh();
@@ -1882,14 +2036,29 @@ export const useStockState = () => {
     refresh();
   };
 
-  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string) => {
+  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
     if (!order || amount <= 0) throw new Error('Paiement invalide');
+    const cashSession = cashSessionId ? newDb.cashSessions.find(item => item.id === cashSessionId && item.status === 'open' && item.posId === order.posId) : undefined;
+    if (cashSessionId && !cashSession) throw new Error('La session de caisse ne correspond pas à cette addition');
+    if (method === 'room_charge' && (!order.folioId || !newDb.pmsFolios.some(item => item.id === order.folioId && item.status === 'open'))) {
+      throw new Error('Aucun folio actif n’est rattaché à cette addition');
+    }
     const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
     const accepted = Math.min(amount, Math.max(0, order.total - paid));
     if (accepted <= 0) throw new Error('Cette addition est déjà soldée');
-    order.payments.push({ id: `rest-payment-${Date.now()}`, amount: accepted, method, paidAt: new Date().toISOString(), payerName });
+    const paidAt = new Date().toISOString();
+    order.payments.push({ id: `rest-payment-${Date.now()}`, amount: accepted, method, paidAt, payerName, cashSessionId });
+    if (method === 'room_charge' && order.folioId) {
+      const folio = newDb.pmsFolios.find(item => item.id === order.folioId);
+      if (folio) folio.charges.push({ id: `charge-rest-${Date.now()}`, saleId: order.id, externalSaleId: order.id, posId: order.posId, label: `Addition ${order.tableNumber || order.id}`, amount: accepted, date: paidAt, status: 'pending', category: 'restaurant', billingWindow: 'guest' });
+    }
+    if (cashSession) {
+      cashSession.paymentTotals[method] += accepted;
+      cashSession.totalSales += accepted;
+      if (!cashSession.saleIds.includes(order.id)) cashSession.saleIds.push(order.id);
+    }
     if (paid + accepted >= order.total) order.status = 'paid';
     order.updatedAt = new Date().toISOString();
     saveDB(newDb);
@@ -1958,6 +2127,7 @@ export const useStockState = () => {
     if (!customer || !content.trim()) throw new Error('Message invalide');
     const id = `customer-message-${Date.now()}`;
     newDb.sartalCustomerMessages.push({ id, customerId, context, referenceId, sender: 'customer', senderName: customer.fullName, content: content.trim(), channel, attachmentLabel, sentAt: new Date().toISOString(), status: 'sent' });
+    if (isOffline()) newDb.sartalOfflineActions.unshift({ id: `offline-${Date.now()}`, customerId, actionType: 'message', summary: `Message ${context} conservé hors connexion`, status: 'queued', createdAt: new Date().toISOString() });
     saveDB(newDb);
     refresh();
     return id;
@@ -1976,6 +2146,7 @@ export const useStockState = () => {
     if (payload.score <= 3) {
       newDb.sartalServiceRequests.unshift({ id: `recovery-${Date.now()}`, customerId: payload.customerId, context: payload.context, referenceId: payload.referenceId, type: 'other', label: 'Reprendre une insatisfaction client', note: payload.note, status: 'requested', priority: 'urgent', assignedTo: 'Responsable relation client', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + 20 * 60000).toISOString() });
     }
+    if (isOffline()) newDb.sartalOfflineActions.unshift({ id: `offline-${Date.now()}`, customerId: payload.customerId, actionType: 'feedback', summary: 'Retour client conservé hors connexion', status: 'queued', createdAt: now.toISOString() });
     saveDB(newDb);
     refresh();
     return feedback.id;
@@ -1995,6 +2166,7 @@ export const useStockState = () => {
     const customer = newDb.sartalCustomers.find(item => item.id === customerId);
     if (!customer) throw new Error('Profil client introuvable');
     Object.assign(customer, patch);
+    if (isOffline()) newDb.sartalOfflineActions.unshift({ id: `offline-${Date.now()}`, customerId, actionType: 'profile', summary: 'Préférences conservées hors connexion', status: 'queued', createdAt: new Date().toISOString() });
     saveDB(newDb);
     refresh();
   };
@@ -2023,6 +2195,7 @@ export const useStockState = () => {
     const assignedTo = payload.context === 'restaurant' ? 'Moussa · Salle' : payload.context === 'delivery' ? 'Fatou · Service client' : 'Awa · Réception';
     const id = `service-${Date.now()}`;
     newDb.sartalServiceRequests.unshift({ ...payload, id, priority, assignedTo, status: 'requested', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + (priority === 'urgent' ? 3 : 5) * 60000).toISOString() });
+    if (isOffline()) newDb.sartalOfflineActions.unshift({ id: `offline-${Date.now()}`, customerId: payload.customerId, actionType: 'service_request', summary: payload.label, status: 'queued', createdAt: now.toISOString() });
     saveDB(newDb);
     refresh();
     return id;
@@ -2098,9 +2271,285 @@ export const useStockState = () => {
     refresh();
   };
 
+  const updateSartalJourneyItemStatus = (itemId: string, status: SartalJourneyItem['status']) => {
+    const newDb = getDB();
+    const item = newDb.sartalJourneyItems.find(entry => entry.id === itemId);
+    if (!item) throw new Error('Étape de parcours introuvable');
+    item.status = status;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateSartalOccasionTask = (planId: string, taskId: string, completed: boolean) => {
+    const newDb = getDB();
+    const plan = newDb.sartalOccasionPlans.find(entry => entry.id === planId);
+    const task = plan?.checklist.find(entry => entry.id === taskId);
+    if (!plan || !task) throw new Error('Préparation spéciale introuvable');
+    task.completed = completed;
+    plan.status = plan.checklist.every(entry => entry.completed)
+      ? 'ready'
+      : 'planned';
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completeSartalOccasionPlan = (planId: string) => {
+    const newDb = getDB();
+    const plan = newDb.sartalOccasionPlans.find(entry => entry.id === planId);
+    if (!plan || !plan.checklist.every(entry => entry.completed)) throw new Error('Toutes les attentions doivent être prêtes avant clôture');
+    plan.status = 'completed';
+    saveDB(newDb);
+    refresh();
+  };
+
+  const toggleFavoriteProduct = (customerId: string, productId: string) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(entry => entry.id === customerId);
+    if (!customer || !newDb.products.some(entry => entry.id === productId)) throw new Error('Client ou produit introuvable');
+    const favorites = customer.favoriteProductIds || [];
+    const enabled = !favorites.includes(productId);
+    customer.favoriteProductIds = enabled ? [...favorites, productId] : favorites.filter(id => id !== productId);
+    saveDB(newDb);
+    refresh();
+    return enabled;
+  };
+
+  const toggleSartalRecurringOrder = (recurringOrderId: string) => {
+    const newDb = getDB();
+    const recurringOrder = newDb.sartalRecurringOrders.find(entry => entry.id === recurringOrderId);
+    if (!recurringOrder) throw new Error('Commande récurrente introuvable');
+    recurringOrder.active = !recurringOrder.active;
+    saveDB(newDb);
+    refresh();
+    return recurringOrder.active;
+  };
+
+  const runSartalRecurringOrder = (recurringOrderId: string) => {
+    const snapshot = getDB();
+    const recurringOrder = snapshot.sartalRecurringOrders.find(entry => entry.id === recurringOrderId);
+    const customer = snapshot.sartalCustomers.find(entry => entry.id === recurringOrder?.customerId);
+    const address = customer?.addresses.find(entry => entry.isDefault) || customer?.addresses[0];
+    if (!recurringOrder || !customer || !address || !recurringOrder.active) throw new Error('Commande récurrente inactive ou incomplète');
+    const orderId = createDeliveryCustomerOrder({
+      customerId: customer.id,
+      addressId: address.id,
+      items: recurringOrder.items.map(item => ({ ...item, substitutionPolicy: 'contact' })),
+      paymentType: 'wave'
+    });
+    const newDb = getDB();
+    const storedRecurringOrder = newDb.sartalRecurringOrders.find(entry => entry.id === recurringOrderId);
+    if (storedRecurringOrder) {
+      const baseTime = Number.isFinite(Date.parse(storedRecurringOrder.nextRunAt))
+        ? Math.max(Date.now(), Date.parse(storedRecurringOrder.nextRunAt))
+        : Date.now();
+      const nextRun = new Date(baseTime);
+      if (storedRecurringOrder.cadence === 'monthly') nextRun.setMonth(nextRun.getMonth() + 1);
+      else nextRun.setDate(nextRun.getDate() + (storedRecurringOrder.cadence === 'biweekly' ? 14 : 7));
+      storedRecurringOrder.lastOrderId = orderId;
+      storedRecurringOrder.nextRunAt = nextRun.toISOString();
+    }
+    saveDB(newDb);
+    refresh();
+    return orderId;
+  };
+
+  const joinRestaurantWaitlist = (customerId: string, posId: string, guests: number) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(entry => entry.id === customerId);
+    const pos = newDb.posList.find(entry => entry.id === posId && entry.type === 'restaurant');
+    if (!customer || !pos || guests < 1 || guests > 20) throw new Error('Demande de liste d’attente invalide');
+    const existing = newDb.restaurantWaitlist.find(entry => entry.customerId === customerId && entry.posId === posId && ['waiting', 'notified'].includes(entry.status));
+    if (existing) return existing.id;
+    const activeQueue = newDb.restaurantWaitlist.filter(entry => entry.posId === posId && ['waiting', 'notified'].includes(entry.status)).length;
+    const quotedMinutes = Math.min(60, 10 + activeQueue * 5 + guests * 2);
+    const now = new Date().toISOString();
+    const id = `waitlist-${Date.now()}`;
+    newDb.restaurantWaitlist.unshift({ id, customerId, posId, guests, quotedMinutes, status: 'waiting', joinedAt: now });
+    newDb.sartalJourneyItems.unshift({ id: `journey-${id}`, customerId, context: 'restaurant', title: `Table pour ${guests} personne(s)`, detail: `Temps estimé : ${quotedMinutes} minutes`, scheduledAt: new Date(Date.now() + quotedMinutes * 60000).toISOString(), status: 'upcoming', assignedTo: `${pos.name} · Accueil`, referenceId: id });
+    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId, context: 'restaurant', referenceId: id, sender: 'team', senderName: `${pos.name} · Accueil`, content: `Vous êtes sur la liste d’attente. Estimation : ${quotedMinutes} minutes. Nous vous prévenons dès que votre table est prête.`, sentAt: now, status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateRestaurantWaitlistStatus = (entryId: string, status: RestaurantWaitlistEntry['status'], tableNumber?: string) => {
+    const newDb = getDB();
+    const entry = newDb.restaurantWaitlist.find(item => item.id === entryId);
+    const customer = newDb.sartalCustomers.find(item => item.id === entry?.customerId);
+    const pos = newDb.posList.find(item => item.id === entry?.posId);
+    if (!entry || !customer || !pos) throw new Error('Entrée de liste d’attente introuvable');
+    if (status === 'seated' && !tableNumber?.trim()) throw new Error('Numéro de table requis');
+    entry.status = status;
+    if (status === 'notified') entry.notifiedAt = new Date().toISOString();
+    if (status === 'seated') {
+      entry.tableNumber = tableNumber?.trim();
+      const reservationId = `waitlist-table-${entry.id}`;
+      if (!newDb.restaurantReservations.some(item => item.id === reservationId)) {
+        const now = new Date();
+        newDb.restaurantReservations.unshift({ id: reservationId, customerId: entry.customerId, posId: entry.posId, date: now.toISOString().slice(0, 10), time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), guests: entry.guests, occasion: 'meal', status: 'seated', tableNumber: entry.tableNumber, notes: 'Table attribuée depuis la liste d’attente Sártal.', createdAt: entry.joinedAt });
+      }
+    }
+    newDb.sartalJourneyItems.filter(item => item.referenceId === entry.id).forEach(item => {
+      item.status = status === 'seated' ? 'completed' : status === 'cancelled' ? 'cancelled' : status === 'notified' ? 'in_progress' : 'upcoming';
+      if (status === 'seated') item.detail = `Table ${entry.tableNumber} attribuée`;
+    });
+    const message = status === 'notified'
+      ? `Votre table est prête. Merci de vous présenter à l’accueil de ${pos.name}.`
+      : status === 'seated' ? `Bienvenue. Votre table ${entry.tableNumber} vous attend.` : status === 'cancelled' ? 'Votre demande de table a été annulée.' : 'Votre attente reste bien enregistrée.';
+    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'restaurant', referenceId: entry.id, sender: 'team', senderName: `${pos.name} · Accueil`, content: message, sentAt: new Date().toISOString(), status: 'sent' });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completeDeliveryProof = (orderId: string, proof: { code: string; signature: string; photoLabel: string; latitude: number; longitude: number }) => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId);
+    if (!order || order.status !== 'out_for_delivery') throw new Error('La commande doit être en cours de livraison');
+    if (proof.code.trim() !== order.verificationCode) throw new Error('Code de livraison incorrect');
+    if (!proof.signature.trim() || !proof.photoLabel.trim()) throw new Error('Signature et photo sont obligatoires');
+    if (!Number.isFinite(proof.latitude) || !Number.isFinite(proof.longitude) || Math.abs(proof.latitude) > 90 || Math.abs(proof.longitude) > 180) throw new Error('Position GPS invalide');
+    order.proofStatus = 'photo_confirmed';
+    order.proofSignature = proof.signature.trim();
+    order.proofPhotoLabel = proof.photoLabel.trim();
+    order.proofLatitude = proof.latitude;
+    order.proofLongitude = proof.longitude;
+    order.proofCompletedAt = new Date().toISOString();
+    order.updatedAt = order.proofCompletedAt;
+    if (order.customerId) {
+      newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: order.customerId, context: 'delivery', referenceId: order.id, sender: 'team', senderName: 'Sártal Livraison', content: 'Votre code, votre signature et la photo de remise ont été confirmés.', sentAt: order.proofCompletedAt, status: 'sent' });
+    }
+    saveDB(newDb);
+    refresh();
+  };
+
+  const applySartalRecoveryPlaybook = (feedbackId: string, playbookId: string) => {
+    const snapshot = getDB();
+    const feedback = snapshot.sartalCustomerFeedback.find(item => item.id === feedbackId && item.recoveryStatus === 'open');
+    const playbook = snapshot.sartalRecoveryPlaybooks.find(item => item.id === playbookId && item.active);
+    if (!feedback || !playbook || (playbook.context !== 'all' && playbook.context !== feedback.context) || feedback.score > playbook.maxScore) throw new Error('Ce protocole ne correspond pas au retour client');
+    resolveSartalCustomerFeedback(feedback.id, `${playbook.managerApproval ? 'Validation direction · ' : ''}${playbook.solution}`, playbook.compensationPoints);
+    return playbook.name;
+  };
+
+  const escalateOverdueSartalRequests = () => {
+    const newDb = getDB();
+    const now = Date.now();
+    const overdue = newDb.sartalServiceRequests.filter(item => !['completed', 'cancelled'].includes(item.status) && new Date(item.promisedAt).getTime() < now);
+    overdue.forEach(item => {
+      item.priority = 'urgent';
+      item.assignedTo = 'Responsable expérience client';
+    });
+    saveDB(newDb);
+    refresh();
+    return overdue.length;
+  };
+
+  const transferSartalHouseholdPoints = (householdId: string, customerId: string, points: number) => {
+    const newDb = getDB();
+    const household = newDb.sartalHouseholds.find(item => item.id === householdId);
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!household || !customer || !household.memberCustomerIds.includes(customerId) || points < 100 || household.sharedPoints < points) throw new Error('Transfert de points famille impossible');
+    household.sharedPoints -= points;
+    customer.loyaltyPoints += points;
+    newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId, type: 'bonus', points, label: `Transfert ${household.name}`, referenceId: household.id, date: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const chargeSartalCorporateAccount = (accountId: string, customerId: string, amount: number) => {
+    const newDb = getDB();
+    const account = newDb.sartalCorporateAccounts.find(item => item.id === accountId && item.status === 'active');
+    if (!account || !account.employeeCustomerIds.includes(customerId) || amount <= 0 || account.currentBalance + amount > account.monthlyLimit) throw new Error('Plafond ou compte entreprise invalide');
+    account.currentBalance += amount;
+    saveDB(newDb);
+    refresh();
+    return account.currentBalance;
+  };
+
+  const updateSartalBrandSettings = (patch: Partial<SartalBrandSettings>) => {
+    const newDb = getDB();
+    const next = { ...newDb.sartalBrandSettings, ...patch };
+    if (!next.establishmentName.trim() || !next.clientAppName.trim() || !/^#[0-9a-f]{6}$/i.test(next.primaryColor) || !/^#[0-9a-f]{6}$/i.test(next.accentColor)) throw new Error('Identité visuelle incomplète');
+    newDb.sartalBrandSettings = next;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const toggleLowBandwidthMode = (customerId: string, enabled: boolean) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer) throw new Error('Client introuvable');
+    customer.lowBandwidthMode = enabled;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const queueSartalOfflineAction = (customerId: string, actionType: SartalOfflineAction['actionType'], summary: string) => {
+    const newDb = getDB();
+    if (!newDb.sartalCustomers.some(item => item.id === customerId) || !summary.trim()) throw new Error('Action hors connexion invalide');
+    const id = `offline-${Date.now()}`;
+    newDb.sartalOfflineActions.unshift({ id, customerId, actionType, summary: summary.trim(), status: 'queued', createdAt: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const syncSartalOfflineActions = () => {
+    const newDb = getDB();
+    const now = new Date().toISOString();
+    const queued = newDb.sartalOfflineActions.filter(item => item.status === 'queued');
+    queued.forEach(item => { item.status = 'synced'; item.syncedAt = now; });
+    saveDB(newDb);
+    refresh();
+    return queued.length;
+  };
+
+  const runSartalCommercialScenario = (scenario: SartalDemoRun['scenario']) => {
+    const newDb = getDB();
+    const definitions: Record<SartalDemoRun['scenario'], { label: string; evidence: string[] }> = {
+      hotel_restaurant: {
+        label: 'Séjour + dîner imputé sur chambre',
+        evidence: [
+          `${newDb.pmsReservations.filter(item => item.status === 'checked_in').length} séjour(s) actif(s) reconnu(s)`,
+          `${newDb.externalSales.filter(item => item.paymentContext.type === 'room_charge').length} vente(s) restaurant reliée(s) à un folio`,
+          `${newDb.movements.filter(item => item.type === 'sale_consumption' && Boolean(item.posId)).length} mouvement(s) stock traçable(s)`
+        ]
+      },
+      family_delivery: {
+        label: 'Famille + panier récurrent livré',
+        evidence: [
+          `${newDb.sartalHouseholds.length} compte(s) famille avec points partagés`,
+          `${newDb.sartalRecurringOrders.filter(item => item.active).length} panier(s) récurrent(s) actif(s)`,
+          `${newDb.deliveryOrders.filter(item => Boolean(item.customerId)).length} livraison(s) rattachée(s) au passeport client`
+        ]
+      },
+      group_payment: {
+        label: 'Table partagée + paiements séparés',
+        evidence: [
+          `${newDb.restaurantGuestInvites.length} invité(s) relié(s) à une table`,
+          `${newDb.restaurantGuestInvites.filter(item => item.status === 'paid').length} part(s) réglée(s) séparément`,
+          `${newDb.restaurantGuestOrders.filter(item => item.payments.length > 1).length} addition(s) multi-payeurs`
+        ]
+      }
+    };
+    const definition = definitions[scenario];
+    const run: SartalDemoRun = { id: `demo-run-${Date.now()}`, scenario, label: definition.label, evidence: definition.evidence, status: 'completed', completedAt: new Date().toISOString() };
+    newDb.sartalDemoRuns.unshift(run);
+    saveDB(newDb);
+    refresh();
+    return run;
+  };
+
   return {
     db,
     changeCurrentUser,
+    startEmployeeShift,
+    closeEmployeeShift,
+    acknowledgeEmployeeHandover,
+    sendEmployeeMessage,
+    markEmployeeMessageRead,
+    requestEmployeeApproval,
+    decideEmployeeApproval,
     processSale: handleProcessSale,
     receiveOrder: handleReceiveOrder,
     transferStock: handleTransfer,
@@ -2202,6 +2651,24 @@ export const useStockState = () => {
     payRestaurantGuestShare,
     redeemSartalPoints,
     resolveSartalCustomerFeedback,
+    updateSartalJourneyItemStatus,
+    updateSartalOccasionTask,
+    completeSartalOccasionPlan,
+    toggleFavoriteProduct,
+    toggleSartalRecurringOrder,
+    runSartalRecurringOrder,
+    joinRestaurantWaitlist,
+    updateRestaurantWaitlistStatus,
+    completeDeliveryProof,
+    applySartalRecoveryPlaybook,
+    escalateOverdueSartalRequests,
+    transferSartalHouseholdPoints,
+    chargeSartalCorporateAccount,
+    updateSartalBrandSettings,
+    toggleLowBandwidthMode,
+    queueSartalOfflineAction,
+    syncSartalOfflineActions,
+    runSartalCommercialScenario,
     resetAllData
   };
 };
