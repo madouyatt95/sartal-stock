@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test:pms": "node scripts/pms-smoke.mjs",
+    "test:client": "node scripts/client-smoke.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

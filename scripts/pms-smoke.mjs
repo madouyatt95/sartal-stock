@@ -26,6 +26,7 @@ try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { PMSHotel } = await server.ssrLoadModule('/src/views/PMSHotel.tsx');
+  const { PMSGuestExperiencePortal } = await server.ssrLoadModule('/src/views/PMSSignatureExperience.tsx');
   const { buildPMSUnifiedJourney } = await server.ssrLoadModule('/src/utils/pmsUnifiedJourney.ts');
   const tabs = {
     dashboard: 'Poste Sártal',
@@ -50,6 +51,10 @@ try {
     assert(html.includes(marker), `Onglet PMS ${tab}: contenu attendu absent (${marker})`);
     assert(!html.includes('Chambre undefined'), `Onglet PMS ${tab}: chambre non attribuée mal affichée`);
   }
+
+  const guestPortalHtml = renderToStaticMarkup(React.createElement(PMSGuestExperiencePortal, { state, initialReservationId: 'res-204', standalone: true }));
+  ['Mon séjour Sártal', 'Services', 'Conciergerie', 'Ma chambre', 'Départ'].forEach(marker => assert(guestPortalHtml.includes(marker), `Portail client incomplet : ${marker} absent`));
+  assert(!guestPortalHtml.includes('Accueil Stock'), 'Le portail public ne doit pas afficher la navigation interne');
 
   const unifiedJourney = buildPMSUnifiedJourney(getDB(), 'res-204');
   assert(unifiedJourney.score === 100, `La vérité métier du séjour 204 devrait être complète (${unifiedJourney.score}%)`);
@@ -163,6 +168,34 @@ try {
   const portalPaymentId = state.addPMSReservationPayment(reservation.id, 15000, 'wave', 'WAVE-TEST-PORTAIL');
   assert(getDB().pmsFolios.find(item => item.reservationId === reservation.id).payments.some(item => item.id === portalPaymentId), 'Paiement portail non rattaché au folio du séjour');
 
+  const guestMessageId = state.sendPMSGuestMessage(reservation.id, 'Je souhaite une recommandation pour Dakar.', 'portal');
+  assert(getDB().pmsGuestMessages.some(item => item.id === guestMessageId && item.content.includes('Dakar')), 'Message de conciergerie client non enregistré');
+
+  state.updatePMSGuestExperienceProfile(reservation.id, { preferredLanguage: 'fr', profileConsent: true, allergies: 'Arachides', pillowPreference: 'firm' });
+  assert(getDB().pmsGuests.find(item => item.id === reservation.guestId).pillowPreference === 'firm', 'Préférences mémorisées du client non enregistrées');
+
+  const companionId = state.addPMSStayCompanion(reservation.id, { fullName: 'Accompagnant Test', phone: '+221 77 111 22 33', relationship: 'Collègue' });
+  const sharedKeyCode = state.issuePMSDoorKey(reservation.id);
+  const sharedKey = getDB().pmsDoorKeys.find(item => item.code === sharedKeyCode);
+  state.sharePMSDoorKey(sharedKey.id, companionId);
+  assert(getDB().pmsDoorKeys.find(item => item.id === sharedKey.id).sharedWithIds.includes(companionId), 'Partage de clé avec un accompagnant non enregistré');
+
+  const recoveryCount = getDB().pmsServiceRequests.filter(item => item.type === 'guest_recovery').length;
+  state.submitPMSGuestFeedback(reservation.id, 2, 'La climatisation est trop bruyante.', 'in_stay');
+  assert(getDB().pmsServiceRequests.filter(item => item.type === 'guest_recovery').length === recoveryCount + 1, 'Retour insatisfait non transformé en alerte de récupération');
+
+  state.requestPMSReturnStay(reservation.id);
+  assert(getDB().pmsGuests.find(item => item.id === reservation.guestId).returnStayRequestedAt, 'Intention de prochain séjour non enregistrée');
+
+  db = getDB();
+  const checkoutFolio = db.pmsFolios.find(item => item.reservationId === reservation.id && item.status === 'open');
+  const checkoutBalance = checkoutFolio.charges.reduce((sum, item) => sum + item.amount, 0) - checkoutFolio.payments.reduce((sum, item) => sum + item.amount, 0);
+  if (checkoutBalance > 0) state.addPMSReservationPayment(reservation.id, checkoutBalance, 'orange_money', 'OM-CHECKOUT-TEST');
+  state.completePMSGuestCheckout(reservation.id);
+  db = getDB();
+  assert(db.pmsReservations.find(item => item.id === reservation.id).status === 'checked_out', 'Départ autonome non finalisé');
+  assert(db.pmsRooms.find(item => item.id === moveRoom.id).housekeepingStatus === 'dirty', 'Chambre non transmise au nettoyage après départ autonome');
+
   const automation = db.pmsAutomationRules[0];
   const previousAutomationStatus = automation.active;
   state.togglePMSAutomationRule(automation.id);
@@ -212,7 +245,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 34 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 41 actions critiques validés.`);
 } finally {
   await server.close();
 }

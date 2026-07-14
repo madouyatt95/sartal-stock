@@ -204,6 +204,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={() => setView('client')}>Expérience client</button>
           <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
             Stock réel
           </button>

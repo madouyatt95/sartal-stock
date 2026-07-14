@@ -281,11 +281,13 @@ export interface DeliveryOrderItem {
   quantity: number;
   salePrice: number;
   substitutionProductId?: string;
+  substitutionPolicy?: 'replace' | 'contact' | 'refund' | 'cancel_order';
   note?: string;
 }
 
 export interface DeliveryOrder {
   id: string;
+  customerId?: string;
   customerName: string;
   phone: string;
   address: string;
@@ -302,6 +304,10 @@ export interface DeliveryOrder {
   driverPhone?: string;
   amountCollected?: number;
   deliveryIssue?: string;
+  landmark?: string;
+  deliveryInstructions?: string;
+  verificationCode?: string;
+  proofStatus?: 'pending' | 'code_verified' | 'photo_confirmed';
   returnAction?: 'restocked' | 'loss_declared' | 'pending_manager_review';
   createdAt: string;
   updatedAt: string;
@@ -312,6 +318,105 @@ export interface DeliveryOrder {
   failedAt?: string;
   returnedAt?: string;
   note?: string;
+}
+
+export interface SartalCustomerAddress {
+  id: string;
+  label: string;
+  address: string;
+  zone: string;
+  landmark: string;
+  instructions?: string;
+  isDefault: boolean;
+}
+
+export interface SartalCustomer {
+  id: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  preferredLanguage: 'fr' | 'en' | 'wo';
+  preferences?: string;
+  allergies?: string;
+  profileConsent: boolean;
+  loyaltyPoints: number;
+  loyaltyTier: 'welcome' | 'teranga' | 'signature';
+  visits: number;
+  totalSpend: number;
+  addresses: SartalCustomerAddress[];
+}
+
+export interface RestaurantTableReservation {
+  id: string;
+  customerId: string;
+  posId: string;
+  date: string;
+  time: string;
+  guests: number;
+  occasion: 'meal' | 'birthday' | 'business' | 'family';
+  status: 'confirmed' | 'seated' | 'completed' | 'cancelled';
+  tableNumber?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface RestaurantGuestOrderItem {
+  productId: string;
+  quantity: number;
+  salePrice: number;
+  note?: string;
+}
+
+export interface RestaurantGuestOrderPayment {
+  id: string;
+  amount: number;
+  method: PaymentType;
+  paidAt: string;
+  payerName?: string;
+}
+
+export interface RestaurantGuestOrder {
+  id: string;
+  customerId: string;
+  posId: string;
+  reservationId?: string;
+  tableNumber?: string;
+  folioId?: string;
+  roomNumber?: string;
+  serviceType: 'dine_in' | 'takeaway' | 'room_service';
+  status: 'placed' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'cancelled';
+  items: RestaurantGuestOrderItem[];
+  payments: RestaurantGuestOrderPayment[];
+  total: number;
+  estimatedMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+  kitchenStartedAt?: string;
+  readyAt?: string;
+  servedAt?: string;
+}
+
+export interface SartalCustomerMessage {
+  id: string;
+  customerId: string;
+  context: 'restaurant' | 'delivery';
+  referenceId?: string;
+  sender: 'customer' | 'team';
+  senderName: string;
+  content: string;
+  sentAt: string;
+  status: 'sent' | 'read';
+}
+
+export interface SartalCustomerFeedback {
+  id: string;
+  customerId: string;
+  context: 'restaurant' | 'delivery';
+  referenceId: string;
+  score: number;
+  note?: string;
+  submittedAt: string;
+  recoveryStatus: 'not_needed' | 'open' | 'resolved';
 }
 
 export interface ExternalPOSSaleRow {
@@ -453,6 +558,11 @@ export interface PMSGuest {
   incidentNote?: string;
   preCheckInStatus?: 'not_started' | 'in_progress' | 'completed';
   consentSignedAt?: string;
+  preferredLanguage?: 'fr' | 'en' | 'wo';
+  profileConsent?: boolean;
+  allergies?: string;
+  pillowPreference?: 'soft' | 'firm' | 'none';
+  returnStayRequestedAt?: string;
 }
 
 export interface PMSReservation {
@@ -616,7 +726,7 @@ export interface PMSServiceRequest {
   id: string;
   reservationId: string;
   roomId?: string;
-  type: 'airport_transfer' | 'breakfast' | 'baby_bed' | 'laundry' | 'late_arrival' | 'special_request';
+  type: 'airport_transfer' | 'breakfast' | 'baby_bed' | 'laundry' | 'late_arrival' | 'special_request' | 'room_service' | 'guest_recovery' | 'checkout';
   label: string;
   status: 'requested' | 'assigned' | 'in_progress' | 'completed';
   priority: 'normal' | 'urgent';
@@ -698,6 +808,38 @@ export interface PMSDoorKey {
   status: 'active' | 'revoked' | 'expired';
   issuedAt: string;
   validUntil: string;
+  sharedWithIds?: string[];
+}
+
+export interface PMSGuestMessage {
+  id: string;
+  reservationId: string;
+  sender: 'guest' | 'team';
+  senderName: string;
+  channel: 'portal' | 'whatsapp';
+  content: string;
+  sentAt: string;
+  status: 'sent' | 'read';
+}
+
+export interface PMSStayCompanion {
+  id: string;
+  reservationId: string;
+  fullName: string;
+  phone: string;
+  relationship: string;
+  invitedAt: string;
+  status: 'invited' | 'active';
+}
+
+export interface PMSGuestFeedback {
+  id: string;
+  reservationId: string;
+  stage: 'in_stay' | 'post_stay';
+  score: number;
+  note?: string;
+  submittedAt: string;
+  recoveryStatus: 'not_needed' | 'open' | 'resolved';
 }
 
 export interface PMSDebtorAccount {

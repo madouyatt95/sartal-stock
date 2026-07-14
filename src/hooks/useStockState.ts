@@ -3,6 +3,7 @@ import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
 import {
   createEmptyPaymentTotals,
+  DeliveryOrder,
   ExternalPOSSaleRow,
   LossReason,
   PaymentTotals,
@@ -28,6 +29,9 @@ import {
   PMSRoom,
   PMSServiceRequest,
   PMSSettings,
+  RestaurantGuestOrder,
+  RestaurantTableReservation,
+  SartalCustomerFeedback,
   POSType,
   Product,
   Supplier
@@ -577,6 +581,9 @@ export const useStockState = () => {
     newDb.pmsNotifications = newDb.pmsNotifications.filter(item => item.reservationId !== reservationId);
     newDb.pmsServiceRequests = newDb.pmsServiceRequests.filter(item => item.reservationId !== reservationId);
     newDb.pmsDoorKeys = newDb.pmsDoorKeys.filter(item => item.reservationId !== reservationId);
+    newDb.pmsGuestMessages = newDb.pmsGuestMessages.filter(item => item.reservationId !== reservationId);
+    newDb.pmsStayCompanions = newDb.pmsStayCompanions.filter(item => item.reservationId !== reservationId);
+    newDb.pmsGuestFeedback = newDb.pmsGuestFeedback.filter(item => item.reservationId !== reservationId);
     appendPMSAudit(newDb, 'Suppression réservation', reservation.confirmationNumber, 'Réservation sans séjour ni folio supprimée.');
     saveDB(newDb);
     refresh();
@@ -1243,6 +1250,100 @@ export const useStockState = () => {
     refresh();
   };
 
+  const updatePMSGuestExperienceProfile = (reservationId: string, payload: Partial<Pick<PMSGuest, 'preferredLanguage' | 'profileConsent' | 'allergies' | 'pillowPreference' | 'preferences'>>) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
+    if (!reservation || !guest) throw new Error('Séjour ou client introuvable');
+    Object.assign(guest, payload);
+    appendPMSAudit(newDb, 'Préférences client', reservation.confirmationNumber, `Profil d’expérience mis à jour avec consentement ${guest.profileConsent ? 'actif' : 'désactivé'}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const sendPMSGuestMessage = (reservationId: string, content: string, channel: 'portal' | 'whatsapp' = 'portal') => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
+    if (!reservation || !guest || !content.trim()) throw new Error('Message ou séjour invalide');
+    const id = `guest-message-${Date.now()}`;
+    newDb.pmsGuestMessages.push({ id, reservationId, sender: 'guest', senderName: guest.fullName, channel, content: content.trim(), sentAt: new Date().toISOString(), status: 'sent' });
+    appendPMSAudit(newDb, 'Message client', reservation.confirmationNumber, `Message ${channel} transmis à la réception.`);
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const addPMSStayCompanion = (reservationId: string, payload: { fullName: string; phone: string; relationship: string }) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation || !payload.fullName.trim() || !payload.phone.trim()) throw new Error('Nom et téléphone de l’accompagnant obligatoires');
+    const id = `companion-${Date.now()}`;
+    newDb.pmsStayCompanions.push({ id, reservationId, fullName: payload.fullName.trim(), phone: payload.phone.trim(), relationship: payload.relationship.trim() || 'Accompagnant', invitedAt: new Date().toISOString(), status: 'invited' });
+    appendPMSAudit(newDb, 'Invitation accompagnant', reservation.confirmationNumber, `${payload.fullName} invité dans le séjour.`);
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const sharePMSDoorKey = (keyId: string, companionId: string) => {
+    const newDb = getDB();
+    const key = newDb.pmsDoorKeys.find(item => item.id === keyId && item.status === 'active');
+    const companion = newDb.pmsStayCompanions.find(item => item.id === companionId && item.reservationId === key?.reservationId);
+    if (!key || !companion) throw new Error('Clé active ou accompagnant introuvable');
+    key.sharedWithIds = Array.from(new Set([...(key.sharedWithIds || []), companion.id]));
+    companion.status = 'active';
+    appendPMSAudit(newDb, 'Partage clé mobile', key.code, `Accès transmis à ${companion.fullName}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const submitPMSGuestFeedback = (reservationId: string, score: number, note: string, stage: 'in_stay' | 'post_stay' = 'in_stay') => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation || score < 1 || score > 5) throw new Error('Évaluation invalide');
+    const needsRecovery = score <= 3;
+    newDb.pmsGuestFeedback.unshift({ id: `feedback-${Date.now()}`, reservationId, stage, score, note: note.trim(), submittedAt: new Date().toISOString(), recoveryStatus: needsRecovery ? 'open' : 'not_needed' });
+    if (needsRecovery) {
+      newDb.pmsServiceRequests.unshift({ id: `recovery-${Date.now()}`, reservationId, roomId: reservation.roomId, type: 'guest_recovery', label: 'Rappel satisfaction prioritaire', status: 'requested', priority: 'urgent', scheduledAt: new Date().toISOString(), assignedTo: 'Responsable relation client', amount: 0, note: note.trim() || `Satisfaction ${score}/5 transmise depuis le portail.` });
+    }
+    appendPMSAudit(newDb, 'Satisfaction client', reservation.confirmationNumber, needsRecovery ? `Alerte ${score}/5 transmise au manager.` : `Retour positif ${score}/5 enregistré.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completePMSGuestCheckout = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const folio = newDb.pmsFolios.find(item => item.reservationId === reservationId && item.status === 'open');
+    const room = newDb.pmsRooms.find(item => item.id === reservation?.roomId);
+    if (!reservation || reservation.status !== 'checked_in' || !folio || !room) throw new Error('Départ autonome indisponible pour ce séjour');
+    const balance = folio.charges.reduce((sum, item) => sum + item.amount, 0) - folio.payments.reduce((sum, item) => sum + item.amount, 0);
+    if (balance > 0) throw new Error('Le folio doit être soldé avant le départ');
+    reservation.status = 'checked_out';
+    folio.status = 'closed';
+    room.status = 'vacant';
+    room.housekeepingStatus = 'dirty';
+    newDb.pmsDoorKeys.filter(item => item.reservationId === reservationId && item.status === 'active').forEach(item => { item.status = 'expired'; });
+    newDb.pmsHousekeepingTasks.unshift({ id: `hk-checkout-${Date.now()}`, roomId: room.id, assignedTo: 'Équipe étage', status: 'pending', priority: 'urgent', scheduledDate: newDb.pmsSettings.businessDate, note: 'Départ autonome confirmé depuis le portail client.' });
+    newDb.pmsNotifications.unshift({ id: `post-stay-${Date.now()}`, reservationId, channel: 'whatsapp', type: 'post_stay', recipient: newDb.pmsGuests.find(item => item.id === reservation.guestId)?.phone || '', status: 'scheduled', scheduledAt: new Date(Date.now() + 3600000).toISOString() });
+    appendPMSAudit(newDb, 'Départ autonome', reservation.confirmationNumber, `Folio soldé, clés expirées et chambre ${room.roomNumber} transmise au nettoyage.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const requestPMSReturnStay = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
+    if (!reservation || !guest) throw new Error('Séjour introuvable');
+    guest.returnStayRequestedAt = new Date().toISOString();
+    newDb.pmsServiceRequests.unshift({ id: `return-stay-${Date.now()}`, reservationId, roomId: reservation.roomId, type: 'special_request', label: 'Projet de prochain séjour', status: 'requested', priority: 'normal', scheduledAt: new Date().toISOString(), assignedTo: 'Réservations', amount: 0, note: 'Le client souhaite recevoir une proposition directe personnalisée.' });
+    appendPMSAudit(newDb, 'Intention de retour', reservation.confirmationNumber, `${guest.fullName} souhaite préparer un nouveau séjour.`);
+    saveDB(newDb);
+    refresh();
+  };
+
   const togglePMSAutomationRule = (ruleId: string) => {
     const newDb = getDB();
     const rule = newDb.pmsAutomationRules.find(item => item.id === ruleId);
@@ -1675,6 +1776,201 @@ export const useStockState = () => {
     return result;
   };
 
+  const createRestaurantReservation = (payload: Omit<RestaurantTableReservation, 'id' | 'status' | 'createdAt'>) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === payload.customerId);
+    const pos = newDb.posList.find(item => item.id === payload.posId && item.type === 'restaurant');
+    if (!customer || !pos) throw new Error('Client ou restaurant introuvable');
+    if (payload.guests < 1 || payload.guests > 20) throw new Error('Nombre de personnes invalide');
+    const id = `TABLE-${Date.now().toString().slice(-6)}`;
+    newDb.restaurantReservations.unshift({ ...payload, id, status: 'confirmed', createdAt: new Date().toISOString() });
+    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'restaurant', referenceId: id, sender: 'team', senderName: `${pos.name} · Réservations`, content: `Votre table pour ${payload.guests} personne(s) est confirmée le ${payload.date} à ${payload.time}.`, sentAt: new Date().toISOString(), status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateRestaurantReservation = (reservationId: string, patch: Partial<Pick<RestaurantTableReservation, 'date' | 'time' | 'guests' | 'occasion' | 'notes'>>) => {
+    const newDb = getDB();
+    const reservation = newDb.restaurantReservations.find(item => item.id === reservationId);
+    if (!reservation || reservation.status !== 'confirmed') throw new Error('Cette réservation ne peut plus être modifiée');
+    Object.assign(reservation, patch);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const cancelRestaurantReservation = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.restaurantReservations.find(item => item.id === reservationId);
+    if (!reservation || !['confirmed', 'seated'].includes(reservation.status)) throw new Error('Réservation non annulable');
+    reservation.status = 'cancelled';
+    saveDB(newDb);
+    refresh();
+  };
+
+  const placeRestaurantGuestOrder = (payload: {
+    customerId: string;
+    posId: string;
+    reservationId?: string;
+    tableNumber?: string;
+    folioId?: string;
+    roomNumber?: string;
+    serviceType: RestaurantGuestOrder['serviceType'];
+    items: Array<{ productId: string; quantity: number; note?: string }>;
+    paymentMethod: PaymentType;
+  }) => {
+    const snapshot = getDB();
+    const customer = snapshot.sartalCustomers.find(item => item.id === payload.customerId);
+    const pos = snapshot.posList.find(item => item.id === payload.posId && item.type === 'restaurant');
+    if (!customer || !pos || payload.items.length === 0) throw new Error('Commande restaurant invalide');
+    const items = payload.items.map(item => {
+      const price = snapshot.posPricing.find(rule => rule.posId === pos.id && rule.productId === item.productId && rule.isAvailable);
+      if (!price || item.quantity <= 0) throw new Error('Un article est indisponible');
+      return { ...item, salePrice: price.salePrice };
+    });
+    const total = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
+    if (payload.paymentMethod === 'room_charge') {
+      const folio = snapshot.pmsFolios.find(item => item.id === payload.folioId && item.status === 'open');
+      const room = snapshot.pmsRooms.find(item => item.id === folio?.roomId);
+      if (!folio || !room || room.roomNumber !== payload.roomNumber) {
+        throw new Error('Aucun séjour actif ne permet une imputation sur chambre');
+      }
+    }
+    const id = `REST-${Date.now().toString().slice(-7)}`;
+    const result = stockEngine.processExternalSale({
+      externalSaleId: id,
+      siteId: pos.siteId,
+      posId: pos.id,
+      items: items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+      paymentContext: {
+        type: payload.paymentMethod,
+        amount: total,
+        folioId: payload.paymentMethod === 'room_charge' ? payload.folioId : undefined,
+        roomNumber: payload.paymentMethod === 'room_charge' ? payload.roomNumber : undefined
+      }
+    }, snapshot.currentUser.id, snapshot.currentUser.name);
+    if (!result.success) throw new Error(result.error || 'Commande impossible');
+    const newDb = getDB();
+    const now = new Date().toISOString();
+    newDb.restaurantGuestOrders.unshift({ id, customerId: customer.id, posId: pos.id, reservationId: payload.reservationId, tableNumber: payload.tableNumber, folioId: payload.folioId, roomNumber: payload.roomNumber, serviceType: payload.serviceType, status: 'confirmed', items, payments: [{ id: `rest-payment-${Date.now()}`, amount: total, method: payload.paymentMethod, paidAt: now, payerName: customer.fullName }], total, estimatedMinutes: 30, createdAt: now, updatedAt: now });
+    const storedCustomer = newDb.sartalCustomers.find(item => item.id === customer.id);
+    if (storedCustomer) { storedCustomer.loyaltyPoints += Math.floor(total / 500); storedCustomer.totalSpend += total; storedCustomer.visits += 1; }
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateRestaurantGuestOrderStatus = (orderId: string, status: RestaurantGuestOrder['status']) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
+    if (!order || ['paid', 'cancelled'].includes(order.status)) throw new Error('Commande restaurant non modifiable');
+    order.status = status;
+    order.updatedAt = new Date().toISOString();
+    if (status === 'preparing') order.kitchenStartedAt = order.updatedAt;
+    if (status === 'ready') order.readyAt = order.updatedAt;
+    if (status === 'served') order.servedAt = order.updatedAt;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
+    if (!order || amount <= 0) throw new Error('Paiement invalide');
+    const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
+    const accepted = Math.min(amount, Math.max(0, order.total - paid));
+    if (accepted <= 0) throw new Error('Cette addition est déjà soldée');
+    order.payments.push({ id: `rest-payment-${Date.now()}`, amount: accepted, method, paidAt: new Date().toISOString(), payerName });
+    if (paid + accepted >= order.total) order.status = 'paid';
+    order.updatedAt = new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+    return accepted;
+  };
+
+  const createDeliveryCustomerOrder = (payload: {
+    customerId: string;
+    addressId: string;
+    items: Array<{ productId: string; quantity: number; substitutionPolicy: DeliveryOrder['items'][number]['substitutionPolicy'] }>;
+    paymentType: PaymentType;
+  }) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === payload.customerId);
+    const address = customer?.addresses.find(item => item.id === payload.addressId);
+    const channel = newDb.posList.find(item => item.type === 'online_grocery');
+    const warehouse = newDb.warehouses.find(item => item.id === channel?.defaultWarehouseId);
+    if (!customer || !address || !channel || !warehouse || payload.items.length === 0) throw new Error('Panier ou adresse invalide');
+    const items = payload.items.map(item => {
+      const pricing = newDb.posPricing.find(rule => rule.posId === channel.id && rule.productId === item.productId && rule.isAvailable);
+      const stock = newDb.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === warehouse.id);
+      if (!pricing || !stock || stock.quantityAvailable - stock.quantityReserved < item.quantity) throw new Error('Un produit du panier n’est plus disponible');
+      return { productId: item.productId, quantity: item.quantity, salePrice: pricing.salePrice, substitutionPolicy: item.substitutionPolicy };
+    });
+    const zoneFees: Record<string, { fee: number; minutes: number }> = { 'Point E / Fann': { fee: 1000, minutes: 45 }, 'Mermoz / Sacré-Coeur': { fee: 1200, minutes: 50 }, 'Ouakam / Almadies': { fee: 1500, minutes: 65 } };
+    const delivery = zoneFees[address.zone] || { fee: 2000, minutes: 75 };
+    const id = `CMD-${Date.now().toString().slice(-6)}`;
+    const now = new Date().toISOString();
+    newDb.deliveryOrders.unshift({ id, customerId: customer.id, customerName: customer.fullName, phone: customer.phone, address: address.address, channelId: channel.id, warehouseId: warehouse.id, status: 'confirmed', paymentType: payload.paymentType, paymentStatus: payload.paymentType === 'cash' ? 'pending' : 'paid', items, deliveryFee: delivery.fee, zone: address.zone, estimatedMinutes: delivery.minutes, landmark: address.landmark, deliveryInstructions: address.instructions, verificationCode: id.slice(-4), proofStatus: 'pending', createdAt: now, updatedAt: now });
+    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'delivery', referenceId: id, sender: 'team', senderName: 'Sártal Livraison', content: `Commande ${id} confirmée. Délai estimé : ${delivery.minutes} minutes.`, sentAt: now, status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateDeliverySubstitutionPolicy = (orderId: string, productId: string, policy: NonNullable<DeliveryOrder['items'][number]['substitutionPolicy']>) => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId && item.status === 'confirmed');
+    const line = order?.items.find(item => item.productId === productId);
+    if (!order || !line) throw new Error('Cette commande ne peut plus être modifiée');
+    line.substitutionPolicy = policy;
+    order.updatedAt = new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+  };
+
+  const reorderDeliveryOrder = (orderId: string) => {
+    const source = getDB().deliveryOrders.find(item => item.id === orderId);
+    if (!source?.customerId) throw new Error('Commande source introuvable');
+    const customer = getDB().sartalCustomers.find(item => item.id === source.customerId);
+    const address = customer?.addresses.find(item => item.isDefault) || customer?.addresses[0];
+    if (!address) throw new Error('Adresse client introuvable');
+    return createDeliveryCustomerOrder({ customerId: source.customerId, addressId: address.id, items: source.items.map(item => ({ productId: item.productId, quantity: item.quantity, substitutionPolicy: item.substitutionPolicy || 'contact' })), paymentType: source.paymentType });
+  };
+
+  const sendSartalCustomerMessage = (customerId: string, context: 'restaurant' | 'delivery', content: string, referenceId?: string) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer || !content.trim()) throw new Error('Message invalide');
+    const id = `customer-message-${Date.now()}`;
+    newDb.sartalCustomerMessages.push({ id, customerId, context, referenceId, sender: 'customer', senderName: customer.fullName, content: content.trim(), sentAt: new Date().toISOString(), status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const submitSartalCustomerFeedback = (payload: Omit<SartalCustomerFeedback, 'id' | 'submittedAt' | 'recoveryStatus'>) => {
+    const newDb = getDB();
+    if (!newDb.sartalCustomers.some(item => item.id === payload.customerId) || payload.score < 1 || payload.score > 5) throw new Error('Avis invalide');
+    const feedback: SartalCustomerFeedback = { ...payload, id: `customer-feedback-${Date.now()}`, submittedAt: new Date().toISOString(), recoveryStatus: payload.score <= 3 ? 'open' : 'not_needed' };
+    newDb.sartalCustomerFeedback.unshift(feedback);
+    if (payload.context === 'delivery' && payload.score <= 3) {
+      const order = newDb.deliveryOrders.find(item => item.id === payload.referenceId);
+      if (order) order.deliveryIssue = payload.note || `Insatisfaction client ${payload.score}/5`;
+    }
+    saveDB(newDb);
+    refresh();
+    return feedback.id;
+  };
+
+  const confirmDeliveryProof = (orderId: string, code: string) => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId);
+    if (!order || code !== order.verificationCode) throw new Error('Code de livraison incorrect');
+    order.proofStatus = 'code_verified';
+    saveDB(newDb);
+    refresh();
+  };
+
   return {
     db,
     changeCurrentUser,
@@ -1733,6 +2029,13 @@ export const useStockState = () => {
     issuePMSDoorKey,
     revokePMSDoorKey,
     completePMSPreCheckIn,
+    updatePMSGuestExperienceProfile,
+    sendPMSGuestMessage,
+    addPMSStayCompanion,
+    sharePMSDoorKey,
+    submitPMSGuestFeedback,
+    completePMSGuestCheckout,
+    requestPMSReturnStay,
     togglePMSAutomationRule,
     validatePMSMigrationRun,
     updatePMSBookingEngine,
@@ -1752,6 +2055,18 @@ export const useStockState = () => {
     returnDeliveryOrder,
     cancelDeliveryOrder,
     deliverDeliveryOrder,
+    createRestaurantReservation,
+    updateRestaurantReservation,
+    cancelRestaurantReservation,
+    placeRestaurantGuestOrder,
+    updateRestaurantGuestOrderStatus,
+    addRestaurantGuestOrderPayment,
+    createDeliveryCustomerOrder,
+    updateDeliverySubstitutionPolicy,
+    reorderDeliveryOrder,
+    sendSartalCustomerMessage,
+    submitSartalCustomerFeedback,
+    confirmDeliveryProof,
     resetAllData
   };
 };

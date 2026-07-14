@@ -44,6 +44,14 @@ import {
   PMSDebtorAccount,
   PMSAutomationRule,
   PMSBookingEngineSettings,
+  PMSGuestMessage,
+  PMSStayCompanion,
+  PMSGuestFeedback,
+  SartalCustomer,
+  RestaurantTableReservation,
+  RestaurantGuestOrder,
+  SartalCustomerMessage,
+  SartalCustomerFeedback,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -69,6 +77,11 @@ export interface DatabaseState {
   externalSales: ExternalSale[];
   externalPOSImportRuns: ExternalPOSImportRun[];
   deliveryOrders: DeliveryOrder[];
+  sartalCustomers: SartalCustomer[];
+  restaurantReservations: RestaurantTableReservation[];
+  restaurantGuestOrders: RestaurantGuestOrder[];
+  sartalCustomerMessages: SartalCustomerMessage[];
+  sartalCustomerFeedback: SartalCustomerFeedback[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -94,6 +107,9 @@ export interface DatabaseState {
   pmsDebtorAccounts: PMSDebtorAccount[];
   pmsAutomationRules: PMSAutomationRule[];
   pmsBookingEngine: PMSBookingEngineSettings;
+  pmsGuestMessages: PMSGuestMessage[];
+  pmsStayCompanions: PMSStayCompanion[];
+  pmsGuestFeedback: PMSGuestFeedback[];
   pmsScenarioStep: number;
   users: User[];
   currentUser: User;
@@ -878,6 +894,20 @@ const initialDB = (): DatabaseState => {
     { id: 'key-305-main', roomId: 'room-305', reservationId: 'res-305', code: 'K305-9184', status: 'active', issuedAt: `${hotelDate(-2)}T16:45:00.000Z`, validUntil: `${hotelDate(1)}T12:00:00.000Z` }
   ];
 
+  const pmsGuestMessages: PMSGuestMessage[] = [
+    { id: 'message-204-welcome', reservationId: 'res-204', sender: 'team', senderName: 'Awa · Réception', channel: 'whatsapp', content: 'Bienvenue Aminata. Votre chambre est prête. Je reste disponible ici pendant tout votre séjour.', sentAt: `${hotelDate(-1)}T13:50:00.000Z`, status: 'read' },
+    { id: 'message-204-guest', reservationId: 'res-204', sender: 'guest', senderName: 'Aminata Diop', channel: 'portal', content: 'Merci. Pourriez-vous prévoir un petit-déjeuner sans sucre demain matin ?', sentAt: `${hotelDate(-1)}T14:02:00.000Z`, status: 'read' },
+    { id: 'message-204-team', reservationId: 'res-204', sender: 'team', senderName: 'Awa · Réception', channel: 'portal', content: 'C’est confirmé pour 7 h 30. Le restaurant a bien reçu votre préférence.', sentAt: `${hotelDate(-1)}T14:05:00.000Z`, status: 'read' }
+  ];
+
+  const pmsStayCompanions: PMSStayCompanion[] = [
+    { id: 'companion-204-1', reservationId: 'res-204', fullName: 'Mame Diop', phone: '+221 77 642 18 30', relationship: 'Accompagnante', invitedAt: `${hotelDate(-1)}T14:10:00.000Z`, status: 'active' }
+  ];
+
+  const pmsGuestFeedback: PMSGuestFeedback[] = [
+    { id: 'feedback-204-1', reservationId: 'res-204', stage: 'in_stay', score: 5, note: 'Accueil très attentionné.', submittedAt: `${today}T09:10:00.000Z`, recoveryStatus: 'not_needed' }
+  ];
+
   const pmsDebtorAccounts: PMSDebtorAccount[] = [
     { id: 'debtor-sahel', name: 'Sahel Conseil', type: 'company', balance: 465000, creditLimit: 1500000, dueDate: hotelDate(15), status: 'current' },
     { id: 'debtor-agence', name: 'Agence Teranga Voyages', type: 'agency', balance: 285000, creditLimit: 500000, dueDate: hotelDate(-2), status: 'due' },
@@ -899,6 +929,28 @@ const initialDB = (): DatabaseState => {
     lastBookingAt: `${today}T10:32:00.000Z`,
     bookingsToday: 3
   };
+
+  const sartalCustomers: SartalCustomer[] = [
+    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
+    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
+    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferences: 'Livraison après 18 h', profileConsent: true, loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
+  ];
+
+  const restaurantReservations: RestaurantTableReservation[] = [
+    { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: today, time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: `${hotelDate(-2)}T18:20:00.000Z` },
+    { id: 'table-res-awa', customerId: 'customer-awa', posId: 'pos-1', date: hotelDate(2), time: '13:00', guests: 2, occasion: 'business', status: 'confirmed', tableNumber: 'T06', createdAt: `${today}T10:15:00.000Z` }
+  ];
+
+  const restaurantGuestOrders: RestaurantGuestOrder[] = [
+    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', status: 'served', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
+  ];
+
+  const sartalCustomerMessages: SartalCustomerMessage[] = [
+    { id: 'client-message-restaurant-1', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', sender: 'team', senderName: 'Moussa · La Terrasse', content: 'Bienvenue Aminata. Votre table est prête et la cuisine a bien reçu votre information concernant les arachides.', sentAt: `${today}T19:48:00.000Z`, status: 'read' },
+    { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: `${today}T10:05:00.000Z`, status: 'read' }
+  ];
+
+  const sartalCustomerFeedback: SartalCustomerFeedback[] = [];
 
   const deliveryOrders: DeliveryOrder[] = [
     {
@@ -1033,6 +1085,16 @@ const initialDB = (): DatabaseState => {
       ]
     }
   ];
+
+  deliveryOrders.forEach(order => {
+    const customer = sartalCustomers.find(item => item.phone === order.phone);
+    order.customerId = customer?.id;
+    order.landmark = customer?.addresses.find(address => address.isDefault)?.landmark || 'Repère à confirmer avec le client';
+    order.deliveryInstructions = customer?.addresses.find(address => address.isDefault)?.instructions;
+    order.verificationCode = order.id.slice(-4).padStart(4, '0');
+    order.proofStatus = order.status === 'delivered' ? 'code_verified' : 'pending';
+    order.items = order.items.map(item => ({ ...item, substitutionPolicy: item.substitutionProductId ? 'replace' : 'contact' }));
+  });
 
   const supplierOrders: SupplierOrder[] = [
     {
@@ -1208,6 +1270,11 @@ const initialDB = (): DatabaseState => {
     externalSales: pmsLinkedSales,
     externalPOSImportRuns: [],
     deliveryOrders,
+    sartalCustomers,
+    restaurantReservations,
+    restaurantGuestOrders,
+    sartalCustomerMessages,
+    sartalCustomerFeedback,
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -1233,6 +1300,9 @@ const initialDB = (): DatabaseState => {
     pmsDebtorAccounts,
     pmsAutomationRules,
     pmsBookingEngine,
+    pmsGuestMessages,
+    pmsStayCompanions,
+    pmsGuestFeedback,
     pmsScenarioStep: 0,
     users,
     currentUser: users[0] // Admin by default
@@ -1794,6 +1864,22 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       guaranteeType: 'deposit', guaranteeStatus: 'secured', estimatedArrivalTime: '16:30'
     });
   }
+  const sartalCustomers = state.sartalCustomers || [
+    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr' as const, preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature' as const, visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
+    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr' as const, preferences: 'Produits locaux et paniers familiaux', profileConsent: true, loyaltyPoints: 760, loyaltyTier: 'teranga' as const, visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] }
+  ];
+  const deliveryOrders = (state.deliveryOrders || []).map(order => {
+    const customer = sartalCustomers.find(item => item.id === order.customerId || item.phone === order.phone);
+    return {
+      ...order,
+      customerId: order.customerId || customer?.id,
+      landmark: order.landmark || customer?.addresses.find(address => address.isDefault)?.landmark || 'Repère à confirmer',
+      deliveryInstructions: order.deliveryInstructions || customer?.addresses.find(address => address.isDefault)?.instructions,
+      verificationCode: order.verificationCode || order.id.slice(-4).padStart(4, '0'),
+      proofStatus: order.proofStatus || (order.status === 'delivered' ? 'code_verified' as const : 'pending' as const),
+      items: order.items.map(item => ({ ...item, substitutionPolicy: item.substitutionPolicy || (item.substitutionProductId ? 'replace' as const : 'contact' as const) }))
+    };
+  });
 
   const migratedState: DatabaseState = {
     ...state,
@@ -1816,7 +1902,19 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     losses: state.losses || [],
     externalSales: state.externalSales || [],
     externalPOSImportRuns: state.externalPOSImportRuns || [],
-    deliveryOrders: state.deliveryOrders || [],
+    deliveryOrders,
+    sartalCustomers,
+    restaurantReservations: state.restaurantReservations || [
+      { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
+    ],
+    restaurantGuestOrders: state.restaurantGuestOrders || [
+      { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', status: 'served', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    ],
+    sartalCustomerMessages: state.sartalCustomerMessages || [
+      { id: 'client-message-restaurant-1', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', sender: 'team', senderName: 'Moussa · La Terrasse', content: 'Bienvenue Aminata. Votre table est prête et la cuisine a bien reçu vos préférences.', sentAt: new Date().toISOString(), status: 'read' },
+      { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: new Date().toISOString(), status: 'read' }
+    ],
+    sartalCustomerFeedback: state.sartalCustomerFeedback || [],
     cashSessions,
     pmsRooms,
     pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [], charges: (folio.charges || []).map(charge => ({ ...charge, billingWindow: charge.billingWindow || 'guest' })) })),
@@ -1862,6 +1960,13 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       { id: 'auto-review', name: 'Avis après séjour', trigger: 'after_checkout', channel: 'email', active: true, sentCount: 24 }
     ],
     pmsBookingEngine: state.pmsBookingEngine || { enabled: true, publicUrl: 'reservation.sartal.sn/complexe-dakar', depositPercent: 30, instantConfirmation: true, bookingsToday: 3 },
+    pmsGuestMessages: state.pmsGuestMessages || [
+      { id: 'message-204-welcome', reservationId: 'res-204', sender: 'team', senderName: 'Awa · Réception', channel: 'whatsapp', content: 'Bienvenue Aminata. Votre chambre est prête. Je reste disponible ici pendant tout votre séjour.', sentAt: new Date().toISOString(), status: 'read' }
+    ],
+    pmsStayCompanions: state.pmsStayCompanions || [
+      { id: 'companion-204-1', reservationId: 'res-204', fullName: 'Mame Diop', phone: '+221 77 642 18 30', relationship: 'Accompagnante', invitedAt: new Date().toISOString(), status: 'active' }
+    ],
+    pmsGuestFeedback: state.pmsGuestFeedback || [],
     pmsScenarioStep: state.pmsScenarioStep || 0,
     pmsSettings: state.pmsSettings || {
       hotelName: state.sites?.[0]?.name || 'Complexe Hôtelier Dakar',

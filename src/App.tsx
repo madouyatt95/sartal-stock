@@ -29,7 +29,8 @@ import {
   Truck,
   Search,
   Bell,
-  BedDouble
+  BedDouble,
+  HeartHandshake
 } from 'lucide-react';
 
 // Subviews
@@ -60,6 +61,8 @@ import GuidedDemo from './views/GuidedDemo';
 import BusinessProblems from './views/BusinessProblems';
 import SmartAlerts from './views/SmartAlerts';
 import PMSHotel from './views/PMSHotel';
+import { PMSGuestExperiencePortal } from './views/PMSSignatureExperience';
+import SartalClient from './views/SartalClient';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -78,11 +81,21 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  const guestReservationId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sejour') : null;
+  if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
+    return <main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main>;
+  }
+  const publicClientMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null;
+  if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
+    return <main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone /></main>;
+  }
+
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
   const sidebarLinks = [
     { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
+    { id: 'client', label: 'Expérience client', mobileLabel: 'Client', icon: <HeartHandshake size={18} />, roles: ['admin', 'director', 'pos_manager'], section: 'Accueil' },
 
     { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
@@ -126,7 +139,7 @@ export const App: React.FC = () => {
     { id: 'Contrôle', label: 'Contrôle & rapports' },
     { id: 'Réglages', label: 'Réglages' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'answer', 'pms', 'delivery', 'stock-control'];
+  const mobilePrimaryOrder = ['dashboard', 'client', 'pms', 'delivery', 'stock-control'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -193,6 +206,8 @@ export const App: React.FC = () => {
         return <GuidedDemo state={state} setView={setView} />;
       case 'business-problems':
         return <BusinessProblems state={state} setView={setView} />;
+      case 'client':
+        return <SartalClient state={state} />;
       case 'answer':
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
