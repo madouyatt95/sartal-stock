@@ -775,12 +775,13 @@ export const useStockState = () => {
             status: 'reconciled',
             category: 'room'
           }],
-          payments: reservation.depositAmount > 0 ? [{
+          payments: reservation.prepayments?.length ? reservation.prepayments.map(payment => ({ ...payment })) : reservation.depositAmount > 0 ? [{
             id: `pay-deposit-${Date.now()}`,
             amount: reservation.depositAmount,
             method: 'other',
             date: new Date().toISOString(),
-            reference: 'Acompte réservation'
+            reference: 'Acompte réservation',
+            kind: 'deposit'
           }] : []
         });
       }
@@ -965,6 +966,26 @@ export const useStockState = () => {
     appendPMSAudit(newDb, 'Paiement folio', folio.reservationNumber, `${amount} FCFA par ${method}.`);
     saveDB(newDb);
     refresh();
+  };
+
+  const addPMSReservationPayment = (reservationId: string, amount: number, method: PaymentType, reference?: string) => {
+    if (amount <= 0) throw new Error('Le montant doit être supérieur à zéro.');
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation) throw new Error('Réservation introuvable');
+    const folio = newDb.pmsFolios.find(item => item.reservationId === reservationId && item.status === 'open');
+    const payment = { id: `pay-guest-${Date.now()}`, amount, method, date: new Date().toISOString(), reference, kind: folio ? 'payment' as const : 'deposit' as const };
+    if (folio) folio.payments.push(payment);
+    else {
+      reservation.prepayments = [...(reservation.prepayments || []), payment];
+      reservation.depositAmount += amount;
+      reservation.guaranteeType = 'deposit';
+      reservation.guaranteeStatus = 'secured';
+    }
+    appendPMSAudit(newDb, folio ? 'Paiement portail client' : 'Acompte portail client', reservation.confirmationNumber, `${amount} FCFA réglés par ${method}${reference ? ` · ${reference}` : ''}.`);
+    saveDB(newDb);
+    refresh();
+    return payment.id;
   };
 
   const transferPMSFolioCharge = (chargeId: string, targetFolioId: string, amount: number) => {
@@ -1203,16 +1224,21 @@ export const useStockState = () => {
     refresh();
   };
 
-  const completePMSPreCheckIn = (reservationId: string) => {
+  const completePMSPreCheckIn = (reservationId: string, payload?: Partial<Pick<PMSGuest, 'phone' | 'email' | 'nationality' | 'preferences' | 'documentType' | 'documentNumber'>> & { estimatedArrivalTime?: string }) => {
     const newDb = getDB();
     const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
     const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
     if (!reservation || !guest) throw new Error('Séjour ou client introuvable');
+    if (payload) {
+      const { estimatedArrivalTime, ...guestPatch } = payload;
+      Object.assign(guest, guestPatch);
+      if (estimatedArrivalTime) reservation.estimatedArrivalTime = estimatedArrivalTime;
+    }
     guest.preCheckInStatus = 'completed';
     guest.consentSignedAt = new Date().toISOString();
     if (!guest.documentType) guest.documentType = 'identity_card';
     if (!guest.documentNumber) guest.documentNumber = `SN-${Date.now().toString().slice(-8)}`;
-    appendPMSAudit(newDb, 'Pré-check-in mobile', reservation.confirmationNumber, `${guest.fullName} a transmis son identité et signé.`);
+    appendPMSAudit(newDb, 'Pré-check-in mobile', reservation.confirmationNumber, `${guest.fullName} a transmis son identité, ses préférences et son heure d’arrivée.`);
     saveDB(newDb);
     refresh();
   };
@@ -1687,6 +1713,7 @@ export const useStockState = () => {
     updatePMSHousekeepingTask,
     updatePMSHousekeepingDetails,
     addPMSFolioPayment,
+    addPMSReservationPayment,
     transferPMSFolioCharge,
     routePMSFolioCharge,
     issuePMSDocument,

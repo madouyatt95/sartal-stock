@@ -471,6 +471,7 @@ export interface PMSReservation {
   source: 'direct' | 'phone' | 'agency' | 'company' | 'online';
   nightlyRate: number;
   depositAmount: number;
+  prepayments?: PMSFolioPayment[];
   notes?: string;
   ratePlanId?: string;
   guaranteeType?: 'deposit' | 'company' | 'card' | 'none';

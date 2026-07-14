@@ -26,12 +26,13 @@ try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { PMSHotel } = await server.ssrLoadModule('/src/views/PMSHotel.tsx');
+  const { buildPMSUnifiedJourney } = await server.ssrLoadModule('/src/utils/pmsUnifiedJourney.ts');
   const tabs = {
-    dashboard: 'Demandes et conciergerie',
+    dashboard: 'Poste Sártal',
     planning: 'Planning opérationnel jusqu’à 90 jours',
     reservations: 'Nouvelle réservation',
     rooms: 'Plan des chambres',
-    guests: 'Dossier client 360',
+    guests: 'Mon séjour Sártal',
     folios: 'Folios clients',
     housekeeping: 'Feuille de travail housekeeping',
     audit: 'Clôture du',
@@ -49,6 +50,11 @@ try {
     assert(html.includes(marker), `Onglet PMS ${tab}: contenu attendu absent (${marker})`);
     assert(!html.includes('Chambre undefined'), `Onglet PMS ${tab}: chambre non attribuée mal affichée`);
   }
+
+  const unifiedJourney = buildPMSUnifiedJourney(getDB(), 'res-204');
+  assert(unifiedJourney.score === 100, `La vérité métier du séjour 204 devrait être complète (${unifiedJourney.score}%)`);
+  assert(unifiedJourney.linkedSales === 1, 'Le ticket POS lié au séjour 204 est introuvable');
+  assert(unifiedJourney.linkedMovements === 3, 'Les trois mouvements stock du ticket 204 sont introuvables');
 
   let db = getDB();
   const reservation = db.pmsReservations.find(item => !item.roomId && item.status === 'confirmed');
@@ -148,9 +154,14 @@ try {
   state.revokePMSDoorKey(issuedKey.id);
   assert(getDB().pmsDoorKeys.find(item => item.id === issuedKey.id).status === 'revoked', 'Clé électronique non révoquée');
 
-  state.completePMSPreCheckIn(reservation.id);
+  state.completePMSPreCheckIn(reservation.id, { preferences: 'Oreiller ferme et arrivée calme', estimatedArrivalTime: '17:45', documentType: 'passport', documentNumber: 'TEST-PASSPORT-42' });
   db = getDB();
   assert(db.pmsGuests.find(item => item.id === reservation.guestId).preCheckInStatus === 'completed', 'Pré-check-in mobile non finalisé');
+  assert(db.pmsGuests.find(item => item.id === reservation.guestId).preferences === 'Oreiller ferme et arrivée calme', 'Préférences du portail client non enregistrées');
+  assert(db.pmsReservations.find(item => item.id === reservation.id).estimatedArrivalTime === '17:45', 'Heure d’arrivée du portail client non enregistrée');
+
+  const portalPaymentId = state.addPMSReservationPayment(reservation.id, 15000, 'wave', 'WAVE-TEST-PORTAIL');
+  assert(getDB().pmsFolios.find(item => item.reservationId === reservation.id).payments.some(item => item.id === portalPaymentId), 'Paiement portail non rattaché au folio du séjour');
 
   const automation = db.pmsAutomationRules[0];
   const previousAutomationStatus = automation.active;
@@ -201,7 +212,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 27 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 34 actions critiques validés.`);
 } finally {
   await server.close();
 }

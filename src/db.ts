@@ -100,7 +100,7 @@ export interface DatabaseState {
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v12';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v13';
 
 const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string => {
   if (product.category.includes('Boissons premium')) return 'sup-premium';
@@ -736,7 +736,7 @@ const initialDB = (): DatabaseState => {
       status: 'open',
       charges: [
         { id: 'charge-204-room', saleId: 'stay-204-night', externalSaleId: 'NUIT-204-01', posId: 'pos-1', label: 'Nuitée Suite Junior', amount: 85000, date: `${hotelDate(-1)}T22:00:00.000Z`, status: 'reconciled', category: 'room' },
-        { id: 'charge-204-resto', saleId: 'sale-204-resto', externalSaleId: 'REST-204-0142', posId: 'pos-1', label: 'Dîner Restaurant La Terrasse', amount: 12500, date: `${today}T20:15:00.000Z`, status: 'pending', category: 'restaurant' },
+        { id: 'charge-204-resto', saleId: 'sale-204-resto', externalSaleId: 'REST-204-0142', posId: 'pos-1', label: 'Boissons Restaurant La Terrasse', amount: 12500, date: `${today}T20:15:00.000Z`, status: 'reconciled', category: 'restaurant' },
         { id: 'charge-204-service', saleId: 'service-204-laundry', externalSaleId: 'SERV-204-008', posId: 'pos-1', label: 'Service blanchisserie', amount: 6000, date: `${today}T10:20:00.000Z`, status: 'exported', category: 'service' }
       ],
       payments: [{ id: 'pay-204', amount: 50000, method: 'wave', date: `${hotelDate(-1)}T14:05:00.000Z`, reference: 'WV-204-50000' }]
@@ -1141,6 +1141,52 @@ const initialDB = (): DatabaseState => {
     });
   });
 
+  const pmsLinkedSales: ExternalSale[] = [{
+    id: 'sale-204-resto',
+    externalSaleId: 'REST-204-0142',
+    siteId: 'site-1',
+    posId: 'pos-1',
+    items: [
+      { productId: 'prod-coca', quantity: 5, salePrice: 1500 },
+      { productId: 'prod-jus-gingembre', quantity: 2, salePrice: 1500 },
+      { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }
+    ],
+    paymentContext: { type: 'room_charge', roomNumber: '204', folioId: 'folio-204', amount: 12500 },
+    exportedToPms: true,
+    date: `${today}T20:15:00.000Z`
+  }];
+
+  pmsLinkedSales.forEach(sale => {
+    const pos = posList.find(item => item.id === sale.posId);
+    sale.items.forEach((item, index) => {
+      const stock = stocks.find(entry => entry.productId === item.productId && entry.warehouseId === pos?.defaultWarehouseId);
+      const batch = batches.find(entry => entry.productId === item.productId && entry.warehouseId === pos?.defaultWarehouseId && entry.quantity >= item.quantity);
+      if (stock) {
+        stock.quantityAvailable = Math.max(0, stock.quantityAvailable - item.quantity);
+        stock.lastUpdated = sale.date;
+      }
+      if (batch) batch.quantity = Math.max(0, batch.quantity - item.quantity);
+      movements.push({
+        id: `mvt-${sale.id}-${index}`,
+        companyId: 'comp-1',
+        siteId: sale.siteId,
+        posId: sale.posId,
+        warehouseId: pos?.defaultWarehouseId || 'wh-restaurant',
+        productId: item.productId,
+        batchId: batch?.id,
+        type: 'sale_consumption',
+        quantity: -item.quantity,
+        unit: products.find(product => product.id === item.productId)?.baseUnit || 'unité',
+        cost: batch?.purchaseCost || stock?.averageCost || 0,
+        userId: 'user-pos-mgr',
+        userName: 'Responsable Resto',
+        date: sale.date,
+        reason: `Vente ${sale.externalSaleId} imputée sur la chambre ${sale.paymentContext.roomNumber}`,
+        externalReference: sale.externalSaleId
+      });
+    });
+  });
+
   return {
     companies,
     sites,
@@ -1159,7 +1205,7 @@ const initialDB = (): DatabaseState => {
     transfers: [],
     inventories: [],
     losses,
-    externalSales: [],
+    externalSales: pmsLinkedSales,
     externalPOSImportRuns: [],
     deliveryOrders,
     cashSessions: [],
@@ -1673,6 +1719,33 @@ const ensureHospitalityDemoData = (state: DatabaseState): DatabaseState => {
     } else {
       state.deliveryOrders.push(order);
     }
+  });
+
+  if (!state.externalSales.some(item => item.id === 'sale-204-resto')) {
+    const linkedSale: ExternalSale = {
+      id: 'sale-204-resto', externalSaleId: 'REST-204-0142', siteId: 'site-1', posId: 'pos-1',
+      items: [
+        { productId: 'prod-coca', quantity: 5, salePrice: 1500 },
+        { productId: 'prod-jus-gingembre', quantity: 2, salePrice: 1500 },
+        { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }
+      ],
+      paymentContext: { type: 'room_charge', roomNumber: '204', folioId: 'folio-204', amount: 12500 },
+      exportedToPms: true,
+      date: new Date().toISOString()
+    };
+    state.externalSales.push(linkedSale);
+    const pos = state.posList.find(item => item.id === linkedSale.posId);
+    linkedSale.items.forEach((item, index) => {
+      const stock = state.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === pos?.defaultWarehouseId);
+      const batch = state.batches.find(entry => entry.productId === item.productId && entry.warehouseId === pos?.defaultWarehouseId && entry.quantity >= item.quantity);
+      if (stock) stock.quantityAvailable = Math.max(0, stock.quantityAvailable - item.quantity);
+      if (batch) batch.quantity = Math.max(0, batch.quantity - item.quantity);
+      state.movements.push({ id: `mvt-${linkedSale.id}-${index}`, companyId: 'comp-1', siteId: linkedSale.siteId, posId: linkedSale.posId, warehouseId: pos?.defaultWarehouseId || 'wh-restaurant', productId: item.productId, batchId: batch?.id, type: 'sale_consumption', quantity: -item.quantity, unit: state.products.find(product => product.id === item.productId)?.baseUnit || 'unité', cost: batch?.purchaseCost || stock?.averageCost || 0, userId: 'user-pos-mgr', userName: 'Responsable Resto', date: linkedSale.date, reason: 'Vente REST-204-0142 imputée sur la chambre 204', externalReference: linkedSale.externalSaleId });
+    });
+  }
+  state.pmsFolios.find(folio => folio.id === 'folio-204')?.charges.filter(charge => charge.id === 'charge-204-resto').forEach(charge => {
+    charge.label = 'Boissons Restaurant La Terrasse';
+    charge.status = 'reconciled';
   });
 
   localStorage.setItem(DEMO_SEED_KEY, 'done');

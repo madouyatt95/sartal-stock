@@ -39,8 +39,7 @@ import {
   PMSGroupsEvents,
   PMSGuestRelations,
   PMSMaintenancePanel,
-  PMSMultiSitePanel,
-  PMSRoleDashboard
+  PMSMultiSitePanel
 } from './PMSAdvancedPanels';
 import {
   PMSFrontDeskCommand,
@@ -61,11 +60,11 @@ import {
   PMSDistributionHub,
   PMSFinanceCenter,
   PMSGroupAllotments,
-  PMSGuestPortal,
   PMSMigrationCockpit,
   PMSPackageManager
 } from './PMSReplacementSuite';
 import { PMSConfigurationCenter } from './PMSConfigurationCenter';
+import { PMSGuestExperiencePortal, PMSSignatureWorkspace, PMSUnifiedJourneyPanel } from './PMSSignatureExperience';
 
 interface PMSHotelProps {
   state: StockState;
@@ -429,10 +428,11 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderDashboard = () => (
     <>
+      <PMSSignatureWorkspace state={state} onNavigate={openTab} />
       {renderKpis()}
       <PMSFrontDeskCommand state={state} />
+      <PMSUnifiedJourneyPanel state={state} />
       <PMSServiceDesk state={state} />
-      <PMSRoleDashboard state={state} />
       <section className="card pms-section-card">
         <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div><button className="btn btn-secondary" onClick={() => setActiveTab('rooms')}>Voir les chambres</button></div>
         <div className="pms-room-summary">
@@ -541,8 +541,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const renderGuests = () => (
     <>
       <section className="card pms-section-card pms-management-callout"><div><Users size={20} /><span><strong>Répertoire clients configurable</strong><small>Créer une fiche, corriger les coordonnées, les préférences ou la fidélité.</small></span></div><button className="btn btn-primary" onClick={() => { setConfigFocus('pmsGuests'); setActiveTab('settings'); }}><Pencil size={16} /> Gérer les clients</button></section>
+      <PMSGuestExperiencePortal state={state} />
       <PMSGuestCommandCenter state={state} />
-      <PMSGuestPortal state={state} />
       <PMSGuestRelations state={state} />
     </>
   );
@@ -579,6 +579,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       })()}
     </div>
     <PMSPackageManager state={state} />
+    <PMSUnifiedJourneyPanel state={state} />
     <PMSFinanceCenter state={state} />
     </>
   );
