@@ -3880,6 +3880,271 @@ button, input, select, textarea {
   }
 }
 
+/* PMS administration */
+.btn-danger-soft {
+  background: #fff5f4;
+  color: #a8322c;
+  border: 1px solid #efc6c2;
+}
+
+.btn-danger-soft:hover {
+  background: #fee9e7;
+  border-color: #d9938d;
+}
+
+.pms-config-center {
+  overflow: hidden;
+}
+
+.pms-management-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.pms-management-callout > div {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.pms-management-callout > div > svg {
+  color: var(--primary);
+}
+
+.pms-management-callout span {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.pms-management-callout small {
+  color: var(--text-muted);
+}
+
+.pms-config-tabs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem 0 0.75rem;
+  scrollbar-width: thin;
+}
+
+.pms-config-tabs button {
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.pms-config-tabs button b {
+  min-width: 1.45rem;
+  padding: 0.12rem 0.35rem;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.pms-config-tabs button.active {
+  border-color: var(--primary);
+  background: var(--primary-lightest);
+  color: var(--primary-hover);
+}
+
+.pms-config-tabs button.active b {
+  background: var(--primary);
+  color: #fff;
+}
+
+.pms-config-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 0.8fr) auto;
+  align-items: end;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.pms-config-toolbar h3,
+.pms-config-toolbar p {
+  margin: 0;
+}
+
+.pms-config-toolbar p {
+  margin-top: 0.2rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.pms-config-list {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.pms-config-list > article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  background: var(--bg-card);
+}
+
+.pms-config-record-icon {
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--primary-lightest);
+  color: var(--primary);
+}
+
+.pms-config-list > article > div:nth-child(2) {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.pms-config-list > article > div:nth-child(2) strong,
+.pms-config-list > article > div:nth-child(2) span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pms-config-list > article > div:nth-child(2) span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.pms-config-record-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.pms-config-modal {
+  width: min(860px, calc(100vw - 2rem));
+  max-height: min(88vh, 820px);
+  overflow: auto;
+}
+
+.pms-config-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1rem;
+}
+
+.pms-config-field-wide,
+.pms-config-checkbox {
+  grid-column: 1 / -1;
+}
+
+.pms-config-checkbox {
+  margin: 0;
+}
+
+@media (max-width: 760px) {
+  .pms-config-center {
+    padding: 0.85rem;
+  }
+
+  .pms-management-callout {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pms-management-callout .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pms-config-center > .pms-section-header {
+    align-items: flex-start;
+  }
+
+  .pms-config-center > .pms-section-header .badge {
+    display: none;
+  }
+
+  .pms-config-tabs {
+    margin-inline: -0.85rem;
+    padding-inline: 0.85rem;
+  }
+
+  .pms-config-tabs button {
+    min-height: 2.75rem;
+  }
+
+  .pms-config-toolbar {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+
+  .pms-config-toolbar .btn {
+    width: 100%;
+  }
+
+  .pms-config-list {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .pms-config-list > article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pms-config-record-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pms-config-record-actions .btn {
+    justify-content: center;
+  }
+
+  .pms-config-modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 1rem);
+    margin: 0.5rem;
+    padding: 1rem;
+  }
+
+  .pms-config-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pms-config-field-wide,
+  .pms-config-checkbox {
+    grid-column: auto;
+  }
+
+  .pms-config-modal .modal-actions {
+    position: sticky;
+    bottom: -1rem;
+    z-index: 2;
+    margin: 0 -1rem -1rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+  }
+}
+
 /* PMS premium operations */
 .pms-frontdesk-command {
   display: grid;

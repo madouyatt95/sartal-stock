@@ -17,6 +17,7 @@ import {
   Sparkles,
   Star,
   TrendingUp,
+  Trash2,
   UserCheck,
   Users,
   WalletCards,
@@ -272,7 +273,7 @@ export const PMSRoomRack: React.FC<PMSPanelProps> = ({ state }) => {
 };
 
 export const PMSHousekeepingMobile: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, updatePMSHousekeepingTask, updatePMSHousekeepingDetails } = state;
+  const { db, updatePMSHousekeepingTask, updatePMSHousekeepingDetails, deletePMSConfigRecord } = state;
   return (
     <section className="card pms-section-card pms-housekeeping-mobile">
       <div className="pms-section-header"><div><span className="pms-eyebrow"><Sparkles size={15} /> Équipe mobile</span><h2>Feuille de travail housekeeping</h2><p>Affectation, linge, minibar, preuves et temps d’intervention.</p></div></div>
@@ -280,7 +281,7 @@ export const PMSHousekeepingMobile: React.FC<PMSPanelProps> = ({ state }) => {
         {db.pmsHousekeepingTasks.map(task => {
           const room = db.pmsRooms.find(item => item.id === task.roomId);
           const elapsed = task.startedAt ? Math.max(1, Math.round((Date.now() - new Date(task.startedAt).getTime()) / 60000)) : 0;
-          return <article key={task.id}><header><div><span className={`pms-room-dot ${room?.status}`} /><strong>Chambre {room?.roomNumber}</strong><small>{room?.roomType} · {task.assignedTo}</small></div><span className={`badge ${task.priority === 'urgent' ? 'badge-red' : 'badge-gray'}`}>{task.priority === 'urgent' ? 'Prioritaire' : 'Standard'}</span></header><div className="pms-housekeeping-facts"><button onClick={() => updatePMSHousekeepingDetails(task.id, { linenStatus: task.linenStatus === 'complete' ? 'missing' : 'complete' })}><span>Linge</span><strong>{task.linenStatus === 'complete' ? 'Complet' : 'À compléter'}</strong></button><button onClick={() => updatePMSHousekeepingDetails(task.id, { minibarStatus: task.minibarStatus === 'checked' ? 'restock' : 'checked' })}><span>Minibar</span><strong>{task.minibarStatus === 'checked' ? 'Contrôlé' : 'À réassortir'}</strong></button><button onClick={() => updatePMSHousekeepingDetails(task.id, { photoCount: (task.photoCount || 0) + 1 })}><span>Photos</span><strong>{task.photoCount || 0}</strong></button><div><span>Durée</span><strong>{elapsed ? `${elapsed} min` : 'Non démarrée'}</strong></div></div><div className="pms-housekeeping-actions">{task.status === 'pending' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'in_progress')}>Démarrer</button>}{task.status === 'in_progress' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'completed')}>Terminer</button>}{task.status === 'completed' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'inspected')}>Contrôler</button>}{task.status === 'inspected' && <span className="badge badge-green"><CheckCircle size={14} /> Chambre prête</span>}</div></article>;
+          return <article key={task.id}><header><div><span className={`pms-room-dot ${room?.status}`} /><strong>Chambre {room?.roomNumber}</strong><small>{room?.roomType} · {task.assignedTo}</small></div><span className={`badge ${task.priority === 'urgent' ? 'badge-red' : 'badge-gray'}`}>{task.priority === 'urgent' ? 'Prioritaire' : 'Standard'}</span></header><div className="pms-housekeeping-facts"><button onClick={() => updatePMSHousekeepingDetails(task.id, { linenStatus: task.linenStatus === 'complete' ? 'missing' : 'complete' })}><span>Linge</span><strong>{task.linenStatus === 'complete' ? 'Complet' : 'À compléter'}</strong></button><button onClick={() => updatePMSHousekeepingDetails(task.id, { minibarStatus: task.minibarStatus === 'checked' ? 'restock' : 'checked' })}><span>Minibar</span><strong>{task.minibarStatus === 'checked' ? 'Contrôlé' : 'À réassortir'}</strong></button><button onClick={() => updatePMSHousekeepingDetails(task.id, { photoCount: (task.photoCount || 0) + 1 })}><span>Photos</span><strong>{task.photoCount || 0}</strong></button><div><span>Durée</span><strong>{elapsed ? `${elapsed} min` : 'Non démarrée'}</strong></div></div><div className="pms-housekeeping-actions">{task.status === 'pending' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'in_progress')}>Démarrer</button>}{task.status === 'in_progress' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'completed')}>Terminer</button>}{task.status === 'completed' && <button className="btn btn-primary" onClick={() => updatePMSHousekeepingTask(task.id, 'inspected')}>Contrôler</button>}{task.status === 'inspected' && <span className="badge badge-green"><CheckCircle size={14} /> Chambre prête</span>}<button className="btn btn-danger-soft" onClick={() => deletePMSConfigRecord('pmsHousekeepingTasks', task.id)} title="Supprimer la tâche"><Trash2 size={15} /></button></div></article>;
         })}
       </div>
     </section>

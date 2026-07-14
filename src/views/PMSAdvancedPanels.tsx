@@ -16,6 +16,7 @@ import {
   Send,
   ShieldCheck,
   Tag,
+  Trash2,
   Wifi,
   WifiOff,
   Wrench
@@ -131,7 +132,7 @@ export const PMSGroupsEvents: React.FC<PMSPanelProps> = ({ state }) => {
 };
 
 export const PMSGuestRelations: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, sendPMSNotification, schedulePMSNotification } = state;
+  const { db, sendPMSNotification, schedulePMSNotification, deletePMSNotification } = state;
   const activeReservations = db.pmsReservations.filter(item => ['confirmed', 'checked_in'].includes(item.status));
   const [reservationId, setReservationId] = useState(activeReservations[0]?.id || '');
   const automations = [
@@ -147,7 +148,7 @@ export const PMSGuestRelations: React.FC<PMSPanelProps> = ({ state }) => {
       <div className="pms-notification-grid">{db.pmsNotifications.map(notification => {
         const reservation = db.pmsReservations.find(item => item.id === notification.reservationId);
         const guest = db.pmsGuests.find(item => item.id === reservation?.guestId);
-        return <article key={notification.id}><div><strong>{guest?.fullName || notification.recipient}</strong><span>{notification.type.replaceAll('_', ' ')} · {notification.channel}</span></div><span className={`badge ${notification.status === 'sent' ? 'badge-green' : notification.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{notification.status === 'sent' ? 'Envoyé' : notification.status === 'failed' ? 'Échec' : 'Programmé'}</span>{notification.status !== 'sent' && <button className="btn btn-secondary" onClick={() => sendPMSNotification(notification.id)}><Send size={15} /> Envoyer</button>}</article>;
+        return <article key={notification.id}><div><strong>{guest?.fullName || notification.recipient}</strong><span>{notification.type.replaceAll('_', ' ')} · {notification.channel}</span></div><span className={`badge ${notification.status === 'sent' ? 'badge-green' : notification.status === 'failed' ? 'badge-red' : 'badge-yellow'}`}>{notification.status === 'sent' ? 'Envoyé' : notification.status === 'failed' ? 'Échec' : 'Programmé'}</span>{notification.status !== 'sent' && <><button className="btn btn-secondary" onClick={() => sendPMSNotification(notification.id)}><Send size={15} /> Envoyer</button><button className="btn btn-danger-soft" onClick={() => deletePMSNotification(notification.id)} title="Supprimer le message"><Trash2 size={15} /></button></>}</article>;
       })}</div>
     </section>
   );
@@ -180,13 +181,13 @@ export const PMSBillingPanel: React.FC<PMSBillingPanelProps> = ({ state, folioId
 };
 
 export const PMSMaintenancePanel: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, updatePMSMaintenanceTicket, updatePMSMaintenanceDetails } = state;
+  const { db, updatePMSMaintenanceTicket, updatePMSMaintenanceDetails, deletePMSConfigRecord } = state;
   const statuses = ['open', 'in_progress', 'resolved', 'verified'] as const;
   const labels = { open: 'Ouvert', in_progress: 'En cours', resolved: 'Réparé', verified: 'Contrôlé' };
   return (
     <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Maintenance technique</h2><p>Équipements, coûts et durée d’indisponibilité des chambres.</p></div><Wrench size={21} color="var(--primary)" /></div><div className="pms-maintenance-grid">{db.pmsMaintenanceTickets.map(ticket => {
       const room = db.pmsRooms.find(item => item.id === ticket.roomId);
-      return <article key={ticket.id}><div><span className={`badge ${ticket.priority === 'critical' ? 'badge-red' : ticket.priority === 'urgent' ? 'badge-yellow' : 'badge-gray'}`}>{ticket.priority}</span><h3>Chambre {room?.roomNumber} · {ticket.equipment}</h3><p>{ticket.note}</p></div><div><span>{ticket.assignedTo}</span><strong>Coût estimé {formatFCFA(ticket.estimatedCost)}</strong></div><div className="pms-maintenance-details"><label>Coût réel<input className="form-control" type="number" defaultValue={ticket.actualCost || 0} onBlur={event => updatePMSMaintenanceDetails(ticket.id, { actualCost: Number(event.target.value) })} /></label><label>Indisponible jusqu’au<input className="form-control" type="date" defaultValue={ticket.unavailableUntil || ''} onBlur={event => updatePMSMaintenanceDetails(ticket.id, { unavailableUntil: event.target.value })} /></label><button className="btn btn-secondary" onClick={() => updatePMSMaintenanceDetails(ticket.id, { photoCount: (ticket.photoCount || 0) + 1 })}><Camera size={15} /> {ticket.photoCount || 0} photo(s)</button></div><div className="pms-task-progress">{statuses.map(status => <button key={status} className={ticket.status === status ? 'active' : ''} onClick={() => updatePMSMaintenanceTicket(ticket.id, status)}>{labels[status]}</button>)}</div>{ticket.resolvedAt && <small>Réparation enregistrée le {new Date(ticket.resolvedAt).toLocaleString('fr-FR')}</small>}</article>;
+      return <article key={ticket.id}><div><span className={`badge ${ticket.priority === 'critical' ? 'badge-red' : ticket.priority === 'urgent' ? 'badge-yellow' : 'badge-gray'}`}>{ticket.priority}</span><h3>Chambre {room?.roomNumber} · {ticket.equipment}</h3><p>{ticket.note}</p></div><div><span>{ticket.assignedTo}</span><strong>Coût estimé {formatFCFA(ticket.estimatedCost)}</strong></div><div className="pms-maintenance-details"><label>Coût réel<input className="form-control" type="number" defaultValue={ticket.actualCost || 0} onBlur={event => updatePMSMaintenanceDetails(ticket.id, { actualCost: Number(event.target.value) })} /></label><label>Indisponible jusqu’au<input className="form-control" type="date" defaultValue={ticket.unavailableUntil || ''} onBlur={event => updatePMSMaintenanceDetails(ticket.id, { unavailableUntil: event.target.value })} /></label><button className="btn btn-secondary" onClick={() => updatePMSMaintenanceDetails(ticket.id, { photoCount: (ticket.photoCount || 0) + 1 })}><Camera size={15} /> {ticket.photoCount || 0} photo(s)</button><button className="btn btn-danger-soft" onClick={() => deletePMSConfigRecord('pmsMaintenanceTickets', ticket.id)}><Trash2 size={15} /> Supprimer</button></div><div className="pms-task-progress">{statuses.map(status => <button key={status} className={ticket.status === status ? 'active' : ''} onClick={() => updatePMSMaintenanceTicket(ticket.id, status)}>{labels[status]}</button>)}</div>{ticket.resolvedAt && <small>Réparation enregistrée le {new Date(ticket.resolvedAt).toLocaleString('fr-FR')}</small>}</article>;
     })}</div></section>
   );
 };

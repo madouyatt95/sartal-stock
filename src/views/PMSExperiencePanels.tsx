@@ -16,6 +16,7 @@ import {
   Shirt,
   Sparkles,
   Star,
+  Trash2,
   UserRound,
   UtensilsCrossed
 } from 'lucide-react';
@@ -105,7 +106,7 @@ const serviceTemplates: Array<{ type: PMSServiceRequest['type']; label: string; 
 ];
 
 export const PMSServiceDesk: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, addPMSServiceRequest, updatePMSServiceRequest } = state;
+  const { db, addPMSServiceRequest, updatePMSServiceRequest, deletePMSConfigRecord } = state;
   const activeReservations = db.pmsReservations.filter(item => item.status === 'checked_in');
   const [reservationId, setReservationId] = useState(activeReservations[0]?.id || '');
   const selectedReservation = db.pmsReservations.find(item => item.id === reservationId);
@@ -119,13 +120,13 @@ export const PMSServiceDesk: React.FC<PMSPanelProps> = ({ state }) => {
     <section className="card pms-section-card pms-service-desk">
       <div className="pms-section-header"><div><span className="pms-eyebrow"><BellRing size={15} /> Services clients</span><h2>Demandes et conciergerie</h2><p>Chaque demande est affectée, suivie et éventuellement facturée.</p></div><select className="form-control" value={reservationId} onChange={event => setReservationId(event.target.value)}>{activeReservations.map(reservation => <option value={reservation.id} key={reservation.id}>Chambre {db.pmsRooms.find(room => room.id === reservation.roomId)?.roomNumber} · {db.pmsGuests.find(guest => guest.id === reservation.guestId)?.fullName}</option>)}</select></div>
       <div className="pms-service-quick">{serviceTemplates.map(template => <button key={template.type} onClick={() => add(template)}>{template.icon}<span><strong>{template.label}</strong><small>{template.amount ? formatFCFA(template.amount) : 'Sans frais'}</small></span></button>)}</div>
-      <div className="pms-service-list">{db.pmsServiceRequests.map(request => { const reservation = db.pmsReservations.find(item => item.id === request.reservationId); const room = db.pmsRooms.find(item => item.id === (request.roomId || reservation?.roomId)); return <article key={request.id}><div><span className={`pms-service-status ${request.status}`}><i />{statusLabels[request.status]}</span><strong>{request.label}</strong><small>Chambre {room?.roomNumber} · {request.assignedTo}</small></div><div><time><Clock3 size={14} /> {new Date(request.scheduledAt).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</time><strong>{request.amount ? formatFCFA(request.amount) : 'Inclus'}</strong></div><button className="btn btn-secondary" disabled={request.status === 'completed'} onClick={() => updatePMSServiceRequest(request.id, nextStatus[request.status])}>{request.status === 'completed' ? <><CheckCircle size={15} /> Terminée</> : 'Étape suivante'}</button></article>; })}</div>
+      <div className="pms-service-list">{db.pmsServiceRequests.map(request => { const reservation = db.pmsReservations.find(item => item.id === request.reservationId); const room = db.pmsRooms.find(item => item.id === (request.roomId || reservation?.roomId)); return <article key={request.id}><div><span className={`pms-service-status ${request.status}`}><i />{statusLabels[request.status]}</span><strong>{request.label}</strong><small>Chambre {room?.roomNumber} · {request.assignedTo}</small></div><div><time><Clock3 size={14} /> {new Date(request.scheduledAt).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</time><strong>{request.amount ? formatFCFA(request.amount) : 'Inclus'}</strong></div><button className="btn btn-secondary" disabled={request.status === 'completed'} onClick={() => updatePMSServiceRequest(request.id, nextStatus[request.status])}>{request.status === 'completed' ? <><CheckCircle size={15} /> Terminée</> : 'Étape suivante'}</button><button className="btn btn-danger-soft" onClick={() => deletePMSConfigRecord('pmsServiceRequests', request.id)} title="Supprimer la demande"><Trash2 size={15} /></button></article>; })}</div>
     </section>
   );
 };
 
 export const PMSRateCalendar: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, upsertPMSRateOverride } = state;
+  const { db, upsertPMSRateOverride, deletePMSRateOverride } = state;
   const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
   const [roomType, setRoomType] = useState(roomTypes[0] || 'Standard');
   const dates = Array.from({ length: 14 }, (_, index) => { const date = new Date(`${db.pmsSettings.businessDate}T12:00:00`); date.setDate(date.getDate() + index); return date.toISOString().slice(0, 10); });
@@ -141,7 +142,7 @@ export const PMSRateCalendar: React.FC<PMSPanelProps> = ({ state }) => {
     <section className="card pms-section-card pms-rate-calendar">
       <div className="pms-section-header"><div><span className="pms-eyebrow"><CalendarDays size={15} /> Revenue management</span><h2>Calendrier tarifaire</h2><p>Prix et fermeture des ventes jour par jour.</p></div><select className="form-control" value={roomType} onChange={event => changeType(event.target.value)}>{roomTypes.map(type => <option key={type}>{type}</option>)}</select></div>
       <div className="pms-rate-days">{dates.map(date => { const item = db.pmsRateOverrides.find(entry => entry.date === date && entry.roomType === roomType); const value = item?.price || plan?.baseRate || 0; return <button className={`${selectedDate === date ? 'selected' : ''} ${item?.closed ? 'closed' : ''}`} key={date} onClick={() => selectDate(date)}><span>{new Date(`${date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</span><strong>{formatDate(date)}</strong><b>{item?.closed ? 'Fermé' : formatFCFA(value)}</b></button>; })}</div>
-      <div className="pms-rate-editor"><div><strong>{roomType} · {formatDate(selectedDate)}</strong><span>Tarif de base {formatFCFA(plan?.baseRate || 0)}</span></div><label>Prix<input className="form-control" type="number" value={price} onChange={event => setPrice(Number(event.target.value))} /></label><label>Motif<input className="form-control" value={reason} onChange={event => setReason(event.target.value)} /></label><label className="pms-rate-close"><input type="checkbox" checked={closed} onChange={event => setClosed(event.target.checked)} /> Fermer les ventes</label><button className="btn btn-primary" onClick={() => upsertPMSRateOverride({ date: selectedDate, roomType, price, reason, closed })}>Enregistrer</button></div>
+      <div className="pms-rate-editor"><div><strong>{roomType} · {formatDate(selectedDate)}</strong><span>Tarif de base {formatFCFA(plan?.baseRate || 0)}</span></div><label>Prix<input className="form-control" type="number" value={price} onChange={event => setPrice(Number(event.target.value))} /></label><label>Motif<input className="form-control" value={reason} onChange={event => setReason(event.target.value)} /></label><label className="pms-rate-close"><input type="checkbox" checked={closed} onChange={event => setClosed(event.target.checked)} /> Fermer les ventes</label>{override && <button className="btn btn-danger-soft" onClick={() => { deletePMSRateOverride(override.id); setPrice(plan?.baseRate || 0); setReason('Tarif public'); setClosed(false); }}><Trash2 size={15} /> Rétablir</button>}<button className="btn btn-primary" onClick={() => upsertPMSRateOverride({ date: selectedDate, roomType, price, reason, closed })}>Enregistrer</button></div>
     </section>
   );
 };

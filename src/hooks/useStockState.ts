@@ -7,6 +7,12 @@ import {
   LossReason,
   PaymentTotals,
   PaymentType,
+  PMSAutomationRule,
+  PMSChannel,
+  PMSDebtorAccount,
+  PMSEvent,
+  PMSGroupBooking,
+  PMSGuest,
   PMSHousekeepingStatus,
   PMSHousekeepingTask,
   PMSFolioCharge,
@@ -14,15 +20,48 @@ import {
   PMSMaintenanceTicket,
   PMSNotification,
   PMSPackage,
+  PMSPropertySummary,
+  PMSRatePlan,
   PMSRateOverride,
   PMSReservation,
   PMSReservationStatus,
+  PMSRoom,
   PMSServiceRequest,
   PMSSettings,
   POSType,
   Product,
   Supplier
 } from '../types';
+
+type PMSConfigCollection =
+  | 'pmsRooms'
+  | 'pmsGuests'
+  | 'pmsRatePlans'
+  | 'pmsPackages'
+  | 'pmsChannels'
+  | 'pmsGroups'
+  | 'pmsEvents'
+  | 'pmsHousekeepingTasks'
+  | 'pmsMaintenanceTickets'
+  | 'pmsServiceRequests'
+  | 'pmsAutomationRules'
+  | 'pmsDebtorAccounts'
+  | 'pmsPropertySummaries';
+
+type PMSConfigRecord =
+  | PMSRoom
+  | PMSGuest
+  | PMSRatePlan
+  | PMSPackage
+  | PMSChannel
+  | PMSGroupBooking
+  | PMSEvent
+  | PMSHousekeepingTask
+  | PMSMaintenanceTicket
+  | PMSServiceRequest
+  | PMSAutomationRule
+  | PMSDebtorAccount
+  | PMSPropertySummary;
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -424,6 +463,144 @@ export const useStockState = () => {
       entity,
       detail
     });
+  };
+
+  const pmsConfigLabels: Record<PMSConfigCollection, string> = {
+    pmsRooms: 'Chambre',
+    pmsGuests: 'Client',
+    pmsRatePlans: 'Plan tarifaire',
+    pmsPackages: 'Forfait',
+    pmsChannels: 'Canal de vente',
+    pmsGroups: 'Groupe',
+    pmsEvents: 'Événement',
+    pmsHousekeepingTasks: 'Tâche entretien',
+    pmsMaintenanceTickets: 'Ticket maintenance',
+    pmsServiceRequests: 'Demande client',
+    pmsAutomationRules: 'Automatisation',
+    pmsDebtorAccounts: 'Compte débiteur',
+    pmsPropertySummaries: 'Établissement'
+  };
+
+  const pmsConfigPrefixes: Record<PMSConfigCollection, string> = {
+    pmsRooms: 'room',
+    pmsGuests: 'guest',
+    pmsRatePlans: 'rate-plan',
+    pmsPackages: 'package',
+    pmsChannels: 'channel',
+    pmsGroups: 'group',
+    pmsEvents: 'event',
+    pmsHousekeepingTasks: 'hk',
+    pmsMaintenanceTickets: 'maintenance',
+    pmsServiceRequests: 'request',
+    pmsAutomationRules: 'automation',
+    pmsDebtorAccounts: 'debtor',
+    pmsPropertySummaries: 'property'
+  };
+
+  const getPMSConfigRecordName = (collection: PMSConfigCollection, record: PMSConfigRecord) => {
+    if ('roomNumber' in record) return `Chambre ${record.roomNumber}`;
+    if ('fullName' in record) return record.fullName;
+    if ('equipment' in record) return record.equipment;
+    if ('label' in record) return record.label;
+    if ('name' in record) return record.name;
+    return `${pmsConfigLabels[collection]} ${record.id}`;
+  };
+
+  const savePMSConfigRecord = (collection: PMSConfigCollection, payload: PMSConfigRecord) => {
+    const newDb = getDB();
+    const records = newDb[collection] as unknown as PMSConfigRecord[];
+    const record = { ...payload } as PMSConfigRecord;
+    const isNew = !record.id;
+    if (isNew) record.id = `${pmsConfigPrefixes[collection]}-${Date.now()}`;
+
+    if (collection === 'pmsRooms') {
+      const room = record as PMSRoom;
+      if (!room.roomNumber.trim() || !room.roomType.trim()) throw new Error('Le numéro et la catégorie de chambre sont obligatoires.');
+      if (records.some(item => item.id !== room.id && 'roomNumber' in item && item.roomNumber.toLowerCase() === room.roomNumber.toLowerCase())) throw new Error('Ce numéro de chambre existe déjà.');
+    }
+    if (collection === 'pmsGuests') {
+      const guest = record as PMSGuest;
+      if (!guest.fullName.trim() || !guest.phone.trim()) throw new Error('Le nom et le téléphone du client sont obligatoires.');
+    }
+    if (collection === 'pmsRatePlans') {
+      const plan = record as PMSRatePlan;
+      if (!plan.name.trim() || !plan.roomType.trim() || plan.baseRate < 0) throw new Error('Le plan tarifaire doit avoir un nom, une catégorie et un tarif valide.');
+    }
+
+    const existingIndex = records.findIndex(item => item.id === record.id);
+    if (existingIndex >= 0) records[existingIndex] = record;
+    else records.unshift(record);
+    appendPMSAudit(newDb, isNew ? `Création ${pmsConfigLabels[collection]}` : `Modification ${pmsConfigLabels[collection]}`, getPMSConfigRecordName(collection, record), 'Paramètres enregistrés depuis l’administration PMS.');
+    saveDB(newDb);
+    refresh();
+    return record.id;
+  };
+
+  const deletePMSConfigRecord = (collection: PMSConfigCollection, recordId: string) => {
+    const newDb = getDB();
+    const records = newDb[collection] as unknown as PMSConfigRecord[];
+    const record = records.find(item => item.id === recordId);
+    if (!record) throw new Error(`${pmsConfigLabels[collection]} introuvable.`);
+
+    if (collection === 'pmsRooms') {
+      const linked = newDb.pmsReservations.some(item => item.roomId === recordId)
+        || newDb.pmsFolios.some(item => item.roomId === recordId)
+        || newDb.pmsHousekeepingTasks.some(item => item.roomId === recordId)
+        || newDb.pmsMaintenanceTickets.some(item => item.roomId === recordId)
+        || newDb.pmsDoorKeys.some(item => item.roomId === recordId);
+      if (linked) throw new Error('Cette chambre possède un historique. Modifiez-la ou mettez-la en maintenance au lieu de la supprimer.');
+    }
+    if (collection === 'pmsGuests' && (newDb.pmsReservations.some(item => item.guestId === recordId) || newDb.pmsFolios.some(item => item.guestId === recordId))) {
+      throw new Error('Ce client possède un historique de séjour ou de facturation et ne peut pas être supprimé.');
+    }
+    if (collection === 'pmsRatePlans' && newDb.pmsReservations.some(item => item.ratePlanId === recordId)) {
+      throw new Error('Ce plan tarifaire est utilisé par une réservation. Désactivez-le au lieu de le supprimer.');
+    }
+    if (collection === 'pmsGroups' && (newDb.pmsReservations.some(item => item.groupId === recordId) || newDb.pmsEvents.some(item => item.groupId === recordId))) {
+      throw new Error('Ce groupe est lié à des réservations ou événements et ne peut pas être supprimé.');
+    }
+
+    (newDb as unknown as Record<PMSConfigCollection, PMSConfigRecord[]>)[collection] = records.filter(item => item.id !== recordId);
+    appendPMSAudit(newDb, `Suppression ${pmsConfigLabels[collection]}`, getPMSConfigRecordName(collection, record), 'Suppression confirmée depuis l’administration PMS.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deletePMSReservation = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    if (!reservation) throw new Error('Réservation introuvable.');
+    if (['checked_in', 'checked_out'].includes(reservation.status) || newDb.pmsFolios.some(item => item.reservationId === reservationId)) {
+      throw new Error('Un séjour ou un folio existe déjà. Annulez la réservation afin de conserver la traçabilité.');
+    }
+    newDb.pmsReservations = newDb.pmsReservations.filter(item => item.id !== reservationId);
+    newDb.pmsNotifications = newDb.pmsNotifications.filter(item => item.reservationId !== reservationId);
+    newDb.pmsServiceRequests = newDb.pmsServiceRequests.filter(item => item.reservationId !== reservationId);
+    newDb.pmsDoorKeys = newDb.pmsDoorKeys.filter(item => item.reservationId !== reservationId);
+    appendPMSAudit(newDb, 'Suppression réservation', reservation.confirmationNumber, 'Réservation sans séjour ni folio supprimée.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deletePMSNotification = (notificationId: string) => {
+    const newDb = getDB();
+    const notification = newDb.pmsNotifications.find(item => item.id === notificationId);
+    if (!notification) return;
+    if (notification.status === 'sent') throw new Error('Un message déjà envoyé reste conservé dans l’historique client.');
+    newDb.pmsNotifications = newDb.pmsNotifications.filter(item => item.id !== notificationId);
+    appendPMSAudit(newDb, 'Suppression message', notification.type, `Message ${notification.channel} retiré de la file d’envoi.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const deletePMSRateOverride = (overrideId: string) => {
+    const newDb = getDB();
+    const override = newDb.pmsRateOverrides.find(item => item.id === overrideId);
+    if (!override) return;
+    newDb.pmsRateOverrides = newDb.pmsRateOverrides.filter(item => item.id !== overrideId);
+    appendPMSAudit(newDb, 'Suppression tarif journalier', `${override.roomType} · ${override.date}`, 'Retour au tarif du plan actif.');
+    saveDB(newDb);
+    refresh();
   };
 
   const togglePMSExport = (saleId: string) => {
@@ -1496,8 +1673,11 @@ export const useStockState = () => {
     updateSupplier,
     deleteSupplier,
     togglePMSExport,
+    savePMSConfigRecord,
+    deletePMSConfigRecord,
     createPMSReservation,
     updatePMSReservation,
+    deletePMSReservation,
     updatePMSReservationStatus,
     assignPMSRoom,
     holdPMSRoom,
@@ -1517,9 +1697,11 @@ export const useStockState = () => {
     updatePMSServiceRequest,
     sendPMSNotification,
     schedulePMSNotification,
+    deletePMSNotification,
     syncPMSChannel,
     updatePMSRatePlan,
     upsertPMSRateOverride,
+    deletePMSRateOverride,
     addPMSPackageToFolio,
     issuePMSDoorKey,
     revokePMSDoorKey,

@@ -36,7 +36,7 @@ try {
     housekeeping: 'Feuille de travail housekeeping',
     audit: 'Clôture du',
     reports: 'Calendrier tarifaire',
-    settings: 'Cockpit de migration contrôlée'
+    settings: 'Configurer le PMS'
   };
 
   let state;
@@ -165,6 +165,34 @@ try {
   state.updatePMSBookingEngine({ enabled: !bookingEngineWasEnabled });
   assert(getDB().pmsBookingEngine.enabled !== bookingEngineWasEnabled, 'Moteur de réservation non modifié');
 
+  const roomTemplate = getDB().pmsRooms[0];
+  const managedRoomId = state.savePMSConfigRecord('pmsRooms', { ...roomTemplate, id: '', roomNumber: 'TEST-901', status: 'vacant', housekeepingStatus: 'inspected' });
+  assert(getDB().pmsRooms.some(item => item.id === managedRoomId && item.roomNumber === 'TEST-901'), 'Création de chambre configurable non enregistrée');
+  state.savePMSConfigRecord('pmsRooms', { ...getDB().pmsRooms.find(item => item.id === managedRoomId), nightlyRate: 61000 });
+  assert(getDB().pmsRooms.find(item => item.id === managedRoomId).nightlyRate === 61000, 'Modification de chambre configurable non enregistrée');
+  state.deletePMSConfigRecord('pmsRooms', managedRoomId);
+  assert(!getDB().pmsRooms.some(item => item.id === managedRoomId), 'Suppression de chambre sans historique non enregistrée');
+
+  const managedGuestId = state.savePMSConfigRecord('pmsGuests', { id: '', fullName: 'Client Test CRUD', phone: '+221 77 000 00 00', email: 'crud@example.sn', nationality: 'Sénégalaise', stays: 0, loyaltyTier: 'standard' });
+  const managedReservationId = state.createPMSReservation({ guestId: managedGuestId, guestName: 'Client Test CRUD', phone: '+221 77 000 00 00', roomId: '', requestedRoomType: roomTemplate.roomType, arrivalDate: '2027-01-10', departureDate: '2027-01-12', adults: 1, children: 0, source: 'direct', nightlyRate: 50000, depositAmount: 0 });
+  state.deletePMSReservation(managedReservationId);
+  assert(!getDB().pmsReservations.some(item => item.id === managedReservationId), 'Suppression de réservation sans folio non enregistrée');
+  state.deletePMSConfigRecord('pmsGuests', managedGuestId);
+  assert(!getDB().pmsGuests.some(item => item.id === managedGuestId), 'Suppression de client sans historique non enregistrée');
+
+  let protectedGuest = false;
+  try {
+    state.deletePMSConfigRecord('pmsGuests', reservation.guestId);
+  } catch {
+    protectedGuest = true;
+  }
+  assert(protectedGuest, 'Un client avec historique devrait être protégé contre la suppression');
+
+  const packageTemplate = getDB().pmsPackages[0];
+  const managedPackageId = state.savePMSConfigRecord('pmsPackages', { ...packageTemplate, id: '', name: 'Forfait test configurable' });
+  state.deletePMSConfigRecord('pmsPackages', managedPackageId);
+  assert(!getDB().pmsPackages.some(item => item.id === managedPackageId), 'Suppression de forfait configurable non enregistrée');
+
   let auditBlocked = false;
   try {
     state.runPMSNightAudit();
@@ -173,7 +201,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 19 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 27 actions critiques validés.`);
 } finally {
   await server.close();
 }

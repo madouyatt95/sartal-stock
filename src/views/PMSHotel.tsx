@@ -23,6 +23,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Users,
   Wrench,
   X
@@ -64,6 +65,7 @@ import {
   PMSMigrationCockpit,
   PMSPackageManager
 } from './PMSReplacementSuite';
+import { PMSConfigurationCenter } from './PMSConfigurationCenter';
 
 interface PMSHotelProps {
   state: StockState;
@@ -118,6 +120,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     togglePMSExport,
     createPMSReservation,
     updatePMSReservation,
+    deletePMSReservation,
     updatePMSReservationStatus,
     updatePMSRoom,
     updatePMSHousekeepingTask,
@@ -125,7 +128,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     transferPMSFolioCharge,
     routePMSFolioCharge,
     runPMSNightAudit,
-    updatePMSSettings
+    updatePMSSettings,
+    updatePMSBookingEngine
   } = state;
   const [activeTab, setActiveTab] = useState<PMSTab>(initialTab);
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
@@ -133,6 +137,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const [statusFilter, setStatusFilter] = useState('active');
   const [roomFilter, setRoomFilter] = useState('all');
   const [reservationModalOpen, setReservationModalOpen] = useState(false);
+  const [deletingReservationId, setDeletingReservationId] = useState<string | null>(null);
   const [reservationStep, setReservationStep] = useState<1 | 2 | 3>(1);
   const [editingReservationId, setEditingReservationId] = useState<string | null>(null);
   const [paymentFolioId, setPaymentFolioId] = useState<string | null>(null);
@@ -149,6 +154,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   });
   const [paymentForm, setPaymentForm] = useState({ amount: 0, method: 'wave' as PaymentType, reference: '' });
   const [settingsForm, setSettingsForm] = useState<PMSSettings>(db.pmsSettings);
+  const [bookingEngineForm, setBookingEngineForm] = useState(db.pmsBookingEngine);
+  const [configFocus, setConfigFocus] = useState<'pmsRooms' | 'pmsGuests'>('pmsRooms');
 
   const today = db.pmsSettings.businessDate;
   const chargeRows = db.pmsFolios.flatMap(folio => folio.charges.map(charge => ({ folio, charge })));
@@ -344,6 +351,18 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     }
   };
 
+  const removeReservation = () => {
+    if (!deletingReservationId) return;
+    try {
+      setActionError('');
+      deletePMSReservation(deletingReservationId);
+      setDeletingReservationId(null);
+    } catch (error) {
+      setDeletingReservationId(null);
+      setActionError(error instanceof Error ? error.message : 'Suppression impossible');
+    }
+  };
+
   const openPayment = (folioId: string) => {
     const totals = folioTotals(folioId);
     setPaymentForm({ amount: Math.max(0, totals.balance), method: 'wave', reference: '' });
@@ -470,6 +489,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
                 {reservation.status === 'confirmed' && <>{reservation.roomId ? <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><LogIn size={16} /> Accueillir</button> : <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><BedDouble size={16} /> Attribuer</button>}<button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'no_show')}>Non présenté</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'cancelled')}>Annuler</button></>}
                 {reservation.status === 'checked_in' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'checked_out')}><LogOut size={16} /> Check-out</button>}
                 {reservation.status === 'waitlisted' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'confirmed')}>Confirmer si disponible</button>}
+                {!['checked_in', 'checked_out'].includes(reservation.status) && <button className="btn btn-danger-soft" onClick={() => setDeletingReservationId(reservation.id)}><Trash2 size={15} /> Supprimer</button>}
               </div>
             </article>
           );
@@ -487,6 +507,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       <div className="card pms-filter-bar">
         <div><Filter size={18} /><strong>État des chambres</strong></div>
         <select className="form-control" value={roomFilter} onChange={event => setRoomFilter(event.target.value)}><option value="all">Toutes les chambres</option><option value="available">Libres et prêtes</option><option value="occupied">Occupées</option><option value="dirty">À nettoyer</option><option value="maintenance">Maintenance</option></select>
+        <button className="btn btn-primary" onClick={() => { setConfigFocus('pmsRooms'); setActiveTab('settings'); }}><Plus size={16} /> Ajouter ou configurer</button>
         <div className="pms-room-legend" aria-label="Légende des états de chambre">
           {Object.entries(roomVisualMeta).map(([status, meta]) => <span key={status} className={meta.className}><i />{meta.label}</span>)}
         </div>
@@ -505,6 +526,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
               {guest && <div className="pms-room-guest"><Users size={15} /><span>{guest.fullName}</span></div>}
               {room.maintenanceNote && <p className="pms-maintenance-note">{room.maintenanceNote}</p>}
               <div className="mobile-card-actions">
+                <button className="btn btn-secondary" onClick={() => { setConfigFocus('pmsRooms'); setActiveTab('settings'); }}><Pencil size={15} /> Modifier</button>
                 {room.status !== 'occupied' && <button className="btn btn-secondary" onClick={() => updatePMSRoom(room.id, { status: room.status === 'maintenance' ? 'vacant' : 'maintenance', maintenanceNote: room.status === 'maintenance' ? '' : 'Contrôle technique demandé.' })}><Wrench size={15} /> {room.status === 'maintenance' ? 'Remettre en vente' : 'Maintenance'}</button>}
                 {room.housekeepingStatus === 'dirty' && <button className="btn btn-primary" onClick={() => { setActiveTab('housekeeping'); }}>Nettoyer</button>}
               </div>
@@ -518,6 +540,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderGuests = () => (
     <>
+      <section className="card pms-section-card pms-management-callout"><div><Users size={20} /><span><strong>Répertoire clients configurable</strong><small>Créer une fiche, corriger les coordonnées, les préférences ou la fidélité.</small></span></div><button className="btn btn-primary" onClick={() => { setConfigFocus('pmsGuests'); setActiveTab('settings'); }}><Pencil size={16} /> Gérer les clients</button></section>
       <PMSGuestCommandCenter state={state} />
       <PMSGuestPortal state={state} />
       <PMSGuestRelations state={state} />
@@ -611,6 +634,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderSettings = () => (
     <>
+      <PMSConfigurationCenter key={configFocus} state={state} initialCollection={configFocus} />
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <form className="card pms-section-card" onSubmit={event => { event.preventDefault(); updatePMSSettings(settingsForm); }}>
           <div className="pms-section-header"><div><h2>Paramètres de l’hôtel</h2><p>Horaires, fiscalité, journée d’exploitation et surbooking.</p></div></div>
@@ -620,6 +644,14 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
           <div className="form-group"><label className="form-label">Journée hôtelière</label><input type="date" className="form-control" value={settingsForm.businessDate} onChange={event => setSettingsForm({ ...settingsForm, businessDate: event.target.value })} /></div>
           <label className="pms-setting-toggle"><input type="checkbox" checked={settingsForm.allowOverbooking} onChange={event => setSettingsForm({ ...settingsForm, allowOverbooking: event.target.checked })} /><span><strong>Autoriser le surbooking contrôlé</strong><small>Sinon, toute réservation en conflit passe automatiquement en liste d’attente.</small></span></label>
           {settingsForm.allowOverbooking && <div className="form-group"><label className="form-label">Limite de surbooking</label><input type="number" min="0" className="form-control" value={settingsForm.overbookingLimit} onChange={event => setSettingsForm({ ...settingsForm, overbookingLimit: Number(event.target.value) })} /></div>}
+          <button className="btn btn-primary" type="submit"><ShieldCheck size={17} /> Enregistrer</button>
+        </form>
+        <form className="card pms-section-card" onSubmit={event => { event.preventDefault(); updatePMSBookingEngine(bookingEngineForm); }}>
+          <div className="pms-section-header"><div><h2>Réservation en ligne</h2><p>Adresse publique, acompte et confirmation du moteur direct.</p></div></div>
+          <div className="form-group"><label className="form-label">Adresse publique</label><input className="form-control" value={bookingEngineForm.publicUrl} onChange={event => setBookingEngineForm({ ...bookingEngineForm, publicUrl: event.target.value })} /></div>
+          <div className="form-group"><label className="form-label">Acompte demandé (%)</label><input type="number" min="0" max="100" className="form-control" value={bookingEngineForm.depositPercent} onChange={event => setBookingEngineForm({ ...bookingEngineForm, depositPercent: Number(event.target.value) })} /></div>
+          <label className="pms-setting-toggle"><input type="checkbox" checked={bookingEngineForm.enabled} onChange={event => setBookingEngineForm({ ...bookingEngineForm, enabled: event.target.checked })} /><span><strong>Activer la réservation directe</strong><small>Le moteur public utilise les disponibilités et tarifs du PMS.</small></span></label>
+          <label className="pms-setting-toggle"><input type="checkbox" checked={bookingEngineForm.instantConfirmation} onChange={event => setBookingEngineForm({ ...bookingEngineForm, instantConfirmation: event.target.checked })} /><span><strong>Confirmation immédiate</strong><small>Sinon, les nouvelles demandes restent à valider par la réception.</small></span></label>
           <button className="btn btn-primary" type="submit"><ShieldCheck size={17} /> Enregistrer</button>
         </form>
         <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Contrôles actifs</h2><p>Règles visibles par les équipes.</p></div></div>{['Une chambre en maintenance ne peut pas être attribuée.', 'Un conflit passe en liste d’attente si le surbooking est désactivé.', 'Le check-in ouvre automatiquement un folio.', 'Une vente restaurant conserve son ticket et son point de vente.', 'Le check-out clôture le folio et crée une tâche de nettoyage.', 'Chaque action sensible alimente le journal de sécurité.'].map(rule => <div className="proof-row" key={rule}><CheckCircle size={17} color="var(--success)" /><span>{rule}</span></div>)}</section>
@@ -758,6 +790,16 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       {transferChargeId && (
         <div className="modal-overlay" onClick={() => setTransferChargeId(null)}>
           <form className="modal-card modal-card-sm" onSubmit={saveChargeTransfer} onClick={event => event.stopPropagation()}><div className="modal-header"><div><h2>Transférer une charge</h2><p>Déplacez tout ou partie de la charge vers un autre folio ouvert.</p></div><button type="button" className="icon-btn" onClick={() => setTransferChargeId(null)}><X size={20} /></button></div>{actionError && <div className="alert alert-danger">{actionError}</div>}<div className="form-group"><label className="form-label">Folio de destination</label><select className="form-control" value={transferForm.targetFolioId} onChange={event => setTransferForm({ ...transferForm, targetFolioId: event.target.value })}>{db.pmsFolios.filter(folio => folio.status === 'open' && folio.id !== selectedFolioId).map(folio => <option value={folio.id} key={folio.id}>{folio.guestName} · {folio.reservationNumber}</option>)}</select></div><div className="form-group"><label className="form-label">Montant à transférer</label><input type="number" min="1" className="form-control" value={transferForm.amount} onChange={event => setTransferForm({ ...transferForm, amount: Number(event.target.value) })} /></div><div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={() => setTransferChargeId(null)}>Annuler</button><button className="btn btn-primary" type="submit"><ArrowRight size={17} /> Transférer</button></div></form>
+        </div>
+      )}
+
+      {deletingReservationId && (
+        <div className="modal-overlay" onClick={() => setDeletingReservationId(null)}>
+          <section className="modal-card modal-card-sm" onClick={event => event.stopPropagation()}>
+            <div className="modal-header"><div><h2>Supprimer la réservation ?</h2><p>{db.pmsReservations.find(item => item.id === deletingReservationId)?.confirmationNumber}</p></div><button className="icon-btn" onClick={() => setDeletingReservationId(null)}><X size={19} /></button></div>
+            <div className="alert alert-danger">La suppression est possible uniquement tant qu’aucun séjour ni folio n’a été créé. Sinon, utilisez l’annulation pour préserver l’historique.</div>
+            <div className="modal-actions"><button className="btn btn-secondary" onClick={() => setDeletingReservationId(null)}>Conserver</button><button className="btn btn-danger" onClick={removeReservation}><Trash2 size={16} /> Supprimer</button></div>
+          </section>
         </div>
       )}
     </div>
