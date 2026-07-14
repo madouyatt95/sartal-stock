@@ -11,8 +11,12 @@ import {
   PMSHousekeepingTask,
   PMSFolioCharge,
   PMSInvoice,
+  PMSMaintenanceTicket,
+  PMSNotification,
+  PMSRateOverride,
   PMSReservation,
   PMSReservationStatus,
+  PMSServiceRequest,
   PMSSettings,
   POSType,
   Product,
@@ -867,6 +871,7 @@ export const useStockState = () => {
     const ticket = newDb.pmsMaintenanceTickets.find(item => item.id === ticketId);
     if (!ticket) throw new Error('Ticket de maintenance introuvable');
     ticket.status = status;
+    if (status === 'resolved') ticket.resolvedAt = new Date().toISOString();
     const room = newDb.pmsRooms.find(item => item.id === ticket.roomId);
     if (room && status === 'verified') {
       room.status = 'vacant';
@@ -874,6 +879,39 @@ export const useStockState = () => {
       room.maintenanceNote = '';
     }
     appendPMSAudit(newDb, 'Maintenance', `Chambre ${room?.roomNumber || ticket.roomId}`, `${ticket.equipment} : ${status}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSMaintenanceDetails = (ticketId: string, patch: Partial<Pick<PMSMaintenanceTicket, 'assignedTo' | 'estimatedCost' | 'actualCost' | 'unavailableUntil' | 'photoCount' | 'note' | 'priority'>>) => {
+    const newDb = getDB();
+    const ticket = newDb.pmsMaintenanceTickets.find(item => item.id === ticketId);
+    if (!ticket) throw new Error('Ticket de maintenance introuvable');
+    Object.assign(ticket, patch);
+    const room = newDb.pmsRooms.find(item => item.id === ticket.roomId);
+    appendPMSAudit(newDb, 'Détail maintenance', `Chambre ${room?.roomNumber || ticket.roomId}`, `${ticket.equipment} · ${ticket.assignedTo} · coût ${ticket.actualCost || 0} FCFA.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addPMSServiceRequest = (payload: Omit<PMSServiceRequest, 'id' | 'status'>) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === payload.reservationId);
+    if (!reservation) throw new Error('Réservation introuvable');
+    const request: PMSServiceRequest = { ...payload, id: `request-${Date.now()}`, status: 'requested' };
+    newDb.pmsServiceRequests.unshift(request);
+    appendPMSAudit(newDb, 'Demande client', reservation.confirmationNumber, `${request.label} confié à ${request.assignedTo}.`);
+    saveDB(newDb);
+    refresh();
+    return request.id;
+  };
+
+  const updatePMSServiceRequest = (requestId: string, status: PMSServiceRequest['status']) => {
+    const newDb = getDB();
+    const request = newDb.pmsServiceRequests.find(item => item.id === requestId);
+    if (!request) throw new Error('Demande client introuvable');
+    request.status = status;
+    appendPMSAudit(newDb, 'Suivi demande client', request.label, `Statut ${status}, responsable ${request.assignedTo}.`);
     saveDB(newDb);
     refresh();
   };
@@ -887,6 +925,28 @@ export const useStockState = () => {
     appendPMSAudit(newDb, 'Notification client', notification.reservationId, `${notification.type} envoyé par ${notification.channel}.`);
     saveDB(newDb);
     refresh();
+  };
+
+  const schedulePMSNotification = (reservationId: string, type: PMSNotification['type'], channel: PMSNotification['channel'] = 'whatsapp') => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
+    if (!reservation || !guest) throw new Error('Séjour ou client introuvable');
+    const recipient = channel === 'email' ? guest.email || guest.phone : guest.phone;
+    const notification: PMSNotification = {
+      id: `notif-${Date.now()}`,
+      reservationId,
+      channel,
+      type,
+      recipient,
+      status: 'scheduled',
+      scheduledAt: new Date().toISOString()
+    };
+    newDb.pmsNotifications.unshift(notification);
+    appendPMSAudit(newDb, 'Programmation message', reservation.confirmationNumber, `${type} programmé par ${channel}.`);
+    saveDB(newDb);
+    refresh();
+    return notification.id;
   };
 
   const syncPMSChannel = (channelId: string) => {
@@ -907,6 +967,16 @@ export const useStockState = () => {
     if (!plan) throw new Error('Plan tarifaire introuvable');
     Object.assign(plan, patch);
     appendPMSAudit(newDb, 'Modification tarif', plan.name, `Tarif de base ${plan.baseRate} FCFA.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const upsertPMSRateOverride = (payload: Omit<PMSRateOverride, 'id'>) => {
+    const newDb = getDB();
+    const existing = newDb.pmsRateOverrides.find(item => item.date === payload.date && item.roomType === payload.roomType);
+    if (existing) Object.assign(existing, payload);
+    else newDb.pmsRateOverrides.push({ ...payload, id: `rate-override-${Date.now()}` });
+    appendPMSAudit(newDb, 'Calendrier tarifaire', `${payload.roomType} · ${payload.date}`, payload.closed ? 'Vente fermée.' : `${payload.price} FCFA · ${payload.reason}.`);
     saveDB(newDb);
     refresh();
   };
@@ -1351,9 +1421,14 @@ export const useStockState = () => {
     issuePMSDocument,
     refundPMSPayment,
     updatePMSMaintenanceTicket,
+    updatePMSMaintenanceDetails,
+    addPMSServiceRequest,
+    updatePMSServiceRequest,
     sendPMSNotification,
+    schedulePMSNotification,
     syncPMSChannel,
     updatePMSRatePlan,
+    upsertPMSRateOverride,
     advancePMSDayScenario,
     resetPMSDayScenario,
     runPMSNightAudit,

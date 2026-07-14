@@ -27,15 +27,15 @@ try {
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { PMSHotel } = await server.ssrLoadModule('/src/views/PMSHotel.tsx');
   const tabs = {
-    dashboard: 'Poste de réception',
+    dashboard: 'Demandes et conciergerie',
     planning: 'Planning opérationnel sur 7 jours',
     reservations: 'Nouvelle réservation',
-    rooms: 'Libre et prête',
-    guests: 'clients',
+    rooms: 'Plan des chambres',
+    guests: 'Dossier client 360',
     folios: 'Folios clients',
     housekeeping: 'Feuille de travail housekeeping',
     audit: 'Clôture du',
-    reports: 'Performance et prévision',
+    reports: 'Calendrier tarifaire',
     settings: 'Paramètres de l’hôtel'
   };
 
@@ -119,6 +119,21 @@ try {
   assert(db.pmsRooms.find(item => item.id === moveRoom.id).status === 'occupied', 'La nouvelle chambre devrait être occupée');
   assert(db.pmsHousekeepingTasks.some(item => item.roomId === room.id && item.status === 'pending'), 'La tâche de nettoyage du changement de chambre est absente');
 
+  const requestId = state.addPMSServiceRequest({ reservationId: reservation.id, roomId: moveRoom.id, type: 'breakfast', label: 'Petit-déjeuner en chambre', priority: 'normal', scheduledAt: new Date().toISOString(), assignedTo: 'Restaurant', amount: 9000 });
+  state.updatePMSServiceRequest(requestId, 'assigned');
+  assert(getDB().pmsServiceRequests.find(item => item.id === requestId).status === 'assigned', 'Demande client non affectée');
+
+  const notificationId = state.schedulePMSNotification(reservation.id, 'room_ready', 'whatsapp');
+  state.sendPMSNotification(notificationId);
+  assert(getDB().pmsNotifications.find(item => item.id === notificationId).status === 'sent', 'Message WhatsApp non envoyé');
+
+  state.upsertPMSRateOverride({ date: db.pmsSettings.businessDate, roomType: moveRoom.roomType, price: moveRoom.nightlyRate + 5000, reason: 'Forte demande', closed: false });
+  assert(getDB().pmsRateOverrides.some(item => item.date === db.pmsSettings.businessDate && item.roomType === moveRoom.roomType && item.price === moveRoom.nightlyRate + 5000), 'Tarif journalier non enregistré');
+
+  const maintenance = getDB().pmsMaintenanceTickets[0];
+  state.updatePMSMaintenanceDetails(maintenance.id, { actualCost: 42000, photoCount: 3 });
+  assert(getDB().pmsMaintenanceTickets.find(item => item.id === maintenance.id).actualCost === 42000, 'Détails de maintenance non enregistrés');
+
   let auditBlocked = false;
   try {
     state.runPMSNightAudit();
@@ -127,7 +142,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 9 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 13 actions critiques validés.`);
 } finally {
   await server.close();
 }

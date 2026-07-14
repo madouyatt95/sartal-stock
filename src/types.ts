@@ -596,7 +596,34 @@ export interface PMSMaintenanceTicket {
   assignedTo: string;
   openedAt: string;
   estimatedCost: number;
+  actualCost?: number;
+  unavailableUntil?: string;
+  photoCount?: number;
+  resolvedAt?: string;
   note: string;
+}
+
+export interface PMSServiceRequest {
+  id: string;
+  reservationId: string;
+  roomId?: string;
+  type: 'airport_transfer' | 'breakfast' | 'baby_bed' | 'laundry' | 'late_arrival' | 'special_request';
+  label: string;
+  status: 'requested' | 'assigned' | 'in_progress' | 'completed';
+  priority: 'normal' | 'urgent';
+  scheduledAt: string;
+  assignedTo: string;
+  amount: number;
+  note?: string;
+}
+
+export interface PMSRateOverride {
+  id: string;
+  date: string;
+  roomType: string;
+  price: number;
+  reason: string;
+  closed: boolean;
 }
 
 export interface PMSChannel {
@@ -637,6 +664,9 @@ export interface PMSPropertySummary {
   occupiedRooms: number;
   revenueToday: number;
   alerts: number;
+  adr?: number;
+  revPar?: number;
+  outOfOrderRooms?: number;
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   BedDouble,
+  BellRing,
   Building2,
   CheckCircle,
   Clock3,
@@ -14,6 +15,7 @@ import {
   Move,
   ShieldCheck,
   Sparkles,
+  Star,
   TrendingUp,
   UserCheck,
   Users,
@@ -49,6 +51,16 @@ export const PMSFrontDeskCommand: React.FC<PMSPanelProps> = ({ state }) => {
   const departures = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
   const inHouse = db.pmsReservations.filter(item => item.status === 'checked_in');
   const unassigned = db.pmsReservations.filter(item => !item.roomId && item.status === 'confirmed');
+  const vipArrivals = arrivals.filter(item => db.pmsGuests.find(guest => guest.id === item.guestId)?.loyaltyTier === 'gold');
+  const earlyArrivals = arrivals.filter(item => (item.estimatedArrivalTime || db.pmsSettings.checkInTime) < db.pmsSettings.checkInTime);
+  const roomsNotReady = arrivals.filter(item => {
+    const room = db.pmsRooms.find(roomItem => roomItem.id === item.roomId);
+    return room && !['clean', 'inspected'].includes(room.housekeepingStatus);
+  });
+  const balancesDue = departures.filter(item => {
+    const folio = db.pmsFolios.find(folioItem => folioItem.reservationId === item.id);
+    return folio && folio.charges.reduce((sum, charge) => sum + charge.amount, 0) > folio.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  });
   const [selectedId, setSelectedId] = useState(arrivals[0]?.id || inHouse[0]?.id || unassigned[0]?.id || '');
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [checkInId, setCheckInId] = useState<string | null>(null);
@@ -107,6 +119,13 @@ export const PMSFrontDeskCommand: React.FC<PMSPanelProps> = ({ state }) => {
           <div><BedDouble size={19} /><span>En séjour</span><strong>{inHouse.length}</strong></div>
           <div><ArrowRight size={19} /><span>Départs</span><strong>{departures.length}</strong></div>
           <div className={unassigned.length ? 'warning' : ''}><Move size={19} /><span>À attribuer</span><strong>{unassigned.length}</strong></div>
+        </div>
+        <div className="pms-frontdesk-alerts">
+          <span className={vipArrivals.length ? 'highlight' : ''}><Star size={15} /> {vipArrivals.length} arrivée(s) VIP</span>
+          <span className={earlyArrivals.length ? 'warning' : ''}><Clock3 size={15} /> {earlyArrivals.length} arrivée(s) anticipée(s)</span>
+          <span className={roomsNotReady.length ? 'danger' : ''}><Sparkles size={15} /> {roomsNotReady.length} chambre(s) non prête(s)</span>
+          <span className={balancesDue.length ? 'warning' : ''}><CreditCard size={15} /> {balancesDue.length} solde(s) à encaisser</span>
+          <span><BellRing size={15} /> {db.pmsServiceRequests.filter(item => item.priority === 'urgent' && item.status !== 'completed').length} demande(s) urgente(s)</span>
         </div>
         <div className="pms-frontdesk-board">
           {lanes.map(lane => (

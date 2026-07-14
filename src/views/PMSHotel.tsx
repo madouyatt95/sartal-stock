@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogIn,
   LogOut,
+  MoreHorizontal,
   MoonStar,
   Pencil,
   Plus,
@@ -45,6 +46,14 @@ import {
   PMSRevenueIntelligence,
   PMSRoomRack
 } from './PMSPremiumOperations';
+import {
+  PMSFloorPlan,
+  PMSGlobalSearch,
+  PMSGuestCommandCenter,
+  PMSRateCalendar,
+  PMSServiceDesk,
+  PMSStayDocuments
+} from './PMSExperiencePanels';
 
 interface PMSHotelProps {
   state: StockState;
@@ -109,6 +118,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     updatePMSSettings
   } = state;
   const [activeTab, setActiveTab] = useState<PMSTab>(initialTab);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
   const [roomFilter, setRoomFilter] = useState('all');
@@ -184,8 +194,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       || (roomFilter === 'vacant' && room.status === 'vacant');
   });
 
-  const availableRoomsForReservation = db.pmsRooms.filter(room => {
-    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children || (reservationForm.requestedRoomType && room.roomType !== reservationForm.requestedRoomType)) return false;
+  const roomIsAvailableForReservation = (room: (typeof db.pmsRooms)[number]) => {
+    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children) return false;
     return !db.pmsReservations.some(reservation => (
       reservation.id !== editingReservationId
       && reservation.roomId === room.id
@@ -193,14 +203,18 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       && reservationForm.arrivalDate < reservation.departureDate
       && reservationForm.departureDate > reservation.arrivalDate
     ));
-  });
+  };
+  const availableRoomsForReservation = db.pmsRooms.filter(room => (
+    roomIsAvailableForReservation(room)
+    && (!reservationForm.requestedRoomType || room.roomType === reservationForm.requestedRoomType)
+  ));
   const selectedReservationRoom = db.pmsRooms.find(room => room.id === reservationForm.roomId);
   const reservationNights = reservationForm.arrivalDate && reservationForm.departureDate
     ? getNights(reservationForm.arrivalDate, reservationForm.departureDate)
     : 0;
 
   const tabs: Array<{ id: PMSTab; label: string; icon: React.ReactNode }> = [
-    { id: 'dashboard', label: 'Tableau hôtel', icon: <LayoutDashboard size={17} /> },
+    { id: 'dashboard', label: 'Réception', icon: <LayoutDashboard size={17} /> },
     { id: 'planning', label: 'Planning', icon: <CalendarDays size={17} /> },
     { id: 'reservations', label: 'Réservations', icon: <ClipboardCheck size={17} /> },
     { id: 'rooms', label: 'Chambres', icon: <BedDouble size={17} /> },
@@ -211,6 +225,13 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     { id: 'reports', label: 'Rapports', icon: <FileSpreadsheet size={17} /> },
     { id: 'settings', label: 'Réglages', icon: <Settings size={17} /> }
   ];
+  const primaryMobileTabs: PMSTab[] = ['dashboard', 'planning', 'rooms', 'folios'];
+  const secondaryMobileTabs = tabs.filter(tab => !primaryMobileTabs.includes(tab.id));
+  const openTab = (tab: PMSTab) => {
+    setActiveTab(tab);
+    setSearchQuery('');
+    setMobileMoreOpen(false);
+  };
 
   const openCreateReservation = () => {
     const departure = new Date(`${today}T12:00:00`);
@@ -388,6 +409,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     <>
       {renderKpis()}
       <PMSFrontDeskCommand state={state} />
+      <PMSServiceDesk state={state} />
       <PMSRoleDashboard state={state} />
       <section className="card pms-section-card">
         <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div><button className="btn btn-secondary" onClick={() => setActiveTab('rooms')}>Voir les chambres</button></div>
@@ -450,11 +472,13 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         })}
       </div>
       <PMSGroupsEvents state={state} />
+      <PMSStayDocuments state={state} />
     </>
   );
 
   const renderRooms = () => (
     <>
+      <PMSFloorPlan state={state} />
       <div className="card pms-filter-bar">
         <div><Filter size={18} /><strong>État des chambres</strong></div>
         <select className="form-control" value={roomFilter} onChange={event => setRoomFilter(event.target.value)}><option value="all">Toutes les chambres</option><option value="available">Libres et prêtes</option><option value="occupied">Occupées</option><option value="dirty">À nettoyer</option><option value="maintenance">Maintenance</option></select>
@@ -488,13 +512,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderGuests = () => (
     <>
-      <div className="card pms-filter-bar"><div className="input-with-icon"><Search size={16} /><input className="form-control" placeholder="Nom, téléphone, entreprise..." value={searchQuery} onChange={event => setSearchQuery(event.target.value)} /></div><span className="badge badge-blue">{db.pmsGuests.length} clients</span></div>
-      <div className="grid-3">
-        {db.pmsGuests.filter(guest => !normalizedSearch || `${guest.fullName} ${guest.phone} ${guest.company}`.toLowerCase().includes(normalizedSearch)).map(guest => {
-          const reservations = db.pmsReservations.filter(item => item.guestId === guest.id);
-          return <article className="card pms-guest-card" key={guest.id}><div className="pms-avatar">{guest.fullName.split(' ').map(part => part[0]).slice(0, 2).join('')}</div><div><div className="pms-guest-heading"><h3>{guest.fullName}</h3><span className={`badge ${guest.loyaltyTier === 'gold' ? 'badge-yellow' : guest.loyaltyTier === 'silver' ? 'badge-blue' : 'badge-gray'}`}>{guest.loyaltyTier || 'standard'}</span></div><p>{guest.phone}</p><p>{guest.email || 'E-mail non renseigné'}</p></div><div className="pms-guest-meta"><span>{guest.nationality || 'Nationalité non renseignée'}</span><span>{guest.company || 'Client particulier'}</span><span>{guest.documentType ? `${guest.documentType.replace('_', ' ')} · ${guest.documentNumber}` : 'Pièce d’identité à renseigner'}</span><strong>{guest.stays} séjour(s) · {reservations.length} réservation(s)</strong></div>{guest.preferences && <div className="pms-preference">Préférence : {guest.preferences}</div>}{guest.incidentNote && <div className="pms-maintenance-note">Incident : {guest.incidentNote}</div>}</article>;
-        })}
-      </div>
+      <PMSGuestCommandCenter state={state} />
       <PMSGuestRelations state={state} />
     </>
   );
@@ -606,8 +624,11 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         <div><button className="btn btn-secondary" onClick={() => setView('connectors')}><CreditCard size={17} /> Ouvrir la caisse POS</button><button className="btn btn-primary" onClick={openCreateReservation}><Plus size={17} /> Nouvelle réservation</button></div>
       </div>
 
+      <PMSGlobalSearch state={state} onNavigate={tab => openTab(tab)} />
+
       <nav className="pms-tabs" aria-label="Navigation du module Hôtel">
-        {tabs.map(tab => <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => { setActiveTab(tab.id); setSearchQuery(''); }}>{tab.icon}<span>{tab.label}</span></button>)}
+        {tabs.map(tab => <button key={tab.id} className={`${activeTab === tab.id ? 'active' : ''} ${primaryMobileTabs.includes(tab.id) ? 'pms-tab-primary' : 'pms-tab-secondary'}`} onClick={() => openTab(tab.id)}>{tab.icon}<span>{tab.label}</span></button>)}
+        <button className={`pms-mobile-more-trigger ${secondaryMobileTabs.some(tab => tab.id === activeTab) ? 'active' : ''}`} onClick={() => setMobileMoreOpen(true)}><MoreHorizontal size={18} /><span>Plus</span></button>
       </nav>
 
       <main className="pms-tab-content">
@@ -619,9 +640,12 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         {activeTab === 'folios' && renderFolios()}
         {activeTab === 'housekeeping' && renderHousekeeping()}
         {activeTab === 'audit' && renderAudit()}
+        {activeTab === 'reports' && <PMSRateCalendar state={state} />}
         {activeTab === 'reports' && renderReports()}
         {activeTab === 'settings' && renderSettings()}
       </main>
+
+      {mobileMoreOpen && <div className="pms-mobile-more-overlay" onClick={() => setMobileMoreOpen(false)}><section className="pms-mobile-more-sheet" onClick={event => event.stopPropagation()}><header><div><strong>Autres fonctions</strong><span>Gestion complète de l’hôtel</span></div><button className="icon-btn" onClick={() => setMobileMoreOpen(false)} aria-label="Fermer"><X size={20} /></button></header><div>{secondaryMobileTabs.map(tab => <button key={tab.id} className={activeTab === tab.id ? 'active' : ''} onClick={() => openTab(tab.id)}>{tab.icon}<span>{tab.label}</span><ArrowRight size={16} /></button>)}</div></section></div>}
 
       {reservationModalOpen && (
         <div className="modal-overlay" onClick={() => setReservationModalOpen(false)}>
@@ -657,10 +681,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
                     <div className="form-group"><label className="form-label">Adultes</label><input type="number" min="1" max="8" className="form-control" value={reservationForm.adults} onChange={event => setReservationForm({ ...reservationForm, adults: Number(event.target.value) })} /></div>
                     <div className="form-group"><label className="form-label">Enfants</label><input type="number" min="0" max="8" className="form-control" value={reservationForm.children} onChange={event => setReservationForm({ ...reservationForm, children: Number(event.target.value) })} /></div>
                   </div>
-                  <div className="grid-2">
-                    <div className="form-group"><label className="form-label">Catégorie demandée</label><select className="form-control" value={reservationForm.requestedRoomType} onChange={event => { const roomType = event.target.value; const referenceRoom = db.pmsRooms.find(room => room.roomType === roomType); setReservationForm({ ...reservationForm, requestedRoomType: roomType, roomId: '', nightlyRate: referenceRoom?.nightlyRate || reservationForm.nightlyRate }); }}>{roomTypes.map(roomType => <option value={roomType} key={roomType}>{roomType}</option>)}</select></div>
-                    <div className="form-group"><label className="form-label">Heure d’arrivée estimée</label><input type="time" className="form-control" value={reservationForm.estimatedArrivalTime} onChange={event => setReservationForm({ ...reservationForm, estimatedArrivalTime: event.target.value })} /></div>
-                  </div>
+                  <div className="form-group"><label className="form-label">Choisir une catégorie</label><div className="pms-room-type-cards">{roomTypes.map((roomType, index) => { const referenceRoom = db.pmsRooms.find(room => room.roomType === roomType); const availableCount = db.pmsRooms.filter(room => room.roomType === roomType && roomIsAvailableForReservation(room)).length; return <button key={roomType} type="button" className={reservationForm.requestedRoomType === roomType ? 'selected' : ''} onClick={() => setReservationForm({ ...reservationForm, requestedRoomType: roomType, roomId: '', nightlyRate: referenceRoom?.nightlyRate || reservationForm.nightlyRate })}><span className="pms-room-type-photo" style={{ backgroundImage: "url('/pms-room-categories.jpg')", backgroundSize: '500% auto', backgroundPosition: `${Math.min(index, 4) * 25}% center` }}><i>{availableCount} disponible{availableCount > 1 ? 's' : ''}</i></span><span className="pms-room-type-copy"><strong>{roomType}</strong><small>Jusqu’à {referenceRoom?.capacity || 2} personne(s)</small><b>Dès {formatFCFA(referenceRoom?.nightlyRate || 0)} / nuit</b></span><CheckCircle size={19} /></button>; })}</div></div>
+                  <div className="form-group pms-arrival-time"><label className="form-label">Heure d’arrivée estimée</label><input type="time" className="form-control" value={reservationForm.estimatedArrivalTime} onChange={event => setReservationForm({ ...reservationForm, estimatedArrivalTime: event.target.value })} /></div>
                   <div className="pms-booking-highlight"><MoonStar size={19} /><div><strong>{reservationNights} nuit(s) · {reservationForm.requestedRoomType}</strong><span>{reservationForm.adults + reservationForm.children} voyageur(s) · arrivée estimée à {reservationForm.estimatedArrivalTime || db.pmsSettings.checkInTime}</span></div></div>
                 </section>
               )}

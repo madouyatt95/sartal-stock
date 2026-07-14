@@ -33,6 +33,8 @@ import {
   PMSEvent,
   PMSInvoice,
   PMSMaintenanceTicket,
+  PMSServiceRequest,
+  PMSRateOverride,
   PMSChannel,
   PMSNotification,
   PMSAuditLog,
@@ -76,6 +78,8 @@ export interface DatabaseState {
   pmsEvents: PMSEvent[];
   pmsInvoices: PMSInvoice[];
   pmsMaintenanceTickets: PMSMaintenanceTicket[];
+  pmsServiceRequests: PMSServiceRequest[];
+  pmsRateOverrides: PMSRateOverride[];
   pmsChannels: PMSChannel[];
   pmsNotifications: PMSNotification[];
   pmsAuditLogs: PMSAuditLog[];
@@ -812,9 +816,21 @@ const initialDB = (): DatabaseState => {
   ];
 
   const pmsMaintenanceTickets: PMSMaintenanceTicket[] = [
-    { id: 'maint-410', roomId: 'room-410', equipment: 'Climatisation', priority: 'critical', status: 'in_progress', assignedTo: 'Moussa Technique', openedAt: `${hotelDate(-1)}T09:20:00.000Z`, estimatedCost: 85000, note: 'Compresseur à contrôler avant remise en vente.' },
-    { id: 'maint-102', roomId: 'room-102', equipment: 'Serrure électronique', priority: 'normal', status: 'open', assignedTo: 'Service technique', openedAt: `${today}T08:10:00.000Z`, estimatedCost: 15000, note: 'Pile faible signalée par l’entretien.' }
+    { id: 'maint-410', roomId: 'room-410', equipment: 'Climatisation', priority: 'critical', status: 'in_progress', assignedTo: 'Moussa Technique', openedAt: `${hotelDate(-1)}T09:20:00.000Z`, estimatedCost: 85000, actualCost: 42000, unavailableUntil: hotelDate(2), photoCount: 2, note: 'Compresseur à contrôler avant remise en vente.' },
+    { id: 'maint-102', roomId: 'room-102', equipment: 'Serrure électronique', priority: 'normal', status: 'open', assignedTo: 'Service technique', openedAt: `${today}T08:10:00.000Z`, estimatedCost: 15000, actualCost: 0, unavailableUntil: today, photoCount: 1, note: 'Pile faible signalée par l’entretien.' }
   ];
+
+  const pmsServiceRequests: PMSServiceRequest[] = [
+    { id: 'request-204-breakfast', reservationId: 'res-204', roomId: 'room-204', type: 'breakfast', label: 'Petit-déjeuner sans sucre', status: 'completed', priority: 'normal', scheduledAt: `${today}T07:30:00.000Z`, assignedTo: 'Restaurant La Terrasse', amount: 9000, note: 'Préférence cliente enregistrée.' },
+    { id: 'request-305-airport', reservationId: 'res-305', roomId: 'room-305', type: 'airport_transfer', label: 'Transfert aéroport', status: 'assigned', priority: 'urgent', scheduledAt: `${hotelDate(1)}T09:30:00.000Z`, assignedTo: 'Chauffeur Mamadou', amount: 25000, note: 'Vol Air Sénégal à 12h40.' },
+    { id: 'request-301-laundry', reservationId: 'res-301', roomId: 'room-301', type: 'laundry', label: 'Blanchisserie express', status: 'in_progress', priority: 'normal', scheduledAt: `${today}T16:00:00.000Z`, assignedTo: 'Service étage', amount: 6000 }
+  ];
+
+  const pmsRateOverrides: PMSRateOverride[] = Array.from({ length: 7 }, (_, index) => {
+    const date = hotelDate(index);
+    const weekend = [0, 6].includes(new Date(`${date}T12:00:00`).getDay());
+    return { id: `override-deluxe-${date}`, date, roomType: 'Chambre Deluxe', price: weekend ? 82000 : 70000, reason: weekend ? 'Week-end forte demande' : 'Tarif public', closed: false };
+  });
 
   const pmsChannels: PMSChannel[] = [
     { id: 'channel-direct', name: 'Site direct Sartal', type: 'direct', status: 'connected', lastSync: `${today}T11:45:00.000Z`, reservationsToday: 3, availabilityIssues: 0 },
@@ -836,9 +852,9 @@ const initialDB = (): DatabaseState => {
   ];
 
   const pmsPropertySummaries: PMSPropertySummary[] = [
-    { id: 'property-dakar', name: 'Complexe Hôtelier Dakar', city: 'Dakar', rooms: 48, occupiedRooms: 35, revenueToday: 4860000, alerts: 2 },
-    { id: 'property-saly', name: 'Résidence Sartal Saly', city: 'Saly', rooms: 26, occupiedRooms: 20, revenueToday: 2410000, alerts: 1 },
-    { id: 'property-saint-louis', name: 'Maison Sartal Saint-Louis', city: 'Saint-Louis', rooms: 18, occupiedRooms: 11, revenueToday: 1260000, alerts: 0 }
+    { id: 'property-dakar', name: 'Complexe Hôtelier Dakar', city: 'Dakar', rooms: 48, occupiedRooms: 35, revenueToday: 4860000, alerts: 2, adr: 72000, revPar: 52500, outOfOrderRooms: 1 },
+    { id: 'property-saly', name: 'Résidence Sartal Saly', city: 'Saly', rooms: 26, occupiedRooms: 20, revenueToday: 2410000, alerts: 1, adr: 65000, revPar: 50000, outOfOrderRooms: 0 },
+    { id: 'property-saint-louis', name: 'Maison Sartal Saint-Louis', city: 'Saint-Louis', rooms: 18, occupiedRooms: 11, revenueToday: 1260000, alerts: 0, adr: 54000, revPar: 33000, outOfOrderRooms: 0 }
   ];
 
   const deliveryOrders: DeliveryOrder[] = [
@@ -1117,6 +1133,8 @@ const initialDB = (): DatabaseState => {
     pmsEvents,
     pmsInvoices,
     pmsMaintenanceTickets,
+    pmsServiceRequests,
+    pmsRateOverrides,
     pmsChannels,
     pmsNotifications,
     pmsAuditLogs,
@@ -1686,6 +1704,17 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     pmsEvents: state.pmsEvents || [],
     pmsInvoices: state.pmsInvoices || [],
     pmsMaintenanceTickets: state.pmsMaintenanceTickets || [],
+    pmsServiceRequests: state.pmsServiceRequests || [
+      { id: 'request-204-breakfast', reservationId: 'res-204', roomId: 'room-204', type: 'breakfast', label: 'Petit-déjeuner sans sucre', status: 'completed', priority: 'normal', scheduledAt: new Date().toISOString(), assignedTo: 'Restaurant La Terrasse', amount: 9000 },
+      { id: 'request-305-airport', reservationId: 'res-305', roomId: 'room-305', type: 'airport_transfer', label: 'Transfert aéroport', status: 'assigned', priority: 'urgent', scheduledAt: new Date(Date.now() + 86400000).toISOString(), assignedTo: 'Chauffeur Mamadou', amount: 25000 }
+    ],
+    pmsRateOverrides: state.pmsRateOverrides || Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(`${state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10)}T12:00:00`);
+      date.setDate(date.getDate() + index);
+      const iso = date.toISOString().slice(0, 10);
+      const weekend = [0, 6].includes(date.getDay());
+      return { id: `override-deluxe-${iso}`, date: iso, roomType: 'Chambre Deluxe', price: weekend ? 82000 : 70000, reason: weekend ? 'Week-end forte demande' : 'Tarif public', closed: false };
+    }),
     pmsChannels: state.pmsChannels || [],
     pmsNotifications: state.pmsNotifications || [],
     pmsAuditLogs: state.pmsAuditLogs || [],
