@@ -7367,3 +7367,478 @@ button, input, select, textarea {
   .restaurant-kds-row footer { align-items: stretch; flex-direction: column; }
   .restaurant-kds-row footer button { justify-content: center; width: 100%; }
 }
+
+/* Mon Sartal customer space */
+.sartal-client-body.hub-body {
+  background: #f2f7f5;
+}
+
+.sartal-hub {
+  display: grid;
+  gap: 1rem;
+  color: #173532;
+}
+
+.sartal-hub-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 8px;
+  background: #123f3a;
+  color: #fff;
+}
+
+.sartal-hub-heading > div:first-child > span,
+.sartal-now-card span,
+.sartal-personal-attention > div > span,
+.sartal-passport-layout > aside > span,
+.sartal-experience-recap > span {
+  color: #62d9ca;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.sartal-hub-heading h1 {
+  margin-top: 0.18rem;
+  font-size: 1.55rem;
+}
+
+.sartal-hub-heading p {
+  margin-top: 0.2rem;
+  color: #bfd4d0;
+  font-size: 0.8rem;
+}
+
+.sartal-hub-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 250px;
+  padding: 0.7rem;
+  border: 1px solid #3f6e68;
+  border-radius: 6px;
+  background: #194b45;
+}
+
+.sartal-hub-identity > div { display: grid; gap: 0.12rem; }
+.sartal-hub-identity strong { font-size: 0.78rem; }
+.sartal-hub-identity small { color: #b9d0cc; font-size: 0.68rem; }
+
+.sartal-hub-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border: 1px solid #d3e4e0;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.sartal-hub-tabs button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 5px;
+  color: #617773;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.sartal-hub-tabs button.active { background: #dff3ef; color: #0d695e; }
+.sartal-hub-today { display: grid; gap: 0.85rem; }
+
+.sartal-now-card {
+  min-height: 160px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 8px;
+  background: linear-gradient(110deg, rgb(12 78 69 / 0.97), rgb(12 78 69 / 0.78)), url('/sartal-client-restaurant.jpg') center 58% / cover;
+  color: #fff;
+}
+
+.sartal-now-card h2 { margin-top: 0.3rem; font-size: 1.45rem; }
+.sartal-now-card p { max-width: 620px; margin-top: 0.3rem; color: #d6e7e4; font-size: 0.8rem; }
+.sartal-now-card button,
+.sartal-context-grid button,
+.sartal-experience-recap > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.62rem 0.8rem;
+  border-radius: 5px;
+  background: #f2bd4c;
+  color: #173532;
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.sartal-context-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.sartal-context-grid article {
+  min-width: 0;
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.9rem;
+  border: 1px solid #d8e6e3;
+  border-top: 3px solid #b6c9c5;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.sartal-context-grid article.active { border-top-color: #24a28f; }
+.sartal-context-grid article > span { display: flex; align-items: center; gap: 0.4rem; color: #187064; font-size: 0.7rem; font-weight: 800; }
+.sartal-context-grid article > strong { overflow: hidden; color: #173532; font-size: 0.88rem; text-overflow: ellipsis; }
+.sartal-context-grid article > small { min-height: 30px; color: #6e807d; font-size: 0.68rem; }
+.sartal-context-grid article > button { justify-self: start; padding: 0.38rem 0.55rem; background: #e6f4f1; color: #126c60; }
+.sartal-context-grid article > button:disabled { opacity: 0.55; }
+
+.sartal-personal-attention,
+.sartal-access-card {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e1d6b6;
+  border-radius: 7px;
+  background: #fff9e9;
+  color: #6c5012;
+}
+
+.sartal-personal-attention > div { display: grid; gap: 0.15rem; flex: 1; }
+.sartal-personal-attention > div > span { color: #a36d05; }
+.sartal-personal-attention strong { color: #3e341e; font-size: 0.82rem; }
+.sartal-personal-attention p { color: #766c55; font-size: 0.7rem; }
+.sartal-personal-attention button { color: #825b0d; font-size: 0.7rem; font-weight: 800; }
+
+.sartal-live-service {
+  overflow: hidden;
+  border: 1px solid #d7e4e1;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.sartal-live-service > header,
+.sartal-reward-list > header,
+.sartal-story > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid #e6eeec;
+}
+
+.sartal-live-service > header > div,
+.sartal-reward-list > header,
+.sartal-story > header { color: #176e62; }
+.sartal-live-service > header > div { display: flex; align-items: center; gap: 0.55rem; }
+.sartal-live-service > header span { display: grid; gap: 0.08rem; }
+.sartal-live-service > header strong { color: #183b36; font-size: 0.8rem; }
+.sartal-live-service > header small { color: #72837f; font-size: 0.65rem; }
+.sartal-live-service > header button { padding: 0.42rem 0.55rem; border-radius: 4px; background: #176e62; color: #fff; font-size: 0.68rem; font-weight: 800; }
+.sartal-live-service > article { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0.9rem; border-top: 1px solid #edf2f1; }
+.sartal-live-service > article > span { display: flex; align-items: center; gap: 0.3rem; color: #99650c; font-size: 0.65rem; font-weight: 800; }
+.sartal-live-service > article > span i { width: 7px; height: 7px; border-radius: 50%; background: #ecb74b; }
+.sartal-live-service > article > span.accepted { color: #167163; }
+.sartal-live-service > article > span.accepted i { background: #25a38f; }
+.sartal-live-service > article > div { display: grid; gap: 0.1rem; }
+.sartal-live-service > article strong { font-size: 0.75rem; }
+.sartal-live-service > article small { color: #71817e; font-size: 0.65rem; }
+
+.sartal-access-card { border-color: #cfe1de; background: #fff; color: #176e62; }
+.sartal-access-card > div:first-child { display: flex; align-items: center; gap: 0.55rem; flex: 1; }
+.sartal-access-card > div:first-child > span { display: grid; gap: 0.1rem; }
+.sartal-access-card strong { color: #173532; font-size: 0.78rem; }
+.sartal-access-card small { color: #71817e; font-size: 0.65rem; }
+.sartal-access-actions { display: flex; gap: 0.35rem; }
+.sartal-access-actions button { display: flex; align-items: center; gap: 0.3rem; padding: 0.45rem 0.55rem; border: 1px solid #cfe1de; border-radius: 4px; color: #176e62; font-size: 0.68rem; font-weight: 750; }
+.sartal-active-access { display: grid; justify-items: end; gap: 0.05rem; }
+.sartal-active-access > span { color: #178374; font-size: 0.58rem; font-weight: 850; }
+.sartal-active-access > strong { font-size: 1.1rem; letter-spacing: 0.12em; }
+.sartal-active-access > div { display: flex; gap: 0.3rem; margin-top: 0.2rem; }
+.sartal-active-access button { padding: 0.28rem 0.4rem; border-radius: 4px; background: #e5f3f0; color: #176e62; font-size: 0.58rem; font-weight: 800; }
+
+.sartal-passport-layout,
+.sartal-wallet-layout,
+.sartal-history-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.65fr) minmax(0, 1.5fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.sartal-passport-layout > aside {
+  position: relative;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.2rem;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #123f3a;
+  color: #fff;
+}
+
+.sartal-passport-monogram { display: grid; place-items: center; width: 60px; height: 60px; margin-bottom: 1.1rem; border-radius: 50%; background: #62d9ca; color: #123f3a; font-size: 1.2rem; font-weight: 900; }
+.sartal-passport-layout > aside h2 { margin-top: 0.3rem; font-size: 1.25rem; }
+.sartal-passport-layout > aside p { color: #bcd2ce; font-size: 0.7rem; }
+.sartal-passport-layout > aside > div:not(.sartal-passport-monogram) { display: grid; gap: 0.12rem; margin-top: auto; }
+.sartal-passport-layout > aside > div strong { color: #f2bd4c; font-size: 0.78rem; text-transform: uppercase; }
+.sartal-passport-layout > aside > div small { color: #fff; }
+.sartal-passport-layout > aside > svg { position: absolute; right: 1rem; bottom: 1rem; color: #62d9ca; }
+
+.sartal-passport-form,
+.sartal-reward-list,
+.sartal-wallet-history,
+.sartal-story,
+.sartal-experience-recap {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #d7e5e2;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.sartal-passport-form > header { display: flex; gap: 0.65rem; color: #176e62; }
+.sartal-passport-form > header h2,
+.sartal-reward-list h2,
+.sartal-story h2 { color: #173532; font-size: 1rem; }
+.sartal-passport-form > header p,
+.sartal-reward-list header p,
+.sartal-story header p { color: #6f817d; font-size: 0.7rem; }
+.sartal-passport-form > label { display: grid; gap: 0.3rem; color: #475f5b; font-size: 0.7rem; font-weight: 750; }
+.sartal-passport-form textarea { min-height: 68px; resize: vertical; }
+.sartal-consent-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.sartal-consent-row label { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.65rem; border-radius: 6px; background: #f1f7f5; }
+.sartal-consent-row label > span { display: grid; gap: 0.12rem; }
+.sartal-consent-row strong { color: #20453f; font-size: 0.72rem; }
+.sartal-consent-row small { color: #74837f; font-size: 0.62rem; }
+
+.sartal-wallet-layout { grid-template-columns: minmax(220px, 0.75fr) minmax(300px, 1.2fr) minmax(220px, 0.8fr); }
+.sartal-wallet-card { min-height: 245px; display: flex; flex-direction: column; padding: 1.15rem; border-radius: 8px; background: #123f3a; color: #fff; }
+.sartal-wallet-card > span { color: #62d9ca; font-size: 0.68rem; font-weight: 850; letter-spacing: 0.08em; }
+.sartal-wallet-card h2 { margin-top: 1.2rem; font-size: 2.2rem; }
+.sartal-wallet-card h2 small { color: #bcd2ce; font-size: 0.7rem; }
+.sartal-wallet-card > p { color: #bcd2ce; font-size: 0.7rem; }
+.sartal-wallet-card > div { display: flex; align-items: center; gap: 0.5rem; margin-top: auto; padding: 0.65rem; border-radius: 6px; background: #1b554e; color: #f2bd4c; }
+.sartal-wallet-card > div span { display: grid; }
+.sartal-wallet-card > div strong { font-size: 0.78rem; }
+.sartal-wallet-card > div small { color: #c7d9d6; font-size: 0.6rem; }
+.sartal-reward-list > header,
+.sartal-story > header { justify-content: flex-start; padding: 0 0 0.75rem; }
+.sartal-reward-list > article { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem; border-radius: 6px; background: #f3f7f6; }
+.sartal-reward-list > article > div { display: grid; gap: 0.1rem; flex: 1; }
+.sartal-reward-list > article strong { color: #243f3b; font-size: 0.72rem; }
+.sartal-reward-list > article span { color: #778682; font-size: 0.64rem; }
+.sartal-reward-list > article button { padding: 0.4rem 0.55rem; border-radius: 4px; background: #176e62; color: #fff; font-size: 0.65rem; font-weight: 800; }
+.sartal-reward-list > article button:disabled { background: #d8e2e0; color: #8a9996; }
+.sartal-wallet-history h3 { font-size: 0.85rem; }
+.sartal-wallet-history article { display: flex; align-items: center; gap: 0.55rem; }
+.sartal-wallet-history article > span { min-width: 42px; font-size: 0.72rem; font-weight: 850; }
+.sartal-wallet-history article > span.plus { color: #14816e; }
+.sartal-wallet-history article > span.minus { color: #a3572b; }
+.sartal-wallet-history article > div { display: grid; gap: 0.05rem; }
+.sartal-wallet-history strong { font-size: 0.68rem; }
+.sartal-wallet-history small { color: #81908d; font-size: 0.58rem; }
+
+.sartal-history-layout { grid-template-columns: minmax(0, 1.4fr) minmax(230px, 0.65fr); }
+.sartal-story > article { display: grid; grid-template-columns: auto 1fr; gap: 0.65rem; position: relative; padding: 0.65rem 0; border-bottom: 1px solid #edf2f1; }
+.sartal-story > article:last-child { border-bottom: 0; }
+.sartal-story > article > span { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #e5f3f0; color: #176e62; }
+.sartal-story > article.delivery > span { background: #e7eff8; color: #396591; }
+.sartal-story > article.loyalty > span { background: #fff2d7; color: #99650c; }
+.sartal-story > article.alert > span { background: #fde9e6; color: #a7463b; }
+.sartal-story > article > div { display: grid; gap: 0.08rem; }
+.sartal-story strong { font-size: 0.74rem; }
+.sartal-story p { color: #667975; font-size: 0.67rem; }
+.sartal-story small { color: #899693; font-size: 0.58rem; }
+.sartal-experience-recap { position: sticky; top: 1rem; align-content: start; background: #123f3a; color: #fff; }
+.sartal-experience-recap > svg { color: #f2bd4c; }
+.sartal-experience-recap h2 { font-size: 1.05rem; }
+.sartal-experience-recap p { color: #bfd2cf; font-size: 0.7rem; }
+.sartal-experience-recap > strong { color: #f2bd4c; font-size: 1.25rem; }
+.sartal-recap-rating { display: grid; gap: 0.35rem; margin-top: 0.6rem; padding-top: 0.75rem; border-top: 1px solid #3a6963; }
+.sartal-recap-rating > span { font-size: 0.7rem; font-weight: 800; }
+.sartal-recap-rating > div { display: flex; gap: 0.2rem; color: #718f8a; }
+.sartal-recap-rating svg.active { color: #f2bd4c; fill: #f2bd4c; }
+.sartal-recap-rating small { color: #bdd0cd; font-size: 0.63rem; line-height: 1.4; }
+
+/* Rich restaurant and support interactions */
+.client-table-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.client-live-requests { display: grid; gap: 0.4rem; margin-top: 0.65rem; }
+.client-live-requests article,
+.client-help-request { display: flex; align-items: center; gap: 0.55rem; padding: 0.55rem 0.65rem; border-radius: 6px; background: #edf7f4; }
+.client-live-requests article > span { display: flex; align-items: center; gap: 0.3rem; color: #9a680e; font-size: 0.62rem; font-weight: 800; }
+.client-live-requests article > span i { width: 6px; height: 6px; border-radius: 50%; background: #eab74d; }
+.client-live-requests article > span.accepted { color: #137466; }
+.client-live-requests article > span.accepted i { background: #20a18d; }
+.client-live-requests article > div,
+.client-help-request > span { display: grid; gap: 0.08rem; }
+.client-live-requests strong,
+.client-help-request strong { font-size: 0.68rem; }
+.client-live-requests small,
+.client-help-request small { color: #6e817d; font-size: 0.6rem; }
+
+.client-group-bill { display: grid; gap: 0.55rem; margin-top: 0.65rem; padding: 0.75rem; border: 1px solid #d7e5e2; border-radius: 7px; background: #fff; }
+.client-group-bill > header { display: flex; align-items: center; gap: 0.5rem; color: #176e62; }
+.client-group-bill > header > div { display: grid; gap: 0.08rem; }
+.client-group-bill > header strong { color: #173532; font-size: 0.75rem; }
+.client-group-bill > header small { color: #758581; font-size: 0.62rem; }
+.client-invite-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 0.35rem; }
+.client-invite-form button,
+.client-group-bill > article button { padding: 0.42rem 0.55rem; border-radius: 4px; background: #176e62; color: #fff; font-size: 0.65rem; font-weight: 800; }
+.client-group-bill > article { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.5rem; padding: 0.55rem; border-radius: 5px; background: #f2f7f5; }
+.client-group-bill > article > div { display: grid; gap: 0.08rem; min-width: 0; }
+.client-group-bill > article strong { font-size: 0.7rem; }
+.client-group-bill > article small { overflow: hidden; color: #74847f; font-size: 0.6rem; text-overflow: ellipsis; }
+.client-group-bill > article > b { color: #176e62; font-size: 0.68rem; }
+.client-rich-message { display: flex; gap: 0.3rem; padding: 0.45rem 0.65rem 0; }
+.client-rich-message button { display: flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.38rem 0.48rem; border-radius: 4px; background: #edf4f2; color: #40625d; font-size: 0.62rem; }
+.client-message-thread > div > b { display: flex; align-items: center; gap: 0.25rem; margin-top: 0.3rem; font-size: 0.6rem; }
+.client-help-request { margin: 0.5rem; color: #176e62; }
+.client-recovery-status { align-self: flex-start; padding: 0.28rem 0.45rem; border-radius: 4px; background: #fff1d5; color: #93610d; font-size: 0.65rem; font-weight: 850; }
+.client-recovery-status.resolved { background: #e0f4eb; color: #1e7750; }
+
+/* Customer experience manager cockpit */
+.customer-experience-workspace { display: grid; gap: 1.2rem; padding: 1.2rem; }
+.cx-cockpit { overflow: hidden; border: 1px solid #cfe1dd; border-radius: 8px; background: #f6faf9; }
+.cx-cockpit > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.3rem; background: #123f3a; color: #fff; }
+.cx-cockpit > header span { display: flex; align-items: center; gap: 0.35rem; color: #62d9ca; font-size: 0.67rem; font-weight: 850; letter-spacing: 0.06em; }
+.cx-cockpit > header h1 { margin-top: 0.2rem; font-size: 1.4rem; }
+.cx-cockpit > header p { margin-top: 0.2rem; color: #bfd3cf; font-size: 0.75rem; }
+.cx-live-indicator { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.65rem; border: 1px solid #3e706a; border-radius: 5px; color: #d3e4e1; font-size: 0.68rem; font-weight: 750; }
+.cx-live-indicator i { width: 8px; height: 8px; border-radius: 50%; background: #62d9ca; box-shadow: 0 0 0 4px rgb(98 217 202 / 0.15); }
+.cx-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #dce9e6; }
+.cx-metrics article { min-width: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.55rem; padding: 0.9rem; border-right: 1px solid #dce9e6; background: #fff; }
+.cx-metrics article:last-child { border-right: 0; }
+.cx-metrics article > svg { grid-row: 1 / 4; color: #218779; }
+.cx-metrics article > span { color: #6d7f7b; font-size: 0.65rem; font-weight: 750; }
+.cx-metrics article > strong { color: #173532; font-size: 1.25rem; }
+.cx-metrics article > small { color: #879590; font-size: 0.6rem; }
+.cx-metrics article.attention > svg,
+.cx-metrics article.attention > strong { color: #b14d3f; }
+.cx-board { display: grid; grid-template-columns: 1.05fr 1.15fr 0.9fr; align-items: start; }
+.cx-board > section { min-width: 0; padding: 0.9rem; }
+.cx-board > section + section { border-left: 1px solid #dce9e6; }
+.cx-board > section > header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.7rem; color: #176e62; }
+.cx-board > section > header > div { display: grid; gap: 0.08rem; }
+.cx-board > section > header strong { color: #173532; font-size: 0.78rem; }
+.cx-board > section > header span { color: #74847f; font-size: 0.62rem; }
+.cx-board > section > div { display: grid; gap: 0.5rem; }
+.cx-live-customers article,
+.cx-request-queue article,
+.cx-recovery-queue article { border: 1px solid #dbe7e4; border-radius: 6px; background: #fff; }
+.cx-live-customers article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.55rem; align-items: center; padding: 0.65rem; }
+.cx-avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #dff2ee; color: #176e62; font-size: 0.68rem; font-weight: 900; }
+.cx-live-customers article > div:nth-child(2) { display: grid; gap: 0.1rem; min-width: 0; }
+.cx-live-customers article strong { font-size: 0.7rem; }
+.cx-live-customers article span { overflow: hidden; color: #71817d; font-size: 0.6rem; text-overflow: ellipsis; }
+.cx-live-customers article > div > div { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.cx-live-customers article b { padding: 0.18rem 0.3rem; border-radius: 3px; background: #edf5f3; color: #39615b; font-size: 0.55rem; }
+.cx-live-customers article > small { color: #73827f; font-size: 0.58rem; }
+.cx-request-queue article { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; padding: 0.65rem; border-left: 3px solid #e1b14b; }
+.cx-request-queue article.late { border-left-color: #c55547; }
+.cx-request-queue article > div { display: grid; gap: 0.1rem; }
+.cx-request-queue article > div span { color: #16766a; font-size: 0.55rem; font-weight: 850; text-transform: uppercase; }
+.cx-request-queue article strong { font-size: 0.7rem; }
+.cx-request-queue article small { color: #75847f; font-size: 0.6rem; }
+.cx-request-queue article time { color: #97640d; font-size: 0.58rem; font-weight: 800; }
+.cx-request-queue article button,
+.cx-recovery-queue article button { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 0.25rem; padding: 0.4rem; border-radius: 4px; background: #176e62; color: #fff; font-size: 0.62rem; font-weight: 800; }
+.cx-recovery-queue article { display: grid; grid-template-columns: auto 1fr; gap: 0.55rem; padding: 0.65rem; }
+.cx-score { color: #b14d3f; font-size: 0.85rem; font-weight: 900; }
+.cx-recovery-queue article > div:nth-child(2) { display: grid; gap: 0.12rem; }
+.cx-recovery-queue article strong { font-size: 0.7rem; }
+.cx-recovery-queue article p { color: #5f7470; font-size: 0.63rem; }
+.cx-recovery-queue article small { color: #8a9693; font-size: 0.57rem; }
+.cx-recovery-queue article button { background: #a74539; }
+.cx-empty { display: grid; justify-items: center; gap: 0.3rem; padding: 1rem; color: #248475; text-align: center; }
+.cx-empty strong { color: #516b66; font-size: 0.68rem; }
+.cx-client-preview { display: grid; gap: 0.65rem; }
+.cx-client-preview > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+.cx-client-preview > header span { color: #187568; font-size: 0.65rem; font-weight: 850; }
+.cx-client-preview > header h2 { font-size: 1.1rem; }
+.cx-client-preview > header small { display: flex; align-items: center; gap: 0.3rem; color: #7b8986; font-size: 0.62rem; }
+
+@media (max-width: 1100px) {
+  .sartal-wallet-layout { grid-template-columns: 1fr 1.4fr; }
+  .sartal-wallet-history { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
+  .sartal-wallet-history h3 { grid-column: 1 / -1; }
+  .cx-board { grid-template-columns: 1fr 1fr; }
+  .cx-recovery-queue { grid-column: 1 / -1; border-top: 1px solid #dce9e6; border-left: 0 !important; }
+}
+
+@media (max-width: 760px) {
+  .sartal-hub-heading { align-items: stretch; flex-direction: column; padding: 0.9rem; }
+  .sartal-hub-identity { width: 100%; min-width: 0; }
+  .sartal-hub-tabs { display: flex; overflow-x: auto; }
+  .sartal-hub-tabs button { min-width: 96px; flex: 1; flex-direction: column; gap: 0.18rem; font-size: 0.62rem; }
+  .sartal-now-card { min-height: 200px; align-items: stretch; flex-direction: column; justify-content: flex-end; }
+  .sartal-now-card button { width: 100%; }
+  .sartal-context-grid,
+  .sartal-passport-layout,
+  .sartal-wallet-layout,
+  .sartal-history-layout { grid-template-columns: 1fr; }
+  .sartal-context-grid article { grid-template-columns: 1fr auto; }
+  .sartal-context-grid article > span,
+  .sartal-context-grid article > small { grid-column: 1 / -1; }
+  .sartal-context-grid article > button { grid-column: 2; grid-row: 2; }
+  .sartal-personal-attention,
+  .sartal-access-card { align-items: flex-start; flex-wrap: wrap; }
+  .sartal-personal-attention button { width: 100%; text-align: left; }
+  .sartal-access-actions { width: 100%; }
+  .sartal-access-actions button { flex: 1; justify-content: center; }
+  .sartal-active-access { width: 100%; justify-items: start; }
+  .sartal-passport-layout > aside { min-height: 230px; }
+  .sartal-consent-row { grid-template-columns: 1fr; }
+  .sartal-wallet-history { grid-column: auto; grid-template-columns: 1fr; }
+  .sartal-wallet-history h3 { grid-column: auto; }
+  .sartal-experience-recap { position: static; }
+  .client-table-actions { grid-template-columns: 1fr; }
+  .client-invite-form { grid-template-columns: 1fr; }
+  .client-group-bill > article { grid-template-columns: minmax(0, 1fr) auto; }
+  .client-group-bill > article button { grid-column: 1 / -1; }
+  .customer-experience-workspace { padding: 0.65rem; }
+  .cx-cockpit > header { align-items: flex-start; flex-direction: column; padding: 0.9rem; }
+  .cx-metrics { grid-template-columns: 1fr 1fr; }
+  .cx-metrics article:nth-child(2) { border-right: 0; }
+  .cx-metrics article:nth-child(-n + 2) { border-bottom: 1px solid #dce9e6; }
+  .cx-board { grid-template-columns: 1fr; }
+  .cx-board > section + section,
+  .cx-recovery-queue { grid-column: auto; border-top: 1px solid #dce9e6; border-left: 0; }
+  .cx-client-preview > header { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 430px) {
+  .sartal-hub-heading h1 { font-size: 1.25rem; }
+  .sartal-hub-tabs button { min-width: 76px; padding: 0.35rem; }
+  .sartal-live-service > header { align-items: flex-start; flex-direction: column; }
+  .sartal-live-service > header button { width: 100%; }
+  .sartal-live-service > article { align-items: flex-start; flex-direction: column; }
+  .sartal-access-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+  .sartal-access-actions button { flex-direction: column; }
+  .sartal-passport-form { padding: 0.75rem; }
+  .client-group-bill { padding: 0.6rem; }
+  .client-rich-message { overflow-x: auto; }
+  .client-rich-message button { min-width: max-content; }
+  .cx-metrics { grid-template-columns: 1fr; }
+  .cx-metrics article,
+  .cx-metrics article:nth-child(2) { border-right: 0; border-bottom: 1px solid #dce9e6; }
+  .cx-live-customers article { grid-template-columns: auto 1fr; }
+  .cx-live-customers article > small { grid-column: 2; }
+}

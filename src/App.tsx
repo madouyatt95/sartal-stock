@@ -63,6 +63,7 @@ import SmartAlerts from './views/SmartAlerts';
 import PMSHotel from './views/PMSHotel';
 import { PMSGuestExperiencePortal } from './views/PMSSignatureExperience';
 import SartalClient from './views/SartalClient';
+import CustomerExperienceCockpit from './views/CustomerExperienceCockpit';
 
 export const App: React.FC = () => {
   const state = useStockState();
@@ -86,6 +87,13 @@ export const App: React.FC = () => {
     return <main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main>;
   }
   const publicClientMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null;
+  const publicAccessToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('access') : null;
+  const publicAccess = db.sartalClientAccess.find(item => item.linkToken === publicAccessToken && item.status === 'active' && new Date(item.expiresAt).getTime() > Date.now());
+  if (publicAccess) {
+    const accessCustomer = db.sartalCustomers.find(item => item.id === publicAccess.customerId);
+    const accessMode = db.restaurantGuestOrders.some(item => item.customerId === accessCustomer?.id && !['paid', 'cancelled'].includes(item.status)) ? 'restaurant' : 'delivery';
+    return <main className="sartal-public-client-app"><SartalClient state={state} initialMode={accessMode} initialCustomerId={publicAccess.customerId} initialHub standalone /></main>;
+  }
   if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
     return <main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone /></main>;
   }
@@ -207,7 +215,7 @@ export const App: React.FC = () => {
       case 'business-problems':
         return <BusinessProblems state={state} setView={setView} />;
       case 'client':
-        return <SartalClient state={state} />;
+        return <CustomerExperienceCockpit state={state} />;
       case 'answer':
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':

@@ -336,9 +336,12 @@ export interface SartalCustomer {
   phone: string;
   email?: string;
   preferredLanguage: 'fr' | 'en' | 'wo';
+  preferredChannel?: 'whatsapp' | 'sms' | 'email' | 'portal';
+  birthday?: string;
   preferences?: string;
   allergies?: string;
   profileConsent: boolean;
+  marketingConsent?: boolean;
   loyaltyPoints: number;
   loyaltyTier: 'welcome' | 'teranga' | 'signature';
   visits: number;
@@ -404,6 +407,8 @@ export interface SartalCustomerMessage {
   sender: 'customer' | 'team';
   senderName: string;
   content: string;
+  channel?: 'portal' | 'whatsapp' | 'voice' | 'photo';
+  attachmentLabel?: string;
   sentAt: string;
   status: 'sent' | 'read';
 }
@@ -417,6 +422,61 @@ export interface SartalCustomerFeedback {
   note?: string;
   submittedAt: string;
   recoveryStatus: 'not_needed' | 'open' | 'resolved';
+  assignedTo?: string;
+  promisedAt?: string;
+  solution?: string;
+  compensationPoints?: number;
+  resolvedAt?: string;
+}
+
+export interface SartalClientAccess {
+  id: string;
+  customerId: string;
+  channel: 'qr' | 'whatsapp' | 'sms';
+  destination: string;
+  code: string;
+  linkToken: string;
+  status: 'active' | 'used' | 'expired';
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface SartalServiceRequest {
+  id: string;
+  customerId: string;
+  context: 'restaurant' | 'delivery' | 'hotel';
+  referenceId?: string;
+  type: 'water' | 'waiter' | 'bill' | 'reception' | 'delivery_help' | 'product_help' | 'other';
+  label: string;
+  note?: string;
+  status: 'requested' | 'accepted' | 'completed' | 'cancelled';
+  priority: 'normal' | 'urgent';
+  assignedTo?: string;
+  requestedAt: string;
+  promisedAt: string;
+  completedAt?: string;
+}
+
+export interface RestaurantGuestInvite {
+  id: string;
+  orderId: string;
+  fullName: string;
+  phone: string;
+  status: 'invited' | 'joined' | 'paid';
+  shareAmount: number;
+  accessCode: string;
+  invitedAt: string;
+  paidAt?: string;
+}
+
+export interface SartalLoyaltyTransaction {
+  id: string;
+  customerId: string;
+  type: 'earned' | 'redeemed' | 'bonus' | 'compensation';
+  points: number;
+  label: string;
+  referenceId?: string;
+  date: string;
 }
 
 export interface ExternalPOSSaleRow {

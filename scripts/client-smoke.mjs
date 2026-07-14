@@ -22,6 +22,7 @@ try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { SartalClient } = await server.ssrLoadModule('/src/views/SartalClient.tsx');
+  const { CustomerExperienceCockpit } = await server.ssrLoadModule('/src/views/CustomerExperienceCockpit.tsx');
   let state;
   const StateHarness = ({ mode }) => {
     state = useStockState();
@@ -29,12 +30,17 @@ try {
   };
 
   const restaurantHtml = renderToStaticMarkup(React.createElement(StateHarness, { mode: 'restaurant' }));
-  ['À table', 'Réserver', 'La carte', 'Ma table', 'Fidélité'].forEach(marker => assert(restaurantHtml.includes(marker), `Parcours restaurant incomplet : ${marker}`));
+  ['Mon Sártal', 'À table', 'Réserver', 'La carte', 'Ma table'].forEach(marker => assert(restaurantHtml.includes(marker), `Parcours restaurant incomplet : ${marker}`));
   assert(restaurantHtml.includes('Votre table, à votre façon'), 'Accueil personnalisé du restaurant absent');
 
   const deliveryHtml = renderToStaticMarkup(React.createElement(StateHarness, { mode: 'delivery' }));
-  ['Boutique', 'Panier', 'Suivi', 'Aide', 'Fidélité'].forEach(marker => assert(deliveryHtml.includes(marker), `Parcours livraison incomplet : ${marker}`));
+  ['Mon Sártal', 'Boutique', 'Panier', 'Suivi', 'Aide'].forEach(marker => assert(deliveryHtml.includes(marker), `Parcours livraison incomplet : ${marker}`));
   assert(deliveryHtml.includes('Les essentiels, vraiment disponibles'), 'Promesse de stock réel absente de la boutique');
+
+  const hubHtml = renderToStaticMarkup(React.createElement(SartalClient, { state, initialMode: 'restaurant', initialCustomerId: 'customer-aminata', initialHub: true, standalone: true }));
+  ['Mon Sártal', 'Aujourd', 'Passeport', 'Portefeuille', 'Mon histoire', 'Entrer sans mot de passe'].forEach(marker => assert(hubHtml.includes(marker), `Espace client universel incomplet : ${marker}`));
+  const cockpitHtml = renderToStaticMarkup(React.createElement(CustomerExperienceCockpit, { state }));
+  ['POSTE EXPÉRIENCE CLIENT', 'Parcours en cours', 'Demandes à tenir', 'Ne laisser personne déçu'].forEach(marker => assert(cockpitHtml.includes(marker), `Cockpit expérience client incomplet : ${marker}`));
 
   let db = getDB();
   const customer = db.sartalCustomers.find(item => item.id === 'customer-awa');
@@ -54,6 +60,21 @@ try {
   state.updateRestaurantGuestOrderStatus(restaurantOrderId, 'ready');
   assert(getDB().restaurantGuestOrders.find(item => item.id === restaurantOrderId).readyAt, 'Suivi cuisine non mis à jour');
 
+  state.updateSartalCustomerProfile(customer.id, { preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', marketingConsent: false });
+  assert(getDB().sartalCustomers.find(item => item.id === customer.id).preferredChannel === 'sms', 'Passeport client non mis à jour');
+  const access = state.createSartalClientAccess(customer.id, 'sms');
+  assert(access.code.length === 4 && getDB().sartalClientAccess.find(item => item.id === access.id).status === 'active', 'Accès client temporaire non créé');
+  const serviceRequestId = state.requestSartalService({ customerId: customer.id, context: 'restaurant', referenceId: restaurantOrderId, type: 'waiter', label: 'Passage du serveur' });
+  state.updateSartalServiceRequest(serviceRequestId, 'accepted', 'Moussa · Salle');
+  assert(getDB().sartalServiceRequests.find(item => item.id === serviceRequestId).status === 'accepted', 'Demande de service non prise en charge');
+
+  const groupOrder = getDB().restaurantGuestOrders.find(item => item.id === 'REST-CLIENT-204');
+  const inviteId = state.inviteRestaurantGuest(groupOrder.id, { fullName: 'Astou Diop', phone: '+221 77 111 22 33' });
+  const invitedAmount = state.payRestaurantGuestShare(inviteId, 'orange_money');
+  assert(invitedAmount > 0 && getDB().restaurantGuestInvites.find(item => item.id === inviteId).status === 'paid', 'Paiement invité non enregistré');
+  const voiceMessageId = state.sendSartalCustomerMessage(customer.id, 'restaurant', 'Note vocale envoyée', restaurantOrderId, 'voice', 'Note vocale · 12 sec');
+  assert(getDB().sartalCustomerMessages.find(item => item.id === voiceMessageId).channel === 'voice', 'Message vocal non conservé');
+
   const hotelCustomer = getDB().sartalCustomers.find(item => item.id === 'customer-aminata');
   const hotelFolio = getDB().pmsFolios.find(item => item.guestId === 'guest-aminata' && item.status === 'open');
   const hotelRoom = getDB().pmsRooms.find(item => item.id === hotelFolio.roomId);
@@ -63,9 +84,14 @@ try {
   assert(db.pmsFolios.find(item => item.id === hotelFolio.id).charges.some(item => item.externalSaleId === roomOrderId), 'Commande restaurant non imputée au folio PMS');
 
   const splitOrder = getDB().restaurantGuestOrders.find(item => item.id === 'REST-CLIENT-204');
-  state.addRestaurantGuestOrderPayment(splitOrder.id, 10000, 'wave', 'Aminata');
-  state.addRestaurantGuestOrderPayment(splitOrder.id, 9500, 'orange_money', 'Mame');
+  const splitRemaining = splitOrder.total - splitOrder.payments.reduce((sum, item) => sum + item.amount, 0);
+  state.addRestaurantGuestOrderPayment(splitOrder.id, Math.ceil(splitRemaining / 2), 'wave', 'Aminata');
+  state.addRestaurantGuestOrderPayment(splitOrder.id, splitRemaining, 'orange_money', 'Mame');
   assert(getDB().restaurantGuestOrders.find(item => item.id === splitOrder.id).status === 'paid', 'Addition partagée non soldée');
+
+  const pointsBeforeRedemption = getDB().sartalCustomers.find(item => item.id === customer.id).loyaltyPoints;
+  state.redeemSartalPoints(customer.id, 500, 'Livraison offerte');
+  assert(getDB().sartalCustomers.find(item => item.id === customer.id).loyaltyPoints === pointsBeforeRedemption - 500, 'Utilisation des points non appliquée');
 
   const address = customer.addresses.find(item => item.isDefault);
   const deliveryOrderId = state.createDeliveryCustomerOrder({ customerId: customer.id, addressId: address.id, items: [{ productId: 'prod-riz-5kg', quantity: 1, substitutionPolicy: 'contact' }], paymentType: 'orange_money' });
@@ -82,11 +108,16 @@ try {
   db = getDB();
   assert(db.sartalCustomerFeedback.find(item => item.id === feedbackId).recoveryStatus === 'open', 'Réclamation client non ouverte');
   assert(db.deliveryOrders.find(item => item.id === deliveryOrderId).deliveryIssue.includes('endommagé'), 'Incident non rattaché à la commande');
+  const pointsBeforeRecovery = db.sartalCustomers.find(item => item.id === customer.id).loyaltyPoints;
+  state.resolveSartalCustomerFeedback(feedbackId, 'Produit remplacé et client rappelé.', 250);
+  db = getDB();
+  assert(db.sartalCustomerFeedback.find(item => item.id === feedbackId).recoveryStatus === 'resolved', 'Reprise client non résolue');
+  assert(db.sartalCustomers.find(item => item.id === customer.id).loyaltyPoints === pointsBeforeRecovery + 250, 'Compensation fidélité non créditée');
 
   state.cancelRestaurantReservation(reservationId);
   assert(getDB().restaurantReservations.find(item => item.id === reservationId).status === 'cancelled', 'Annulation autonome de réservation non enregistrée');
 
-  console.log('Sártal Client smoke test: 12 axes client et 20 contrôles fonctionnels validés.');
+  console.log('Sártal Client smoke test: 12 axes client et 32 contrôles fonctionnels validés.');
 } finally {
   await server.close();
 }

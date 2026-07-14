@@ -52,6 +52,10 @@ import {
   RestaurantGuestOrder,
   SartalCustomerMessage,
   SartalCustomerFeedback,
+  SartalClientAccess,
+  SartalServiceRequest,
+  RestaurantGuestInvite,
+  SartalLoyaltyTransaction,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -82,6 +86,10 @@ export interface DatabaseState {
   restaurantGuestOrders: RestaurantGuestOrder[];
   sartalCustomerMessages: SartalCustomerMessage[];
   sartalCustomerFeedback: SartalCustomerFeedback[];
+  sartalClientAccess: SartalClientAccess[];
+  sartalServiceRequests: SartalServiceRequest[];
+  restaurantGuestInvites: RestaurantGuestInvite[];
+  sartalLoyaltyTransactions: SartalLoyaltyTransaction[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -931,9 +939,9 @@ const initialDB = (): DatabaseState => {
   };
 
   const sartalCustomers: SartalCustomer[] = [
-    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
-    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
-    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferences: 'Livraison après 18 h', profileConsent: true, loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
+    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferredChannel: 'whatsapp', birthday: '1987-09-18', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, marketingConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
+    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferredChannel: 'whatsapp', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, marketingConsent: false, loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
+    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
   ];
 
   const restaurantReservations: RestaurantTableReservation[] = [
@@ -950,7 +958,29 @@ const initialDB = (): DatabaseState => {
     { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: `${today}T10:05:00.000Z`, status: 'read' }
   ];
 
-  const sartalCustomerFeedback: SartalCustomerFeedback[] = [];
+  const sartalCustomerFeedback: SartalCustomerFeedback[] = [
+    { id: 'feedback-awa-delivery', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', score: 3, note: 'Merci de confirmer que les produits frais seront bien séparés.', submittedAt: `${today}T10:08:00.000Z`, recoveryStatus: 'open', assignedTo: 'Aïssatou · Relation client', promisedAt: `${today}T10:28:00.000Z` }
+  ];
+
+  const sartalClientAccess: SartalClientAccess[] = [
+    { id: 'access-aminata-table', customerId: 'customer-aminata', channel: 'qr', destination: 'Table T12', code: '2048', linkToken: 'aminata-t12-signature', status: 'active', createdAt: `${today}T19:45:00.000Z`, expiresAt: `${hotelDate(1)}T02:00:00.000Z` },
+    { id: 'access-awa-whatsapp', customerId: 'customer-awa', channel: 'whatsapp', destination: '+221 77 200 14 14', code: '7416', linkToken: 'awa-livraison-1024', status: 'active', createdAt: `${today}T10:00:00.000Z`, expiresAt: `${hotelDate(1)}T10:00:00.000Z` }
+  ];
+
+  const sartalServiceRequests: SartalServiceRequest[] = [
+    { id: 'service-water-t12', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', type: 'water', label: 'Carafe d’eau à table', status: 'accepted', priority: 'normal', assignedTo: 'Moussa · Salle', requestedAt: `${today}T20:34:00.000Z`, promisedAt: `${today}T20:39:00.000Z` }
+  ];
+
+  const restaurantGuestInvites: RestaurantGuestInvite[] = [
+    { id: 'invite-mame-t12', orderId: 'REST-CLIENT-204', fullName: 'Mame Diop', phone: '+221 77 600 20 10', status: 'joined', shareAmount: 6500, accessCode: 'T12-61', invitedAt: `${today}T20:01:00.000Z` },
+    { id: 'invite-ibra-t12', orderId: 'REST-CLIENT-204', fullName: 'Ibrahima Diop', phone: '+221 76 410 20 30', status: 'invited', shareAmount: 6500, accessCode: 'T12-84', invitedAt: `${today}T20:03:00.000Z` }
+  ];
+
+  const sartalLoyaltyTransactions: SartalLoyaltyTransaction[] = [
+    { id: 'loyalty-aminata-stay', customerId: 'customer-aminata', type: 'earned', points: 340, label: 'Séjour et restauration', referenceId: 'res-204', date: `${hotelDate(-1)}T14:05:00.000Z` },
+    { id: 'loyalty-aminata-welcome', customerId: 'customer-aminata', type: 'bonus', points: 150, label: 'Attention Teranga Signature', date: `${today}T09:00:00.000Z` },
+    { id: 'loyalty-awa-delivery', customerId: 'customer-awa', type: 'earned', points: 90, label: 'Commande épicerie', referenceId: 'CMD-1024', date: `${today}T10:04:00.000Z` }
+  ];
 
   const deliveryOrders: DeliveryOrder[] = [
     {
@@ -1275,6 +1305,10 @@ const initialDB = (): DatabaseState => {
     restaurantGuestOrders,
     sartalCustomerMessages,
     sartalCustomerFeedback,
+    sartalClientAccess,
+    sartalServiceRequests,
+    restaurantGuestInvites,
+    sartalLoyaltyTransactions,
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -1864,10 +1898,10 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       guaranteeType: 'deposit', guaranteeStatus: 'secured', estimatedArrivalTime: '16:30'
     });
   }
-  const sartalCustomers = state.sartalCustomers || [
+  const sartalCustomers = (state.sartalCustomers || [
     { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr' as const, preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, loyaltyPoints: 1840, loyaltyTier: 'signature' as const, visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
     { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr' as const, preferences: 'Produits locaux et paniers familiaux', profileConsent: true, loyaltyPoints: 760, loyaltyTier: 'teranga' as const, visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] }
-  ];
+  ]).map(customer => ({ ...customer, preferredChannel: customer.preferredChannel || 'whatsapp' as const, marketingConsent: customer.marketingConsent ?? false }));
   const deliveryOrders = (state.deliveryOrders || []).map(order => {
     const customer = sartalCustomers.find(item => item.id === order.customerId || item.phone === order.phone);
     return {
@@ -1914,7 +1948,24 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       { id: 'client-message-restaurant-1', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', sender: 'team', senderName: 'Moussa · La Terrasse', content: 'Bienvenue Aminata. Votre table est prête et la cuisine a bien reçu vos préférences.', sentAt: new Date().toISOString(), status: 'read' },
       { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: new Date().toISOString(), status: 'read' }
     ],
-    sartalCustomerFeedback: state.sartalCustomerFeedback || [],
+    sartalCustomerFeedback: (state.sartalCustomerFeedback || []).map(feedback => ({
+      ...feedback,
+      assignedTo: feedback.assignedTo || (feedback.recoveryStatus === 'open' ? 'Responsable relation client' : undefined),
+      promisedAt: feedback.promisedAt || (feedback.recoveryStatus === 'open' ? new Date(Date.now() + 20 * 60000).toISOString() : undefined)
+    })),
+    sartalClientAccess: state.sartalClientAccess || [
+      { id: 'access-aminata-table', customerId: 'customer-aminata', channel: 'qr', destination: 'Table T12', code: '2048', linkToken: 'aminata-t12-signature', status: 'active', createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 12 * 3600000).toISOString() }
+    ],
+    sartalServiceRequests: state.sartalServiceRequests || [
+      { id: 'service-water-t12', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', type: 'water', label: 'Carafe d’eau à table', status: 'accepted', priority: 'normal', assignedTo: 'Moussa · Salle', requestedAt: new Date().toISOString(), promisedAt: new Date(Date.now() + 5 * 60000).toISOString() }
+    ],
+    restaurantGuestInvites: state.restaurantGuestInvites || [
+      { id: 'invite-mame-t12', orderId: 'REST-CLIENT-204', fullName: 'Mame Diop', phone: '+221 77 600 20 10', status: 'joined', shareAmount: 6500, accessCode: 'T12-61', invitedAt: new Date().toISOString() }
+    ],
+    sartalLoyaltyTransactions: state.sartalLoyaltyTransactions || [
+      { id: 'loyalty-aminata-welcome', customerId: 'customer-aminata', type: 'bonus', points: 150, label: 'Attention Teranga Signature', date: new Date().toISOString() },
+      { id: 'loyalty-awa-delivery', customerId: 'customer-awa', type: 'earned', points: 90, label: 'Commande épicerie', referenceId: 'CMD-1024', date: new Date().toISOString() }
+    ],
     cashSessions,
     pmsRooms,
     pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [], charges: (folio.charges || []).map(charge => ({ ...charge, billingWindow: charge.billingWindow || 'guest' })) })),

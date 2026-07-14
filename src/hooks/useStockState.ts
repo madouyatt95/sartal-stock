@@ -31,7 +31,10 @@ import {
   PMSSettings,
   RestaurantGuestOrder,
   RestaurantTableReservation,
+  SartalCustomer,
   SartalCustomerFeedback,
+  SartalCustomerMessage,
+  SartalServiceRequest,
   POSType,
   Product,
   Supplier
@@ -1854,7 +1857,13 @@ export const useStockState = () => {
     const now = new Date().toISOString();
     newDb.restaurantGuestOrders.unshift({ id, customerId: customer.id, posId: pos.id, reservationId: payload.reservationId, tableNumber: payload.tableNumber, folioId: payload.folioId, roomNumber: payload.roomNumber, serviceType: payload.serviceType, status: 'confirmed', items, payments: [{ id: `rest-payment-${Date.now()}`, amount: total, method: payload.paymentMethod, paidAt: now, payerName: customer.fullName }], total, estimatedMinutes: 30, createdAt: now, updatedAt: now });
     const storedCustomer = newDb.sartalCustomers.find(item => item.id === customer.id);
-    if (storedCustomer) { storedCustomer.loyaltyPoints += Math.floor(total / 500); storedCustomer.totalSpend += total; storedCustomer.visits += 1; }
+    if (storedCustomer) {
+      const earnedPoints = Math.floor(total / 500);
+      storedCustomer.loyaltyPoints += earnedPoints;
+      storedCustomer.totalSpend += total;
+      storedCustomer.visits += 1;
+      newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId: customer.id, type: 'earned', points: earnedPoints, label: `Commande ${pos.name}`, referenceId: id, date: now });
+    }
     saveDB(newDb);
     refresh();
     return id;
@@ -1911,6 +1920,12 @@ export const useStockState = () => {
     const id = `CMD-${Date.now().toString().slice(-6)}`;
     const now = new Date().toISOString();
     newDb.deliveryOrders.unshift({ id, customerId: customer.id, customerName: customer.fullName, phone: customer.phone, address: address.address, channelId: channel.id, warehouseId: warehouse.id, status: 'confirmed', paymentType: payload.paymentType, paymentStatus: payload.paymentType === 'cash' ? 'pending' : 'paid', items, deliveryFee: delivery.fee, zone: address.zone, estimatedMinutes: delivery.minutes, landmark: address.landmark, deliveryInstructions: address.instructions, verificationCode: id.slice(-4), proofStatus: 'pending', createdAt: now, updatedAt: now });
+    const orderTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + delivery.fee;
+    const earnedPoints = Math.floor(orderTotal / 500);
+    customer.loyaltyPoints += earnedPoints;
+    customer.totalSpend += orderTotal;
+    customer.visits += 1;
+    newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId: customer.id, type: 'earned', points: earnedPoints, label: 'Commande épicerie en ligne', referenceId: id, date: now });
     newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'delivery', referenceId: id, sender: 'team', senderName: 'Sártal Livraison', content: `Commande ${id} confirmée. Délai estimé : ${delivery.minutes} minutes.`, sentAt: now, status: 'sent' });
     saveDB(newDb);
     refresh();
@@ -1937,12 +1952,12 @@ export const useStockState = () => {
     return createDeliveryCustomerOrder({ customerId: source.customerId, addressId: address.id, items: source.items.map(item => ({ productId: item.productId, quantity: item.quantity, substitutionPolicy: item.substitutionPolicy || 'contact' })), paymentType: source.paymentType });
   };
 
-  const sendSartalCustomerMessage = (customerId: string, context: 'restaurant' | 'delivery', content: string, referenceId?: string) => {
+  const sendSartalCustomerMessage = (customerId: string, context: 'restaurant' | 'delivery', content: string, referenceId?: string, channel: NonNullable<SartalCustomerMessage['channel']> = 'portal', attachmentLabel?: string) => {
     const newDb = getDB();
     const customer = newDb.sartalCustomers.find(item => item.id === customerId);
     if (!customer || !content.trim()) throw new Error('Message invalide');
     const id = `customer-message-${Date.now()}`;
-    newDb.sartalCustomerMessages.push({ id, customerId, context, referenceId, sender: 'customer', senderName: customer.fullName, content: content.trim(), sentAt: new Date().toISOString(), status: 'sent' });
+    newDb.sartalCustomerMessages.push({ id, customerId, context, referenceId, sender: 'customer', senderName: customer.fullName, content: content.trim(), channel, attachmentLabel, sentAt: new Date().toISOString(), status: 'sent' });
     saveDB(newDb);
     refresh();
     return id;
@@ -1951,11 +1966,15 @@ export const useStockState = () => {
   const submitSartalCustomerFeedback = (payload: Omit<SartalCustomerFeedback, 'id' | 'submittedAt' | 'recoveryStatus'>) => {
     const newDb = getDB();
     if (!newDb.sartalCustomers.some(item => item.id === payload.customerId) || payload.score < 1 || payload.score > 5) throw new Error('Avis invalide');
-    const feedback: SartalCustomerFeedback = { ...payload, id: `customer-feedback-${Date.now()}`, submittedAt: new Date().toISOString(), recoveryStatus: payload.score <= 3 ? 'open' : 'not_needed' };
+    const now = new Date();
+    const feedback: SartalCustomerFeedback = { ...payload, id: `customer-feedback-${Date.now()}`, submittedAt: now.toISOString(), recoveryStatus: payload.score <= 3 ? 'open' : 'not_needed', assignedTo: payload.score <= 3 ? 'Responsable relation client' : undefined, promisedAt: payload.score <= 3 ? new Date(now.getTime() + 20 * 60000).toISOString() : undefined };
     newDb.sartalCustomerFeedback.unshift(feedback);
     if (payload.context === 'delivery' && payload.score <= 3) {
       const order = newDb.deliveryOrders.find(item => item.id === payload.referenceId);
       if (order) order.deliveryIssue = payload.note || `Insatisfaction client ${payload.score}/5`;
+    }
+    if (payload.score <= 3) {
+      newDb.sartalServiceRequests.unshift({ id: `recovery-${Date.now()}`, customerId: payload.customerId, context: payload.context, referenceId: payload.referenceId, type: 'other', label: 'Reprendre une insatisfaction client', note: payload.note, status: 'requested', priority: 'urgent', assignedTo: 'Responsable relation client', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + 20 * 60000).toISOString() });
     }
     saveDB(newDb);
     refresh();
@@ -1967,6 +1986,114 @@ export const useStockState = () => {
     const order = newDb.deliveryOrders.find(item => item.id === orderId);
     if (!order || code !== order.verificationCode) throw new Error('Code de livraison incorrect');
     order.proofStatus = 'code_verified';
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateSartalCustomerProfile = (customerId: string, patch: Partial<Pick<SartalCustomer, 'fullName' | 'email' | 'preferredLanguage' | 'preferredChannel' | 'birthday' | 'preferences' | 'allergies' | 'profileConsent' | 'marketingConsent'>>) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer) throw new Error('Profil client introuvable');
+    Object.assign(customer, patch);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const createSartalClientAccess = (customerId: string, channel: 'qr' | 'whatsapp' | 'sms') => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer) throw new Error('Client introuvable');
+    newDb.sartalClientAccess.filter(item => item.customerId === customerId && item.status === 'active').forEach(item => { item.status = 'expired'; });
+    const now = new Date();
+    const id = `access-${Date.now()}`;
+    const access = { id, customerId, channel, destination: channel === 'qr' ? 'QR personnel' : customer.phone, code: String(Math.floor(1000 + Math.random() * 9000)), linkToken: `${customer.id}-${Date.now().toString(36)}`, status: 'active' as const, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 30 * 60000).toISOString() };
+    newDb.sartalClientAccess.unshift(access);
+    saveDB(newDb);
+    refresh();
+    return access;
+  };
+
+  const requestSartalService = (payload: { customerId: string; context: SartalServiceRequest['context']; referenceId?: string; type: SartalServiceRequest['type']; label: string; note?: string; priority?: SartalServiceRequest['priority'] }) => {
+    const newDb = getDB();
+    if (!newDb.sartalCustomers.some(item => item.id === payload.customerId)) throw new Error('Client introuvable');
+    const existing = newDb.sartalServiceRequests.find(item => item.customerId === payload.customerId && item.referenceId === payload.referenceId && item.type === payload.type && ['requested', 'accepted'].includes(item.status));
+    if (existing) return existing.id;
+    const now = new Date();
+    const priority = payload.priority || (payload.type === 'bill' || payload.type === 'reception' ? 'urgent' : 'normal');
+    const assignedTo = payload.context === 'restaurant' ? 'Moussa · Salle' : payload.context === 'delivery' ? 'Fatou · Service client' : 'Awa · Réception';
+    const id = `service-${Date.now()}`;
+    newDb.sartalServiceRequests.unshift({ ...payload, id, priority, assignedTo, status: 'requested', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + (priority === 'urgent' ? 3 : 5) * 60000).toISOString() });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateSartalServiceRequest = (requestId: string, status: SartalServiceRequest['status'], assignedTo?: string) => {
+    const newDb = getDB();
+    const request = newDb.sartalServiceRequests.find(item => item.id === requestId);
+    if (!request) throw new Error('Demande client introuvable');
+    request.status = status;
+    if (assignedTo) request.assignedTo = assignedTo;
+    if (status === 'completed') request.completedAt = new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+  };
+
+  const inviteRestaurantGuest = (orderId: string, payload: { fullName: string; phone: string }) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
+    if (!order || !payload.fullName.trim() || !payload.phone.trim()) throw new Error('Commande ou invité invalide');
+    const remaining = Math.max(0, order.total - order.payments.reduce((sum, item) => sum + item.amount, 0));
+    const id = `invite-${Date.now()}`;
+    newDb.restaurantGuestInvites.push({ id, orderId, fullName: payload.fullName.trim(), phone: payload.phone.trim(), status: 'invited', shareAmount: Math.ceil(remaining / (newDb.restaurantGuestInvites.filter(item => item.orderId === orderId && item.status !== 'paid').length + 2)), accessCode: `${order.tableNumber || 'ST'}-${Math.floor(10 + Math.random() * 90)}`, invitedAt: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const payRestaurantGuestShare = (inviteId: string, method: PaymentType) => {
+    const newDb = getDB();
+    const invite = newDb.restaurantGuestInvites.find(item => item.id === inviteId && item.status !== 'paid');
+    const order = newDb.restaurantGuestOrders.find(item => item.id === invite?.orderId);
+    if (!invite || !order) throw new Error('Part invité introuvable');
+    const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
+    const amount = Math.min(invite.shareAmount, Math.max(0, order.total - paid));
+    if (amount <= 0) throw new Error('Addition déjà soldée');
+    const now = new Date().toISOString();
+    order.payments.push({ id: `rest-payment-${Date.now()}`, amount, method, paidAt: now, payerName: invite.fullName });
+    invite.status = 'paid';
+    invite.paidAt = now;
+    if (paid + amount >= order.total) order.status = 'paid';
+    order.updatedAt = now;
+    saveDB(newDb);
+    refresh();
+    return amount;
+  };
+
+  const redeemSartalPoints = (customerId: string, points: number, label: string) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer || points < 100 || customer.loyaltyPoints < points) throw new Error('Solde de points insuffisant');
+    customer.loyaltyPoints -= points;
+    newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId, type: 'redeemed', points: -points, label, date: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const resolveSartalCustomerFeedback = (feedbackId: string, solution: string, compensationPoints = 0) => {
+    const newDb = getDB();
+    const feedback = newDb.sartalCustomerFeedback.find(item => item.id === feedbackId && item.recoveryStatus === 'open');
+    const customer = newDb.sartalCustomers.find(item => item.id === feedback?.customerId);
+    if (!feedback || !customer || !solution.trim()) throw new Error('Reprise client invalide');
+    feedback.recoveryStatus = 'resolved';
+    feedback.solution = solution.trim();
+    feedback.compensationPoints = Math.max(0, compensationPoints);
+    feedback.resolvedAt = new Date().toISOString();
+    if (feedback.compensationPoints > 0) {
+      customer.loyaltyPoints += feedback.compensationPoints;
+      newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId: customer.id, type: 'compensation', points: feedback.compensationPoints, label: 'Attention suite à votre retour', referenceId: feedback.id, date: feedback.resolvedAt });
+    }
+    newDb.sartalServiceRequests.filter(item => item.referenceId === feedback.referenceId && item.label.includes('insatisfaction')).forEach(item => { item.status = 'completed'; item.completedAt = feedback.resolvedAt; });
     saveDB(newDb);
     refresh();
   };
@@ -2067,6 +2194,14 @@ export const useStockState = () => {
     sendSartalCustomerMessage,
     submitSartalCustomerFeedback,
     confirmDeliveryProof,
+    updateSartalCustomerProfile,
+    createSartalClientAccess,
+    requestSartalService,
+    updateSartalServiceRequest,
+    inviteRestaurantGuest,
+    payRestaurantGuestShare,
+    redeemSartalPoints,
+    resolveSartalCustomerFeedback,
     resetAllData
   };
 };
