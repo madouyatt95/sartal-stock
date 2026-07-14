@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 import { PMSReservation } from '../types';
+import { isPMSRoomAvailable } from '../utils/pmsAvailability';
 
 interface PMSPanelProps {
   state: StockState;
@@ -31,18 +32,7 @@ interface PMSPanelProps {
 
 const formatFCFA = (value: number) => new Intl.NumberFormat('fr-FR').format(Math.round(value)) + ' FCFA';
 const formatDate = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-const getAvailableRooms = (state: StockState, reservation: PMSReservation) => state.db.pmsRooms.filter(room => (
-  room.status !== 'maintenance'
-  && (!reservation.requestedRoomType || room.roomType === reservation.requestedRoomType)
-  && room.capacity >= reservation.adults + reservation.children
-  && !state.db.pmsReservations.some(item => (
-    item.id !== reservation.id
-    && item.roomId === room.id
-    && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(item.status)
-    && reservation.arrivalDate < item.departureDate
-    && reservation.departureDate > item.arrivalDate
-  ))
-));
+const getAvailableRooms = (state: StockState, reservation: PMSReservation) => state.db.pmsRooms.filter(room => isPMSRoomAvailable(state.db, room, reservation.arrivalDate, reservation.departureDate, { reservationId: reservation.id, guests: reservation.adults + reservation.children, roomType: reservation.requestedRoomType }));
 
 export const PMSFrontDeskCommand: React.FC<PMSPanelProps> = ({ state }) => {
   const { db, assignPMSRoom, holdPMSRoom, completePMSCheckIn, sendPMSNotification } = state;
@@ -227,14 +217,20 @@ export const PMSRoomRack: React.FC<PMSPanelProps> = ({ state }) => {
   const { db, assignPMSRoom, releasePMSRoomHold } = state;
   const [draggedReservationId, setDraggedReservationId] = useState('');
   const [error, setError] = useState('');
-  const dates = useMemo(() => Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(`${db.pmsSettings.businessDate}T12:00:00`);
+  const [horizon, setHorizon] = useState<7 | 30 | 90>(7);
+  const [startDate, setStartDate] = useState(db.pmsSettings.businessDate);
+  const [floorFilter, setFloorFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const dates = useMemo(() => Array.from({ length: horizon }, (_, index) => {
+    const date = new Date(`${startDate}T12:00:00`);
     date.setDate(date.getDate() + index);
     return date.toISOString().slice(0, 10);
-  }), [db.pmsSettings.businessDate]);
+  }), [horizon, startDate]);
   const activeReservations = db.pmsReservations.filter(item => !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(item.status));
   const unassigned = activeReservations.filter(item => !item.roomId);
   const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
+  const floors = Array.from(new Set(db.pmsRooms.map(room => room.floor)));
+  const visibleRooms = db.pmsRooms.filter(room => (floorFilter === 'all' || room.floor === floorFilter) && (typeFilter === 'all' || room.roomType === typeFilter));
 
   const dropOnRoom = (roomId: string) => {
     if (!draggedReservationId) return;
@@ -250,14 +246,15 @@ export const PMSRoomRack: React.FC<PMSPanelProps> = ({ state }) => {
   return (
     <>
       <section className="card pms-section-card pms-room-rack-section">
-        <div className="pms-section-header"><div><span className="pms-eyebrow"><Move size={15} /> Room rack</span><h2>Planning opérationnel sur 7 jours</h2><p>Glissez une réservation vers une chambre pour l’attribuer ou la déplacer.</p></div><span className="badge badge-blue">{activeReservations.length} séjours actifs</span></div>
+        <div className="pms-section-header"><div><span className="pms-eyebrow"><Move size={15} /> Visio Planning</span><h2>Planning opérationnel jusqu’à 90 jours</h2><p>Filtrez, glissez et déplacez les séjours depuis une seule vue.</p></div><span className="badge badge-blue">{activeReservations.length} séjours actifs</span></div>
+        <div className="pms-rack-toolbar"><label>À partir du<input className="form-control" type="date" value={startDate} onChange={event => setStartDate(event.target.value)} /></label><label>Étage<select className="form-control" value={floorFilter} onChange={event => setFloorFilter(event.target.value)}><option value="all">Tous</option>{floors.map(floor => <option key={floor}>{floor}</option>)}</select></label><label>Catégorie<select className="form-control" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}><option value="all">Toutes</option>{roomTypes.map(type => <option key={type}>{type}</option>)}</select></label><div className="pms-horizon-switch">{([7, 30, 90] as const).map(value => <button className={horizon === value ? 'active' : ''} key={value} onClick={() => setHorizon(value)}>{value} jours</button>)}</div></div>
         {error && <div className="alert alert-danger">{error}</div>}
         {unassigned.length > 0 && <div className="pms-rack-unassigned"><strong>Sans chambre</strong>{unassigned.map(reservation => { const guest = db.pmsGuests.find(item => item.id === reservation.guestId); return <button draggable onDragStart={() => setDraggedReservationId(reservation.id)} key={reservation.id}><Move size={14} /><span>{guest?.fullName}<small>{reservation.requestedRoomType}</small></span></button>; })}</div>}
         <div className="pms-room-rack-wrap">
           <div className="pms-room-rack" style={{ '--rack-days': dates.length } as React.CSSProperties}>
             <div className="pms-rack-corner">Chambres</div>
             {dates.map(date => <div className="pms-rack-date" key={date}><strong>{new Date(`${date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</strong><span>{formatDate(date)}</span></div>)}
-            {db.pmsRooms.map(room => {
+            {visibleRooms.map(room => {
               const roomReservations = activeReservations.filter(item => item.roomId === room.id);
               const held = room.holdUntil && new Date(room.holdUntil).getTime() > Date.now();
               return <React.Fragment key={room.id}><div className="pms-rack-room"><strong>{room.roomNumber}</strong><span>{room.roomType}</span>{held && <button onClick={() => releasePMSRoomHold(room.id)} title="Libérer la mise en attente"><LockKeyhole size={13} /></button>}</div>{dates.map(date => { const reservation = roomReservations.find(item => date >= item.arrivalDate && date < item.departureDate); const guest = reservation ? db.pmsGuests.find(item => item.id === reservation.guestId) : undefined; const isStart = reservation?.arrivalDate === date || (reservation && date === dates[0]); return <div key={`${room.id}-${date}`} className={`pms-rack-cell ${reservation ? 'booked' : room.status === 'maintenance' ? 'maintenance' : 'available'}`} onDragOver={event => event.preventDefault()} onDrop={() => dropOnRoom(room.id)}>{reservation && isStart && <button draggable={!reservation.roomAssignmentLocked} onDragStart={() => setDraggedReservationId(reservation.id)} className={reservation.status === 'checked_in' ? 'inhouse' : ''} title={reservation.roomAssignmentLocked ? 'Attribution verrouillée' : 'Déplacer'}>{reservation.roomAssignmentLocked ? <LockKeyhole size={12} /> : <Move size={12} />}<span>{guest?.fullName?.split(' ')[0]}</span></button>}</div>; })}</React.Fragment>;
@@ -268,7 +265,7 @@ export const PMSRoomRack: React.FC<PMSPanelProps> = ({ state }) => {
 
       <section className="card pms-section-card">
         <div className="pms-section-header"><div><h2>Inventaire par catégorie</h2><p>La disponibilité se vend par type de chambre avant l’attribution du numéro.</p></div></div>
-        <div className="pms-category-inventory">{roomTypes.map(type => { const rooms = db.pmsRooms.filter(room => room.roomType === type); const available = rooms.filter(room => room.status === 'vacant').length; const waiting = db.pmsReservations.filter(item => !item.roomId && item.requestedRoomType === type && item.status === 'confirmed').length; return <article key={type}><div><BedDouble size={19} /><strong>{type}</strong></div><span>{rooms.length} chambre(s)</span><b>{available} disponible(s)</b><small>{waiting} attribution(s) en attente</small></article>; })}</div>
+        <div className="pms-category-inventory">{roomTypes.map(type => { const rooms = db.pmsRooms.filter(room => room.roomType === type); const available = rooms.filter(room => isPMSRoomAvailable(db, room, dates[0], dates[dates.length - 1], { roomType: type })).length; const waiting = db.pmsReservations.filter(item => !item.roomId && item.requestedRoomType === type && item.status === 'confirmed').length; return <article key={type}><div><BedDouble size={19} /><strong>{type}</strong></div><span>{rooms.length} chambre(s)</span><b>{available} disponible(s) sur la période</b><small>{waiting} attribution(s) en attente</small></article>; })}</div>
       </section>
     </>
   );

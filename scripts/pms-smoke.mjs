@@ -28,7 +28,7 @@ try {
   const { PMSHotel } = await server.ssrLoadModule('/src/views/PMSHotel.tsx');
   const tabs = {
     dashboard: 'Demandes et conciergerie',
-    planning: 'Planning opérationnel sur 7 jours',
+    planning: 'Planning opérationnel jusqu’à 90 jours',
     reservations: 'Nouvelle réservation',
     rooms: 'Plan des chambres',
     guests: 'Dossier client 360',
@@ -36,7 +36,7 @@ try {
     housekeeping: 'Feuille de travail housekeeping',
     audit: 'Clôture du',
     reports: 'Calendrier tarifaire',
-    settings: 'Paramètres de l’hôtel'
+    settings: 'Cockpit de migration contrôlée'
   };
 
   let state;
@@ -134,6 +134,37 @@ try {
   state.updatePMSMaintenanceDetails(maintenance.id, { actualCost: 42000, photoCount: 3 });
   assert(getDB().pmsMaintenanceTickets.find(item => item.id === maintenance.id).actualCost === 42000, 'Détails de maintenance non enregistrés');
 
+  db = getDB();
+  const packageFolio = db.pmsFolios.find(item => item.status === 'open');
+  const packageItem = db.pmsPackages[0];
+  const chargeCount = packageFolio.charges.length;
+  state.addPMSPackageToFolio(packageFolio.id, packageItem.id);
+  assert(getDB().pmsFolios.find(item => item.id === packageFolio.id).charges.length === chargeCount + 1, 'Forfait séjour non ajouté au folio');
+
+  const keyCode = state.issuePMSDoorKey(reservation.id);
+  db = getDB();
+  const issuedKey = db.pmsDoorKeys.find(item => item.code === keyCode && item.status === 'active');
+  assert(issuedKey, 'Clé électronique non émise');
+  state.revokePMSDoorKey(issuedKey.id);
+  assert(getDB().pmsDoorKeys.find(item => item.id === issuedKey.id).status === 'revoked', 'Clé électronique non révoquée');
+
+  state.completePMSPreCheckIn(reservation.id);
+  db = getDB();
+  assert(db.pmsGuests.find(item => item.id === reservation.guestId).preCheckInStatus === 'completed', 'Pré-check-in mobile non finalisé');
+
+  const automation = db.pmsAutomationRules[0];
+  const previousAutomationStatus = automation.active;
+  state.togglePMSAutomationRule(automation.id);
+  assert(getDB().pmsAutomationRules.find(item => item.id === automation.id).active !== previousAutomationStatus, 'Automatisation client non modifiée');
+
+  const migration = getDB().pmsMigrationRuns[0];
+  state.validatePMSMigrationRun(migration.id);
+  assert(getDB().pmsMigrationRuns.find(item => item.id === migration.id).status === 'validated', 'Migration Orchestra non validée');
+
+  const bookingEngineWasEnabled = getDB().pmsBookingEngine.enabled;
+  state.updatePMSBookingEngine({ enabled: !bookingEngineWasEnabled });
+  assert(getDB().pmsBookingEngine.enabled !== bookingEngineWasEnabled, 'Moteur de réservation non modifié');
+
   let auditBlocked = false;
   try {
     state.runPMSNightAudit();
@@ -142,7 +173,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 13 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 19 actions critiques validés.`);
 } finally {
   await server.close();
 }

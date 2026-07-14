@@ -12,12 +12,10 @@ import {
   Play,
   Camera,
   MessageCircle,
-  RefreshCcw,
   RotateCcw,
   Send,
   ShieldCheck,
   Tag,
-  Users,
   Wifi,
   WifiOff,
   Wrench
@@ -128,10 +126,7 @@ export const PMSDayScenario: React.FC<PMSPanelProps> = ({ state }) => {
 export const PMSGroupsEvents: React.FC<PMSPanelProps> = ({ state }) => {
   const { db } = state;
   return (
-    <div className="grid-2 pms-advanced-grid">
-      <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Groupes</h2><p>Chambres, acompte et mode de facturation centralisés.</p></div><Users size={21} color="var(--primary)" /></div><div className="pms-stack">{db.pmsGroups.map(group => <article className="pms-advanced-row" key={group.id}><div><strong>{group.name}</strong><span>{group.contactName} · {group.contactPhone}</span></div><span className={`badge ${group.status === 'confirmed' ? 'badge-green' : 'badge-yellow'}`}>{group.status === 'confirmed' ? 'Confirmé' : 'Option'}</span><div><span>{group.roomIds.length} chambres</span><span>{group.billingMode === 'central' ? 'Facture centrale' : group.billingMode === 'mixed' ? 'Facturation mixte' : 'Factures individuelles'}</span><strong>Acompte {formatFCFA(group.depositAmount)}</strong></div></article>)}</div></section>
-      <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Événements</h2><p>Salles, restauration et groupes hébergés.</p></div><CalendarCheck size={21} color="var(--primary)" /></div><div className="pms-stack">{db.pmsEvents.map(event => <article className="pms-advanced-row" key={event.id}><div><strong>{event.name}</strong><span>{event.venue} · {new Date(`${event.date}T12:00:00`).toLocaleDateString('fr-FR')}</span></div><span className={`badge ${event.status === 'confirmed' ? 'badge-green' : 'badge-yellow'}`}>{event.status === 'confirmed' ? 'Confirmé' : 'Option'}</span><div><span>{event.attendees} participants</span><strong>Restauration {formatFCFA(event.cateringAmount)}</strong></div></article>)}</div></section>
-    </div>
+    <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Événements et banquets</h2><p>Salles, restauration et groupes hébergés.</p></div><CalendarCheck size={21} color="var(--primary)" /></div><div className="pms-stack">{db.pmsEvents.map(event => <article className="pms-advanced-row" key={event.id}><div><strong>{event.name}</strong><span>{event.venue} · {new Date(`${event.date}T12:00:00`).toLocaleDateString('fr-FR')}</span></div><span className={`badge ${event.status === 'confirmed' ? 'badge-green' : 'badge-yellow'}`}>{event.status === 'confirmed' ? 'Confirmé' : 'Option'}</span><div><span>{event.attendees} participants</span><strong>Restauration {formatFCFA(event.cateringAmount)}</strong></div></article>)}</div></section>
   );
 };
 
@@ -215,13 +210,11 @@ export const PMSMultiSitePanel: React.FC<PMSPanelProps> = ({ state }) => {
 };
 
 export const PMSCommercialSettings: React.FC<PMSPanelProps> = ({ state }) => {
-  const { db, updatePMSRatePlan, syncPMSChannel, simulatePMSMigration } = state;
+  const { db, updatePMSRatePlan } = state;
   const online = useOnlineStatus();
   return (
     <div className="grid-2 pms-advanced-grid">
       <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Plans tarifaires</h2><p>Public, week-end, entreprise, agence et groupe.</p></div><Tag size={21} color="var(--primary)" /></div><div className="pms-rate-plans">{db.pmsRatePlans.map(plan => <article key={plan.id}><div><strong>{plan.name}</strong><span>{plan.roomType} · {plan.audience}</span></div><div><input className="form-control" type="number" defaultValue={plan.baseRate} onBlur={event => updatePMSRatePlan(plan.id, { baseRate: Number(event.target.value) })} /><small>FCFA · coefficient week-end {plan.weekendMultiplier}</small></div><button className={`btn ${plan.active ? 'btn-secondary' : 'btn-primary'}`} onClick={() => updatePMSRatePlan(plan.id, { active: !plan.active })}>{plan.active ? 'Actif' : 'Réactiver'}</button></article>)}</div></section>
-      <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Canaux de réservation</h2><p>Disponibilités, tarifs et dernières synchronisations.</p></div><RefreshCcw size={21} color="var(--primary)" /></div><div className="pms-channel-list">{db.pmsChannels.map(channel => <article key={channel.id}><div><strong>{channel.name}</strong><span>Dernière synchro {new Date(channel.lastSync).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span></div><span className={`badge ${channel.status === 'connected' ? 'badge-green' : channel.status === 'warning' ? 'badge-yellow' : 'badge-red'}`}>{channel.status === 'connected' ? 'Connecté' : channel.status === 'warning' ? `${channel.availabilityIssues} écart` : 'Déconnecté'}</span><button className="btn btn-secondary" onClick={() => syncPMSChannel(channel.id)}>Synchroniser</button></article>)}</div></section>
-      <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Reprise Orchestra</h2><p>Correspondances, rejets et comparaison des soldes.</p></div><button className="btn btn-primary" onClick={simulatePMSMigration}>Nouvelle reprise</button></div><div className="pms-migration-detail">{db.pmsMigrationRuns.map(run => <article key={run.id}><div><strong>{run.source}</strong><span>{new Date(run.importedAt).toLocaleString('fr-FR')}</span></div><div><span>{run.mappedFields || 0} champs mappés</span><span>{run.rejectedRows || 0} rejet(s)</span><span>Écart soldes {formatFCFA(run.balanceDifference || 0)}</span></div><span className={`badge ${run.status === 'validated' ? 'badge-green' : 'badge-yellow'}`}>{run.status === 'validated' ? 'Prête à valider' : 'À contrôler'}</span></article>)}</div></section>
       <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Continuité de service PWA</h2><p>Consultation et saisie locale pendant une coupure réseau.</p></div>{online ? <Wifi size={21} color="var(--success)" /> : <WifiOff size={21} color="var(--warning)" />}</div><div className="pms-offline-proof">{['Application installable sur mobile et tablette.', 'Écrans et données de travail conservés en cache.', 'Indicateur immédiat de perte de connexion.', 'Saisies locales conservées jusqu’au retour du réseau.'].map(item => <div key={item}><CheckCircle size={17} /><span>{item}</span></div>)}</div><span className={`pms-connectivity ${online ? 'online' : 'offline'}`}>{online ? 'Connexion disponible' : 'Travail hors-ligne actif'}</span></section>
     </div>
   );

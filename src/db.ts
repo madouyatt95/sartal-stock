@@ -39,6 +39,11 @@ import {
   PMSNotification,
   PMSAuditLog,
   PMSPropertySummary,
+  PMSPackage,
+  PMSDoorKey,
+  PMSDebtorAccount,
+  PMSAutomationRule,
+  PMSBookingEngineSettings,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -84,13 +89,18 @@ export interface DatabaseState {
   pmsNotifications: PMSNotification[];
   pmsAuditLogs: PMSAuditLog[];
   pmsPropertySummaries: PMSPropertySummary[];
+  pmsPackages: PMSPackage[];
+  pmsDoorKeys: PMSDoorKey[];
+  pmsDebtorAccounts: PMSDebtorAccount[];
+  pmsAutomationRules: PMSAutomationRule[];
+  pmsBookingEngine: PMSBookingEngineSettings;
   pmsScenarioStep: number;
   users: User[];
   currentUser: User;
 }
 
 const DB_KEY = 'sartal_stock_db';
-const DEMO_SEED_KEY = 'sartal_demo_seed_v11';
+const DEMO_SEED_KEY = 'sartal_demo_seed_v12';
 
 const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string => {
   if (product.category.includes('Boissons premium')) return 'sup-premium';
@@ -857,6 +867,39 @@ const initialDB = (): DatabaseState => {
     { id: 'property-saint-louis', name: 'Maison Sartal Saint-Louis', city: 'Saint-Louis', rooms: 18, occupiedRooms: 11, revenueToday: 1260000, alerts: 0, adr: 54000, revPar: 33000, outOfOrderRooms: 0 }
   ];
 
+  const pmsPackages: PMSPackage[] = [
+    { id: 'package-breakfast', name: 'Nuit & petit-déjeuner', mealPlan: 'breakfast', pricePerNight: 9000, includedServices: ['Petit-déjeuner buffet', 'Wi-Fi'], active: true },
+    { id: 'package-half-board', name: 'Demi-pension Teranga', mealPlan: 'half_board', pricePerNight: 22000, includedServices: ['Petit-déjeuner', 'Dîner', 'Wi-Fi'], active: true },
+    { id: 'package-business', name: 'Séjour affaires Dakar', mealPlan: 'experience', pricePerNight: 35000, includedServices: ['Transfert aéroport', 'Petit-déjeuner', 'Blanchisserie express'], active: true }
+  ];
+
+  const pmsDoorKeys: PMSDoorKey[] = [
+    { id: 'key-204-main', roomId: 'room-204', reservationId: 'res-204', code: 'K204-7431', status: 'active', issuedAt: `${hotelDate(-1)}T14:20:00.000Z`, validUntil: `${hotelDate(3)}T12:00:00.000Z` },
+    { id: 'key-305-main', roomId: 'room-305', reservationId: 'res-305', code: 'K305-9184', status: 'active', issuedAt: `${hotelDate(-2)}T16:45:00.000Z`, validUntil: `${hotelDate(1)}T12:00:00.000Z` }
+  ];
+
+  const pmsDebtorAccounts: PMSDebtorAccount[] = [
+    { id: 'debtor-sahel', name: 'Sahel Conseil', type: 'company', balance: 465000, creditLimit: 1500000, dueDate: hotelDate(15), status: 'current' },
+    { id: 'debtor-agence', name: 'Agence Teranga Voyages', type: 'agency', balance: 285000, creditLimit: 500000, dueDate: hotelDate(-2), status: 'due' },
+    { id: 'debtor-client', name: 'Compte client Jean Morel', type: 'guest', balance: 137000, creditLimit: 150000, dueDate: today, status: 'current' }
+  ];
+
+  const pmsAutomationRules: PMSAutomationRule[] = [
+    { id: 'auto-confirmation', name: 'Confirmation immédiate', trigger: 'booking_confirmed', channel: 'whatsapp', active: true, sentCount: 42 },
+    { id: 'auto-arrival', name: 'Rappel 24 h avant arrivée', trigger: 'before_arrival', channel: 'whatsapp', active: true, sentCount: 31 },
+    { id: 'auto-room-ready', name: 'Chambre prête', trigger: 'room_ready', channel: 'sms', active: true, sentCount: 18 },
+    { id: 'auto-review', name: 'Avis après séjour', trigger: 'after_checkout', channel: 'email', active: true, sentCount: 24 }
+  ];
+
+  const pmsBookingEngine: PMSBookingEngineSettings = {
+    enabled: true,
+    publicUrl: 'reservation.sartal.sn/complexe-dakar',
+    depositPercent: 30,
+    instantConfirmation: true,
+    lastBookingAt: `${today}T10:32:00.000Z`,
+    bookingsToday: 3
+  };
+
   const deliveryOrders: DeliveryOrder[] = [
     {
       id: 'CMD-1024',
@@ -1139,6 +1182,11 @@ const initialDB = (): DatabaseState => {
     pmsNotifications,
     pmsAuditLogs,
     pmsPropertySummaries,
+    pmsPackages,
+    pmsDoorKeys,
+    pmsDebtorAccounts,
+    pmsAutomationRules,
+    pmsBookingEngine,
     pmsScenarioStep: 0,
     users,
     currentUser: users[0] // Admin by default
@@ -1643,11 +1691,16 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       ...(session.paymentTotals || {})
     }
   }));
-  const pmsRooms = (state.pmsRooms || []).map(room => (
-    room.holdUntil && new Date(room.holdUntil).getTime() <= Date.now()
-      ? { ...room, holdUntil: undefined, holdBy: undefined, holdReservationId: undefined }
-      : room
-  ));
+  const pmsRooms = (state.pmsRooms || []).map(room => {
+    const baseRoom = {
+      ...room,
+      features: room.features || (room.roomType.includes('Suite') ? ['Salon', 'Vue ville', 'Coffre'] : ['Wi-Fi', 'Climatisation']),
+      keyStatus: room.keyStatus || (room.status === 'occupied' ? 'issued' : room.status === 'maintenance' ? 'blocked' : 'ready')
+    };
+    return room.holdUntil && new Date(room.holdUntil).getTime() <= Date.now()
+      ? { ...baseRoom, holdUntil: undefined, holdBy: undefined, holdReservationId: undefined }
+      : baseRoom;
+  });
   const pmsGuests = [...(state.pmsGuests || [])];
   if (!pmsGuests.some(guest => guest.id === 'guest-coumba')) {
     pmsGuests.push({ id: 'guest-coumba', fullName: 'Coumba Diallo', phone: '+221 77 620 14 52', email: 'coumba.diallo@example.com', nationality: 'Sénégalaise', preferences: 'Étage élevé et chambre calme', stays: 2, loyaltyTier: 'silver' });
@@ -1719,6 +1772,23 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     pmsNotifications: state.pmsNotifications || [],
     pmsAuditLogs: state.pmsAuditLogs || [],
     pmsPropertySummaries: state.pmsPropertySummaries || [],
+    pmsPackages: state.pmsPackages || [
+      { id: 'package-breakfast', name: 'Nuit & petit-déjeuner', mealPlan: 'breakfast', pricePerNight: 9000, includedServices: ['Petit-déjeuner buffet', 'Wi-Fi'], active: true },
+      { id: 'package-half-board', name: 'Demi-pension Teranga', mealPlan: 'half_board', pricePerNight: 22000, includedServices: ['Petit-déjeuner', 'Dîner', 'Wi-Fi'], active: true },
+      { id: 'package-business', name: 'Séjour affaires Dakar', mealPlan: 'experience', pricePerNight: 35000, includedServices: ['Transfert aéroport', 'Petit-déjeuner', 'Blanchisserie express'], active: true }
+    ],
+    pmsDoorKeys: state.pmsDoorKeys || [],
+    pmsDebtorAccounts: state.pmsDebtorAccounts || [
+      { id: 'debtor-sahel', name: 'Sahel Conseil', type: 'company', balance: 465000, creditLimit: 1500000, dueDate: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10), status: 'current' },
+      { id: 'debtor-agence', name: 'Agence Teranga Voyages', type: 'agency', balance: 285000, creditLimit: 500000, dueDate: new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10), status: 'due' }
+    ],
+    pmsAutomationRules: state.pmsAutomationRules || [
+      { id: 'auto-confirmation', name: 'Confirmation immédiate', trigger: 'booking_confirmed', channel: 'whatsapp', active: true, sentCount: 42 },
+      { id: 'auto-arrival', name: 'Rappel 24 h avant arrivée', trigger: 'before_arrival', channel: 'whatsapp', active: true, sentCount: 31 },
+      { id: 'auto-room-ready', name: 'Chambre prête', trigger: 'room_ready', channel: 'sms', active: true, sentCount: 18 },
+      { id: 'auto-review', name: 'Avis après séjour', trigger: 'after_checkout', channel: 'email', active: true, sentCount: 24 }
+    ],
+    pmsBookingEngine: state.pmsBookingEngine || { enabled: true, publicUrl: 'reservation.sartal.sn/complexe-dakar', depositPercent: 30, instantConfirmation: true, bookingsToday: 3 },
     pmsScenarioStep: state.pmsScenarioStep || 0,
     pmsSettings: state.pmsSettings || {
       hotelName: state.sites?.[0]?.name || 'Complexe Hôtelier Dakar',

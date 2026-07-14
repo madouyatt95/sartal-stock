@@ -396,6 +396,9 @@ export interface PMSRoom {
   holdUntil?: string;
   holdBy?: string;
   holdReservationId?: string;
+  features?: string[];
+  keyStatus?: 'ready' | 'issued' | 'blocked';
+  keyCode?: string;
 }
 
 export interface PMSFolioCharge {
@@ -448,6 +451,8 @@ export interface PMSGuest {
   documentNumber?: string;
   loyaltyTier?: 'standard' | 'silver' | 'gold';
   incidentNote?: string;
+  preCheckInStatus?: 'not_started' | 'in_progress' | 'completed';
+  consentSignedAt?: string;
 }
 
 export interface PMSReservation {
@@ -559,6 +564,9 @@ export interface PMSGroupBooking {
   billingMode: 'central' | 'individual' | 'mixed';
   status: 'option' | 'confirmed' | 'in_house' | 'closed';
   depositAmount: number;
+  allottedRooms?: number;
+  roomingListReceived?: number;
+  releaseDate?: string;
 }
 
 export interface PMSEvent {
@@ -634,6 +642,9 @@ export interface PMSChannel {
   lastSync: string;
   reservationsToday: number;
   availabilityIssues: number;
+  ratesSynced?: number;
+  inventorySynced?: number;
+  lastError?: string;
 }
 
 export interface PMSNotification {
@@ -667,6 +678,53 @@ export interface PMSPropertySummary {
   adr?: number;
   revPar?: number;
   outOfOrderRooms?: number;
+}
+
+export interface PMSPackage {
+  id: string;
+  name: string;
+  mealPlan: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'experience';
+  pricePerNight: number;
+  includedServices: string[];
+  active: boolean;
+}
+
+export interface PMSDoorKey {
+  id: string;
+  roomId: string;
+  reservationId: string;
+  code: string;
+  status: 'active' | 'revoked' | 'expired';
+  issuedAt: string;
+  validUntil: string;
+}
+
+export interface PMSDebtorAccount {
+  id: string;
+  name: string;
+  type: 'company' | 'agency' | 'guest';
+  balance: number;
+  creditLimit: number;
+  dueDate: string;
+  status: 'current' | 'due' | 'blocked';
+}
+
+export interface PMSAutomationRule {
+  id: string;
+  name: string;
+  trigger: 'booking_confirmed' | 'before_arrival' | 'room_ready' | 'balance_due' | 'after_checkout';
+  channel: 'whatsapp' | 'sms' | 'email';
+  active: boolean;
+  sentCount: number;
+}
+
+export interface PMSBookingEngineSettings {
+  enabled: boolean;
+  publicUrl: string;
+  depositPercent: number;
+  instantConfirmation: boolean;
+  lastBookingAt?: string;
+  bookingsToday: number;
 }
 
 export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';

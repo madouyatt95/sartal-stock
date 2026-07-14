@@ -4330,3 +4330,151 @@ button, input, select, textarea {
   .pms-maintenance-details .btn { grid-column: 1; }
   .pms-property-executive { grid-template-columns: 1fr 1fr; }
 }
+
+/* PMS replacement suite */
+.pms-rack-toolbar { display: grid; grid-template-columns: 160px 150px minmax(180px, 1fr) auto; gap: 8px; align-items: end; margin-bottom: 12px; padding: 10px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--bg-secondary); }
+.pms-rack-toolbar label { display: grid; gap: 4px; color: var(--text-secondary); font-size: 0.68rem; }
+.pms-horizon-switch { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-card); }
+.pms-horizon-switch button { padding: 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text-secondary); font-size: 0.7rem; font-weight: 750; cursor: pointer; }
+.pms-horizon-switch button.active { background: var(--primary); color: #fff; }
+.pms-distribution-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(310px, 0.8fr); gap: 12px; }
+.pms-booking-engine,
+.pms-channel-command { min-width: 0; padding: 12px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--bg-secondary); }
+.pms-booking-engine > header,
+.pms-channel-command > header { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.pms-booking-engine > header > div,
+.pms-channel-command > header { display: grid; }
+.pms-booking-engine header span,
+.pms-channel-command header span { color: var(--text-secondary); font-size: 0.68rem; }
+.pms-booking-engine-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pms-booking-engine-fields label { display: grid; gap: 4px; color: var(--text-secondary); font-size: 0.68rem; }
+.pms-booking-quote { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid #86d5bb; border-radius: 7px; background: #f0fdf8; }
+.pms-booking-quote.closed { border-color: #f2a3a3; background: #fff5f5; }
+.pms-booking-quote > div { display: grid; gap: 3px; }
+.pms-booking-quote span { color: var(--text-secondary); font-size: 0.65rem; }
+.pms-channel-command { display: grid; align-content: start; gap: 7px; max-height: 430px; overflow-y: auto; }
+.pms-channel-command > header { display: grid; }
+.pms-channel-command article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 9px; border: 1px solid var(--border-color); border-radius: 7px; background: var(--bg-card); }
+.pms-channel-command article > div { display: flex; gap: 7px; align-items: center; min-width: 0; }
+.pms-channel-command article > div > span { display: grid; min-width: 0; }
+.pms-channel-command small { overflow: hidden; color: var(--text-secondary); font-size: 0.65rem; text-overflow: ellipsis; white-space: nowrap; }
+.pms-channel-command .btn { grid-column: 1 / -1; }
+.pms-allotment-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.pms-allotment-list article { display: grid; gap: 9px; padding: 11px; border: 1px solid var(--border-color); border-radius: 7px; }
+.pms-allotment-list header { display: flex; justify-content: space-between; gap: 8px; }
+.pms-allotment-list header > div { display: flex; align-items: center; gap: 8px; }
+.pms-allotment-list header span { display: grid; }
+.pms-allotment-list small { color: var(--text-secondary); }
+.pms-allotment-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.pms-allotment-stats > div { display: grid; gap: 3px; padding: 7px; border-radius: 6px; background: var(--bg-secondary); }
+.pms-allotment-stats span { color: var(--text-secondary); font-size: 0.62rem; }
+.pms-allotment-stats strong { font-size: 0.7rem; }
+.pms-progress { height: 6px; overflow: hidden; border-radius: 4px; background: var(--border-color); }
+.pms-progress i { display: block; height: 100%; border-radius: 4px; background: var(--success); }
+.pms-package-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pms-package-grid article { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 11px; border: 1px solid var(--border-color); border-radius: 7px; }
+.pms-package-grid article > div { display: grid; }
+.pms-package-grid span { color: var(--text-secondary); font-size: 0.67rem; line-height: 1.4; }
+.pms-package-grid b,
+.pms-package-grid .btn { grid-column: 1 / -1; }
+.pms-package-grid b { color: var(--primary); font-size: 0.72rem; }
+.pms-finance-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-bottom: 10px; }
+.pms-finance-kpis > div { display: grid; gap: 4px; padding: 10px; border-radius: 7px; background: var(--primary-lightest); }
+.pms-finance-kpis span { color: var(--text-secondary); font-size: 0.67rem; }
+.pms-debtor-list { display: grid; gap: 7px; max-height: 340px; overflow-y: auto; }
+.pms-debtor-list article { display: grid; grid-template-columns: minmax(200px, 1fr) 140px 140px auto; gap: 10px; align-items: center; padding: 9px; border: 1px solid var(--border-color); border-radius: 7px; }
+.pms-debtor-list article > div { display: grid; gap: 3px; }
+.pms-debtor-list article > div:first-child { display: flex; align-items: center; }
+.pms-debtor-list article > div:first-child > span { display: grid; }
+.pms-debtor-list span,
+.pms-debtor-list small { color: var(--text-secondary); font-size: 0.67rem; }
+.pms-payment-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.pms-payment-strip > div { display: grid; grid-template-columns: auto 1fr; gap: 3px 7px; align-items: center; padding: 9px; border-radius: 7px; background: var(--bg-secondary); }
+.pms-payment-strip strong { grid-column: 2; }
+.pms-payment-strip span { color: var(--text-secondary); font-size: 0.67rem; }
+.pms-key-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pms-key-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; align-items: center; padding: 10px; border: 1px solid var(--border-color); border-radius: 7px; }
+.pms-key-list article > div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pms-key-list article > div > span:last-child { display: grid; min-width: 0; }
+.pms-key-list small { overflow: hidden; color: var(--text-secondary); font-size: 0.67rem; text-overflow: ellipsis; white-space: nowrap; }
+.pms-key-icon { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; border-radius: 7px; background: var(--bg-secondary); color: var(--text-muted); }
+.pms-key-icon.active { background: var(--success-light); color: var(--success); }
+.pms-guest-portal-layout { display: grid; grid-template-columns: minmax(260px, 0.75fr) minmax(0, 1.25fr); gap: 12px; }
+.pms-phone-preview { display: grid; gap: 10px; padding: 14px; border: 7px solid #163a36; border-radius: 18px; background: var(--bg-card); box-shadow: var(--shadow-md); }
+.pms-phone-preview > header { display: flex; align-items: center; gap: 7px; color: var(--primary); }
+.pms-phone-preview p { color: var(--text-secondary); }
+.pms-mobile-checks { display: grid; gap: 6px; }
+.pms-mobile-checks > div { display: grid; grid-template-columns: 20px 1fr; align-items: center; gap: 6px; padding: 7px; border-radius: 6px; background: var(--bg-secondary); color: var(--text-secondary); font-size: 0.72rem; }
+.pms-mobile-checks > div > span { width: 15px; height: 15px; border: 1px solid var(--border-color); border-radius: 50%; }
+.pms-mobile-checks > div.done { color: var(--success); }
+.pms-automation-list { display: grid; align-content: start; gap: 7px; }
+.pms-automation-list > header { display: flex; gap: 8px; padding: 10px; border-radius: 7px; background: var(--primary-lightest); }
+.pms-automation-list > header > div { display: grid; }
+.pms-automation-list > header span { color: var(--text-secondary); font-size: 0.68rem; }
+.pms-automation-list article { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--border-color); border-radius: 7px; }
+.pms-automation-list article > div { display: grid; }
+.pms-automation-list article span { color: var(--text-secondary); font-size: 0.67rem; text-transform: capitalize; }
+.pms-toggle { width: 42px; height: 24px; padding: 3px; border: 0; border-radius: 12px; background: var(--border-color); cursor: pointer; }
+.pms-toggle i { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform var(--transition-fast); }
+.pms-toggle.active { background: var(--success); }
+.pms-toggle.active i { transform: translateX(18px); }
+.pms-migration-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.pms-migration-overview > div { display: grid; gap: 4px; padding: 9px; border-radius: 7px; background: var(--bg-secondary); }
+.pms-migration-overview span { color: var(--text-secondary); font-size: 0.67rem; }
+.pms-migration-checks { display: grid; gap: 6px; margin: 10px 0; }
+.pms-migration-checks article { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-color); }
+.pms-migration-checks .ok { color: var(--success); }
+.pms-migration-checks .warning { color: var(--warning); }
+.pms-cutover-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
+.pms-cutover-steps > div { display: grid; grid-template-columns: auto 1fr; gap: 5px; align-items: center; padding: 8px; border: 1px solid var(--border-color); border-radius: 7px; color: var(--text-secondary); font-size: 0.67rem; }
+.pms-cutover-steps > div.done { border-color: var(--success); color: var(--success); }
+.pms-cutover-steps span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--bg-secondary); }
+.dark-mode .pms-booking-quote { border-color: #2d6e5c; background: #16352d; }
+.dark-mode .pms-booking-quote.closed { border-color: #7c3636; background: #3b2020; }
+
+@media (max-width: 1000px) {
+  .pms-distribution-layout,
+  .pms-guest-portal-layout { grid-template-columns: 1fr; }
+  .pms-debtor-list article { grid-template-columns: minmax(0, 1fr) 1fr 1fr; }
+  .pms-debtor-list article .badge { grid-column: 1 / -1; width: fit-content; }
+}
+
+@media (max-width: 768px) {
+  .pms-rack-toolbar { grid-template-columns: 1fr 1fr; }
+  .pms-rack-toolbar label:nth-child(3),
+  .pms-horizon-switch { grid-column: 1 / -1; }
+  .pms-horizon-switch { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .pms-booking-engine-fields { grid-template-columns: 1fr 1fr; }
+  .pms-booking-engine-fields label:nth-child(n+3) { grid-column: 1 / -1; }
+  .pms-booking-quote { grid-template-columns: 1fr 1fr; }
+  .pms-booking-quote .btn { grid-column: 1 / -1; }
+  .pms-allotment-list,
+  .pms-package-grid,
+  .pms-key-list { grid-template-columns: 1fr; }
+  .pms-allotment-stats,
+  .pms-finance-kpis,
+  .pms-payment-strip,
+  .pms-migration-overview { grid-template-columns: 1fr 1fr; }
+  .pms-debtor-list article { grid-template-columns: 1fr 1fr; }
+  .pms-debtor-list article > div:first-child { grid-column: 1 / -1; }
+  .pms-cutover-steps { display: flex; padding-bottom: 5px; overflow-x: auto; }
+  .pms-cutover-steps > div { flex: 0 0 160px; }
+}
+
+@media (max-width: 420px) {
+  .pms-rack-toolbar,
+  .pms-booking-engine-fields,
+  .pms-booking-quote,
+  .pms-allotment-stats,
+  .pms-finance-kpis,
+  .pms-payment-strip,
+  .pms-migration-overview,
+  .pms-debtor-list article { grid-template-columns: 1fr; }
+  .pms-rack-toolbar label:nth-child(3),
+  .pms-horizon-switch,
+  .pms-booking-engine-fields label:nth-child(n+3),
+  .pms-booking-quote .btn,
+  .pms-debtor-list article > div:first-child { grid-column: 1; }
+  .pms-key-list article { grid-template-columns: 1fr; }
+  .pms-key-list .btn { width: 100%; }
+}

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 import { PAYMENT_TYPE_LABELS, PaymentType, PMSReservation, PMSReservationStatus, PMSSettings } from '../types';
+import { isPMSRoomAvailable } from '../utils/pmsAvailability';
 import {
   PMSAuditTrail,
   PMSBillingPanel,
@@ -54,6 +55,15 @@ import {
   PMSServiceDesk,
   PMSStayDocuments
 } from './PMSExperiencePanels';
+import {
+  PMSAccessCenter,
+  PMSDistributionHub,
+  PMSFinanceCenter,
+  PMSGroupAllotments,
+  PMSGuestPortal,
+  PMSMigrationCockpit,
+  PMSPackageManager
+} from './PMSReplacementSuite';
 
 interface PMSHotelProps {
   state: StockState;
@@ -195,14 +205,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   });
 
   const roomIsAvailableForReservation = (room: (typeof db.pmsRooms)[number]) => {
-    if (room.status === 'maintenance' || room.capacity < reservationForm.adults + reservationForm.children) return false;
-    return !db.pmsReservations.some(reservation => (
-      reservation.id !== editingReservationId
-      && reservation.roomId === room.id
-      && !['cancelled', 'no_show', 'checked_out', 'waitlisted'].includes(reservation.status)
-      && reservationForm.arrivalDate < reservation.departureDate
-      && reservationForm.departureDate > reservation.arrivalDate
-    ));
+    return isPMSRoomAvailable(db, room, reservationForm.arrivalDate, reservationForm.departureDate, { reservationId: editingReservationId || undefined, guests: reservationForm.adults + reservationForm.children });
   };
   const availableRoomsForReservation = db.pmsRooms.filter(room => (
     roomIsAvailableForReservation(room)
@@ -442,6 +445,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderReservations = () => (
     <>
+      <PMSDistributionHub state={state} />
       <div className="card product-filter-panel pms-filter-bar">
         <div className="input-with-icon"><Search size={16} /><input type="search" className="form-control" placeholder="Client, téléphone, chambre, réservation..." value={searchQuery} onChange={event => setSearchQuery(event.target.value)} /></div>
         <select className="form-control" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
@@ -471,6 +475,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
           );
         })}
       </div>
+      <PMSGroupAllotments state={state} />
       <PMSGroupsEvents state={state} />
       <PMSStayDocuments state={state} />
     </>
@@ -507,17 +512,20 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
           );
         })}
       </div>
+      <PMSAccessCenter state={state} />
     </>
   );
 
   const renderGuests = () => (
     <>
       <PMSGuestCommandCenter state={state} />
+      <PMSGuestPortal state={state} />
       <PMSGuestRelations state={state} />
     </>
   );
 
   const renderFolios = () => (
+    <>
     <div className="pms-folio-layout">
       <section className="card pms-folio-list">
         <div className="pms-section-header"><div><h2>Folios clients</h2><p>Charges, paiements et solde du séjour.</p></div><button className="btn btn-secondary" onClick={exportFolios}><Download size={16} /> Exporter</button></div>
@@ -547,6 +555,9 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         );
       })()}
     </div>
+    <PMSPackageManager state={state} />
+    <PMSFinanceCenter state={state} />
+    </>
   );
 
   const renderHousekeeping = () => (
@@ -613,6 +624,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         </form>
         <section className="card pms-section-card"><div className="pms-section-header"><div><h2>Contrôles actifs</h2><p>Règles visibles par les équipes.</p></div></div>{['Une chambre en maintenance ne peut pas être attribuée.', 'Un conflit passe en liste d’attente si le surbooking est désactivé.', 'Le check-in ouvre automatiquement un folio.', 'Une vente restaurant conserve son ticket et son point de vente.', 'Le check-out clôture le folio et crée une tâche de nettoyage.', 'Chaque action sensible alimente le journal de sécurité.'].map(rule => <div className="proof-row" key={rule}><CheckCircle size={17} color="var(--success)" /><span>{rule}</span></div>)}</section>
       </div>
+      <PMSMigrationCockpit state={state} />
       <PMSCommercialSettings state={state} />
     </>
   );

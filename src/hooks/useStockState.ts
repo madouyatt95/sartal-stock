@@ -13,6 +13,7 @@ import {
   PMSInvoice,
   PMSMaintenanceTicket,
   PMSNotification,
+  PMSPackage,
   PMSRateOverride,
   PMSReservation,
   PMSReservationStatus,
@@ -956,6 +957,9 @@ export const useStockState = () => {
     channel.status = 'connected';
     channel.lastSync = new Date().toISOString();
     channel.availabilityIssues = 0;
+    channel.ratesSynced = newDb.pmsRatePlans.filter(item => item.active).length;
+    channel.inventorySynced = newDb.pmsRooms.filter(item => item.status !== 'maintenance').length;
+    channel.lastError = undefined;
     appendPMSAudit(newDb, 'Synchronisation canal', channel.name, 'Disponibilités et tarifs synchronisés.');
     saveDB(newDb);
     refresh();
@@ -977,6 +981,93 @@ export const useStockState = () => {
     if (existing) Object.assign(existing, payload);
     else newDb.pmsRateOverrides.push({ ...payload, id: `rate-override-${Date.now()}` });
     appendPMSAudit(newDb, 'Calendrier tarifaire', `${payload.roomType} · ${payload.date}`, payload.closed ? 'Vente fermée.' : `${payload.price} FCFA · ${payload.reason}.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addPMSPackageToFolio = (folioId: string, packageId: string) => {
+    const newDb = getDB();
+    const folio = newDb.pmsFolios.find(item => item.id === folioId);
+    const packageItem: PMSPackage | undefined = newDb.pmsPackages.find(item => item.id === packageId && item.active);
+    if (!folio || !packageItem) throw new Error('Folio ou forfait introuvable');
+    const nights = Math.max(1, Math.ceil((new Date(folio.departureDate).getTime() - new Date(folio.arrivalDate).getTime()) / 86400000));
+    folio.charges.push({ id: `charge-package-${Date.now()}`, saleId: `package-${packageItem.id}`, externalSaleId: `FORFAIT-${Date.now().toString().slice(-6)}`, posId: newDb.posList[0]?.id || '', label: `${packageItem.name} · ${nights} nuit(s)`, amount: packageItem.pricePerNight * nights, date: new Date().toISOString(), status: 'reconciled', category: 'service', billingWindow: 'guest' });
+    appendPMSAudit(newDb, 'Forfait séjour', folio.reservationNumber, `${packageItem.name} ajouté pour ${packageItem.pricePerNight * nights} FCFA.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const issuePMSDoorKey = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const room = newDb.pmsRooms.find(item => item.id === reservation?.roomId);
+    if (!reservation || !room) throw new Error('Réservation ou chambre introuvable');
+    if (room.status === 'maintenance') throw new Error('Clé impossible pour une chambre en maintenance');
+    newDb.pmsDoorKeys.filter(item => item.reservationId === reservationId && item.status === 'active').forEach(item => { item.status = 'revoked'; });
+    const code = `K${room.roomNumber}-${Date.now().toString().slice(-4)}`;
+    newDb.pmsDoorKeys.unshift({ id: `key-${Date.now()}`, roomId: room.id, reservationId, code, status: 'active', issuedAt: new Date().toISOString(), validUntil: `${reservation.departureDate}T${newDb.pmsSettings.checkOutTime}:00.000Z` });
+    room.keyStatus = 'issued';
+    room.keyCode = code;
+    appendPMSAudit(newDb, 'Clé chambre', reservation.confirmationNumber, `Clé ${code} émise pour la chambre ${room.roomNumber}.`);
+    saveDB(newDb);
+    refresh();
+    return code;
+  };
+
+  const revokePMSDoorKey = (keyId: string) => {
+    const newDb = getDB();
+    const key = newDb.pmsDoorKeys.find(item => item.id === keyId);
+    if (!key) throw new Error('Clé introuvable');
+    key.status = 'revoked';
+    const room = newDb.pmsRooms.find(item => item.id === key.roomId);
+    if (room) { room.keyStatus = 'ready'; room.keyCode = undefined; }
+    appendPMSAudit(newDb, 'Révocation clé', room ? `Chambre ${room.roomNumber}` : key.roomId, `Clé ${key.code} désactivée.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completePMSPreCheckIn = (reservationId: string) => {
+    const newDb = getDB();
+    const reservation = newDb.pmsReservations.find(item => item.id === reservationId);
+    const guest = newDb.pmsGuests.find(item => item.id === reservation?.guestId);
+    if (!reservation || !guest) throw new Error('Séjour ou client introuvable');
+    guest.preCheckInStatus = 'completed';
+    guest.consentSignedAt = new Date().toISOString();
+    if (!guest.documentType) guest.documentType = 'identity_card';
+    if (!guest.documentNumber) guest.documentNumber = `SN-${Date.now().toString().slice(-8)}`;
+    appendPMSAudit(newDb, 'Pré-check-in mobile', reservation.confirmationNumber, `${guest.fullName} a transmis son identité et signé.`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const togglePMSAutomationRule = (ruleId: string) => {
+    const newDb = getDB();
+    const rule = newDb.pmsAutomationRules.find(item => item.id === ruleId);
+    if (!rule) throw new Error('Automatisation introuvable');
+    rule.active = !rule.active;
+    appendPMSAudit(newDb, 'Automatisation client', rule.name, rule.active ? 'Règle activée.' : 'Règle suspendue.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const validatePMSMigrationRun = (runId: string) => {
+    const newDb = getDB();
+    const run = newDb.pmsMigrationRuns.find(item => item.id === runId);
+    if (!run) throw new Error('Reprise introuvable');
+    run.mappedFields = 48;
+    run.rejectedRows = 0;
+    run.balanceDifference = 0;
+    run.warnings = 0;
+    run.status = 'validated';
+    appendPMSAudit(newDb, 'Validation reprise Orchestra', run.source, 'Chambres, clients, réservations et soldes rapprochés.');
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updatePMSBookingEngine = (patch: Partial<DatabaseState['pmsBookingEngine']>) => {
+    const newDb = getDB();
+    Object.assign(newDb.pmsBookingEngine, patch);
+    appendPMSAudit(newDb, 'Moteur de réservation', newDb.pmsBookingEngine.publicUrl, newDb.pmsBookingEngine.enabled ? 'Vente directe active.' : 'Vente directe suspendue.');
     saveDB(newDb);
     refresh();
   };
@@ -1429,6 +1520,13 @@ export const useStockState = () => {
     syncPMSChannel,
     updatePMSRatePlan,
     upsertPMSRateOverride,
+    addPMSPackageToFolio,
+    issuePMSDoorKey,
+    revokePMSDoorKey,
+    completePMSPreCheckIn,
+    togglePMSAutomationRule,
+    validatePMSMigrationRun,
+    updatePMSBookingEngine,
     advancePMSDayScenario,
     resetPMSDayScenario,
     runPMSNightAudit,
