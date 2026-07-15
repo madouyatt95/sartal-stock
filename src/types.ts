@@ -1335,6 +1335,7 @@ export type EmployeeRole =
 export type EmployeePermission =
   | 'team_messages'
   | 'discount_request'
+  | 'table_payment'
   | 'cash_close'
   | 'reservation_create'
   | 'room_assignment'

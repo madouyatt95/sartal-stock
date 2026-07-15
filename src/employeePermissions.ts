@@ -10,6 +10,7 @@ export interface EmployeePermissionDefinition {
 export const EMPLOYEE_PERMISSION_DEFINITIONS: readonly EmployeePermissionDefinition[] = [
   { id: 'team_messages', group: 'Communication', label: 'Messages d’équipe', description: 'Écrire aux équipes et diffuser une consigne de service.' },
   { id: 'discount_request', group: 'Restaurant & caisse', label: 'Demander une remise', description: 'Soumettre une remise ou un offert à la validation du manager.' },
+  { id: 'table_payment', group: 'Restaurant & caisse', label: 'Encaisser à table', description: 'Enregistrer un règlement sur le terminal de service et le rattacher à la caisse du POS.' },
   { id: 'cash_close', group: 'Restaurant & caisse', label: 'Clôturer une caisse', description: 'Saisir le comptage final et produire le rapport de clôture.' },
   { id: 'reservation_create', group: 'Hôtel & PMS', label: 'Créer une réservation', description: 'Enregistrer une réservation sur place ou à distance.' },
   { id: 'room_assignment', group: 'Hôtel & PMS', label: 'Attribuer une chambre', description: 'Choisir une chambre et finaliser le check-in.' },
@@ -23,8 +24,8 @@ export const EMPLOYEE_PERMISSION_DEFINITIONS: readonly EmployeePermissionDefinit
 ];
 
 const roleDefaults: Record<EmployeeRole, readonly EmployeePermission[]> = {
-  waiter: ['team_messages', 'discount_request'],
-  cashier: ['team_messages', 'discount_request', 'cash_close'],
+  waiter: ['team_messages', 'discount_request', 'table_payment'],
+  cashier: ['team_messages', 'discount_request', 'table_payment', 'cash_close'],
   kitchen: ['team_messages'],
   receptionist: ['team_messages', 'reservation_create', 'room_assignment', 'folio_payment'],
   housekeeper: ['team_messages'],

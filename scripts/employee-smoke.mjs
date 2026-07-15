@@ -13,6 +13,18 @@ globalThis.localStorage = {
   get length() { return values.size; }
 };
 
+let databaseUpdateEvents = 0;
+globalThis.window = {
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  dispatchEvent: event => {
+    if (event.type === 'sartal-db-updated') databaseUpdateEvents += 1;
+    return true;
+  },
+  setTimeout: globalThis.setTimeout.bind(globalThis),
+  clearTimeout: globalThis.clearTimeout.bind(globalThis)
+};
+
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
 };
@@ -21,7 +33,7 @@ const server = await createServer({ appType: 'custom', logLevel: 'silent', serve
 
 try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
-  const { getDB } = await server.ssrLoadModule('/src/db.ts');
+  const { getDB, saveDB } = await server.ssrLoadModule('/src/db.ts');
   const { EmployeeWorkspace } = await server.ssrLoadModule('/src/views/EmployeeWorkspace.tsx');
   const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
   const { RestaurantFloorStudio } = await server.ssrLoadModule('/src/components/RestaurantFloorStudio.tsx');
@@ -41,13 +53,17 @@ try {
   ['Plan de salle interactif', 'Ouvrir le Studio', 'T12', 'Addition'].forEach(marker => assert(floorHtml.includes(marker), `Plan de salle manager incomplet : ${marker}`));
   const floorSource = readFileSync(new URL('../src/components/RestaurantFloorStudio.tsx', import.meta.url), 'utf8');
   const orderPanelSource = readFileSync(new URL('../src/components/RestaurantTableOrderPanel.tsx', import.meta.url), 'utf8');
+  const paymentPanelSource = readFileSync(new URL('../src/components/RestaurantTablePaymentPanel.tsx', import.meta.url), 'utf8');
   ['ELEMENT_CATALOG', 'Annuler', 'Magnétisme', 'Multi-sélection', 'chevauchement', 'Fusionner', 'Installer sans réservation', 'Serveur affecté', 'Heatmap', 'Brouillon', 'Publier', 'Journal d’audit', 'Fond de plan', 'Mode tablette', 'Transférer'].forEach(marker => {
     assert(floorSource.includes(marker), `Expérience Studio premium incomplète : ${marker}`);
   });
   ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'requestEmployeeApproval'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
   ['Installer et prendre la commande', 'orderPanelOrder', 'seatReservationAndTakeOrder'].forEach(marker => assert(floorSource.includes(marker), `Parcours table vers commande incomplet : ${marker}`));
+  ['restaurant-table-modal-backdrop', 'Encaisser à table', 'RestaurantTablePaymentPanel'].forEach(marker => assert(floorSource.includes(marker), `Fenêtre d’action de table incomplète : ${marker}`));
+  ['ENCAISSEMENT À TABLE', 'Activer la caisse de service', 'operatorId', 'pay_at_table'].forEach(marker => assert(paymentPanelSource.includes(marker), `Encaissement serveur incomplet : ${marker}`));
   assert(!/<button(?![^>]*\btype=)/.test(floorSource), 'Un bouton du plan de salle peut encore soumettre la page et perdre les paramètres de démonstration');
   assert(!/<button(?![^>]*\btype=)/.test(orderPanelSource), 'Un bouton de prise de commande peut encore soumettre la page et quitter le profil');
+  assert(!/<button(?![^>]*\btype=)/.test(paymentPanelSource), 'Un bouton d’encaissement peut encore soumettre la page et quitter le profil');
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
@@ -66,6 +82,11 @@ try {
   });
 
   let db = getDB();
+  databaseUpdateEvents = 0;
+  getDB();
+  assert(databaseUpdateEvents === 0, 'Une simple lecture de la base redéclenche une actualisation récursive');
+  saveDB(getDB());
+  assert(databaseUpdateEvents === 1, 'Une écriture doit émettre exactement un événement de synchronisation');
   const roles = new Set(db.employeeProfiles.map(item => item.role));
   ['waiter', 'cashier', 'kitchen', 'receptionist', 'housekeeper', 'storekeeper', 'picker', 'driver', 'customer_experience', 'service_manager'].forEach(role => {
     assert(roles.has(role), `Profil métier absent : ${role}`);
@@ -307,7 +328,7 @@ try {
   const cashSessionId = state.openCashSession(cashier.posId, 50000, { id: cashier.id, name: cashier.name });
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).userName === cashier.name, 'Caisse non attribuée au caissier');
   const orderToPay = getDB().restaurantGuestOrders.find(item => item.posId === cashier.posId && !['paid', 'cancelled'].includes(item.status));
-  state.addRestaurantGuestOrderPayment(orderToPay.id, 1000, 'wave', cashier.name, cashSessionId);
+  state.addRestaurantGuestOrderPayment(orderToPay.id, 1000, 'wave', cashier.name, cashSessionId, { source: 'terminal', operatorId: cashier.id });
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).paymentTotals.wave === 1000, 'Paiement addition non rattaché à la caisse');
   state.updateEmployeePermissions(cashier.id, ['team_messages']);
   let cashCloseProtected = false;
@@ -317,7 +338,7 @@ try {
     cashCloseProtected = true;
   }
   assert(cashCloseProtected, 'Le retrait du droit de clôture caisse devrait bloquer l’action');
-  state.updateEmployeePermissions(cashier.id, ['team_messages', 'discount_request', 'cash_close']);
+  state.updateEmployeePermissions(cashier.id, ['team_messages', 'discount_request', 'table_payment', 'cash_close']);
   state.closeCashSession(cashSessionId, 50000, 'Clôture test équipe', { id: cashier.id, name: cashier.name });
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).cashDifference === 0, 'Écart caisse test incohérent');
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).paymentTotals.wave === 1000, 'Rapport Z incomplet sur les additions');
@@ -403,11 +424,20 @@ try {
   assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId)?.tableNumber === targetTable.label, 'La commande ne suit pas le transfert de table');
   assert(getDB().restaurantReservations.find(item => item.id === walkInResult.reservationId)?.tableNumber === targetTable.label, 'La réservation ne suit pas le transfert de table');
   assert(getDB().restaurantReservations.find(item => item.id === futureReservationId)?.tableNumber === sourceTable.label, 'Une réservation future ne doit pas suivre le transfert du service en cours');
+  assert(getDB().sartalClientAccess.find(item => item.id === tableAccess.id)?.destination === `Table ${targetTable.label}`, 'L’accès client ne suit pas le transfert de table');
   tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
-  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', undefined, { seatNumbers: [1], itemIds: [serviceLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table' });
+  const tableCashSessionId = state.openCashSession('pos-1', 0, { id: waiter.id, name: waiter.name });
+  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, { seatNumbers: [1], itemIds: [serviceLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table', operatorId: waiter.id });
   const detailedPayment = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).payments.at(-1);
   assert(detailedPayment.seatNumbers?.includes(1) && detailedPayment.itemIds?.includes(serviceLine.id) && detailedPayment.tipAmount === 250 && detailedPayment.source === 'pay_at_table', 'Paiement à table détaillé non conservé');
-  state.cancelRestaurantReservation(walkInResult.reservationId);
+  assert(detailedPayment.cashSessionId === tableCashSessionId, 'Paiement serveur non rattaché à la caisse du POS');
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).status === 'paid', 'Addition soldée non clôturée');
+  assert(getDB().restaurantReservations.find(item => item.id === walkInResult.reservationId)?.status === 'completed', 'La réservation reste installée après le règlement complet');
+  assert(!getDB().restaurantGuestOrders.some(item => item.posId === 'pos-1' && item.tableNumber === targetTable.label && !['paid', 'cancelled'].includes(item.status)), 'La table reste occupée après le règlement complet');
+  assert(getDB().sartalServiceRequests.find(item => item.id === billRequestId)?.status === 'completed', 'La demande d’addition reste active après le règlement');
+  assert(getDB().sartalClientAccess.find(item => item.id === tableAccess.id)?.status === 'expired', 'L’accès QR de table reste actif après la clôture du service');
+  state.closeCashSession(tableCashSessionId, 0, 'Clôture de la caisse partagée du POS', { id: cashier.id, name: cashier.name });
+  assert(getDB().cashSessions.find(item => item.id === tableCashSessionId)?.closedBy === cashier.id, 'Le caissier ne peut pas clôturer la caisse ouverte à table par le serveur');
   ['reservation_assigned', 'waiter_assigned', 'guest_seated', 'order_opened', 'order_sent', 'item_updated', 'adjustment_applied', 'qr_created', 'bill_requested', 'table_transferred', 'payment_recorded'].forEach(action => {
     assert(getDB().restaurantFloorAudit.some(item => item.action === action), `Action salle non auditée : ${action}`);
   });

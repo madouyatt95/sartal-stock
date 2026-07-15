@@ -136,6 +136,19 @@ const updateRestaurantTicketStatus = (order: RestaurantGuestOrder) => {
   else order.status = 'placed';
 };
 
+const completeRestaurantTableService = (database: DatabaseState, order: RestaurantGuestOrder) => {
+  if (order.status !== 'paid') return;
+  const reservation = order.reservationId ? database.restaurantReservations.find(item => item.id === order.reservationId && item.status === 'seated') : undefined;
+  if (reservation) reservation.status = 'completed';
+  database.sartalServiceRequests.filter(item => item.referenceId === order.id && item.type === 'bill' && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
+    item.status = 'completed';
+    item.completedAt = new Date().toISOString();
+  });
+  database.sartalClientAccess.filter(item => item.customerId === order.customerId && item.status === 'active' && item.destination === `Table ${order.tableNumber}`).forEach(item => {
+    item.status = 'expired';
+  });
+};
+
 const findRestaurantFloorCollision = (tables: RestaurantDiningTable[], elements: RestaurantFloorElement[]) => {
   const activeTables = tables.filter(table => table.active);
   for (let index = 0; index < activeTables.length; index += 1) {
@@ -2480,6 +2493,9 @@ export const useStockState = () => {
     const newDb = getDB();
     const pos = newDb.posList.find(p => p.id === posId);
     if (!pos) throw new Error("Point de vente introuvable");
+    const employee = actor ? newDb.employeeProfiles.find(item => item.id === actor.id && item.active) : undefined;
+    if (actor && !employee) throw new Error('Collaborateur introuvable ou inactif');
+    if (employee && !hasEmployeePermission(employee, 'table_payment')) throw new Error('Votre profil ne permet pas d’activer un terminal d’encaissement');
 
     const existingOpenSession = newDb.cashSessions.find(session => session.posId === posId && session.status === 'open');
     if (existingOpenSession) {
@@ -2942,7 +2958,11 @@ export const useStockState = () => {
     const reservations = newDb.restaurantReservations.filter(item => item.posId === source.posId && item.tableNumber === source.label && item.date === serviceDate && ['confirmed', 'seated'].includes(item.status));
     if (!order && reservations.length === 0) throw new Error(`${source.label} n’a aucun service à transférer`);
     if (reservations.some(reservation => reservation.guests > target.capacity)) throw new Error(`${target.label} n’a pas assez de places`);
-    if (order) order.tableNumber = target.label;
+    if (order) {
+      newDb.sartalClientAccess.filter(item => item.customerId === order.customerId && item.status === 'active' && item.destination === `Table ${source.label}`).forEach(item => { item.destination = `Table ${target.label}`; });
+      newDb.sartalServiceRequests.filter(item => item.referenceId === order.id && item.type === 'bill' && !['completed', 'cancelled'].includes(item.status)).forEach(item => { item.label = `Addition ${target.label}`; });
+      order.tableNumber = target.label;
+    }
     reservations.forEach(reservation => { reservation.tableNumber = target.label; });
     target.assignedEmployeeId = source.assignedEmployeeId;
     appendRestaurantFloorAudit(newDb, source.posId, 'table_transferred', `${source.label} transférée vers ${target.label}`, actor, { sourceTableId, targetTableId });
@@ -3193,6 +3213,7 @@ export const useStockState = () => {
     const eventTypes = { preparing: 'item_preparing', ready: 'item_ready', served: 'item_served' } as const;
     if (status in eventTypes) appendRestaurantServiceEvent(order, { type: eventTypes[status as keyof typeof eventTypes], label: `${newDb.products.find(item => item.id === line.productId)?.name || 'Article'} · ${status}`, actor, itemIds: [itemId], course: line.course });
     updateRestaurantTicketStatus(order);
+    completeRestaurantTableService(newDb, order);
     appendRestaurantFloorAudit(newDb, order.posId, 'item_updated', `${line.id} passée à ${status}`, actor, { orderId, itemId, status });
     saveDB(newDb);
     refresh();
@@ -3227,17 +3248,22 @@ export const useStockState = () => {
     if (status === 'preparing') order.kitchenStartedAt = order.updatedAt;
     if (status === 'ready') order.readyAt = order.updatedAt;
     if (status === 'served') order.servedAt = order.updatedAt;
+    completeRestaurantTableService(newDb, order);
     saveDB(newDb);
     refresh();
   };
 
-  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio' }) => {
+  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio'; operatorId?: string }) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
     if (!order || amount <= 0) throw new Error('Paiement invalide');
     if (order.status === 'cancelled') throw new Error('Une commande annulée ne peut pas être réglée');
+    const operator = allocation?.operatorId ? newDb.employeeProfiles.find(item => item.id === allocation.operatorId && item.active) : undefined;
+    if (allocation?.operatorId && !operator) throw new Error('Collaborateur introuvable ou inactif');
+    if (operator && !hasEmployeePermission(operator, 'table_payment')) throw new Error('Votre profil ne permet pas d’encaisser à table');
     const cashSession = cashSessionId ? newDb.cashSessions.find(item => item.id === cashSessionId && item.status === 'open' && item.posId === order.posId) : undefined;
     if (cashSessionId && !cashSession) throw new Error('La session de caisse ne correspond pas à cette addition');
+    if (operator && method !== 'room_charge' && !cashSession) throw new Error('Activez d’abord la caisse de service de ce point de vente');
     if (method === 'room_charge' && (!order.folioId || !newDb.pmsFolios.some(item => item.id === order.folioId && item.status === 'open'))) {
       throw new Error('Aucun folio actif n’est rattaché à cette addition');
     }
@@ -3289,6 +3315,7 @@ export const useStockState = () => {
       order.loyaltyCreditedAt = paidAt;
     }
     if (order.paymentStatus === 'paid' && order.status === 'served') order.status = 'paid';
+    completeRestaurantTableService(newDb, order);
     appendRestaurantServiceEvent(order, { type: 'payment', label: `${accepted} FCFA réglé${tipAmount ? ` + ${tipAmount} FCFA de pourboire` : ''}`, actor: payerName || 'Client', amount: accepted });
     order.updatedAt = new Date().toISOString();
     appendRestaurantFloorAudit(newDb, order.posId, 'payment_recorded', `${order.tableNumber || order.id} · ${accepted} FCFA via ${method}`, payerName || newDb.currentUser.name, { orderId, amount: accepted, tipAmount, method });

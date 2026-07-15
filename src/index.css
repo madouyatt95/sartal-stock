@@ -615,6 +615,165 @@
 .restaurant-order-notice { position: sticky; z-index: 9; bottom: 0.6rem; margin: 0.6rem; padding: 0.7rem; color: #092b25; background: #f2bd4c; border-radius: 6px; font-size: 0.82rem; font-weight: 850; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28); }
 .restaurant-order-notice.danger { color: #fff; background: #a33e34; }
 
+.restaurant-table-modal-backdrop {
+  position: fixed;
+  z-index: 2400;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.8rem, 3vw, 2rem);
+  background: rgba(3, 17, 14, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.restaurant-table-modal-shell {
+  width: min(540px, 100%);
+  max-height: min(820px, calc(100dvh - 2rem));
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 8px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
+}
+
+.restaurant-table-modal-shell.order {
+  width: min(980px, 100%);
+  overflow: hidden;
+  background: #123832;
+  border: 1px solid #4a786f;
+}
+
+.restaurant-table-modal-shell.order .restaurant-order-panel {
+  position: static;
+  width: 100%;
+  max-height: min(820px, calc(100dvh - 2rem));
+  border: 0;
+  border-radius: 0;
+}
+
+.restaurant-table-modal-shell.payment {
+  width: min(620px, 100%);
+  overflow: hidden;
+  background: #123832;
+  border: 1px solid #4a786f;
+}
+
+.restaurant-floor-detail.restaurant-table-modal-shell {
+  padding: 1.05rem;
+  border-color: #4a786f;
+}
+
+.restaurant-floor-pay-button {
+  color: #2c2100;
+  background: #f2bd4c;
+}
+
+.restaurant-table-payment {
+  position: relative;
+  max-height: min(820px, calc(100dvh - 2rem));
+  overflow: auto;
+  overscroll-behavior: contain;
+  color: #eafff9;
+  background: #123832;
+  scrollbar-width: thin;
+}
+
+.restaurant-table-payment > header {
+  position: sticky;
+  z-index: 4;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: #123832;
+  border-bottom: 1px solid #315c53;
+}
+
+.restaurant-table-payment > header span { color: #72dbc2; font-size: 0.78rem; font-weight: 900; }
+.restaurant-table-payment > header h2 { margin-top: 0.12rem; color: #fff; font-size: 1.4rem; }
+.restaurant-table-payment > header p { margin-top: 0.18rem; color: #b8cfca; font-size: 0.86rem; }
+.restaurant-table-payment > header > button { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; color: #fff; background: #1b4a42; border: 1px solid #4d7b72; border-radius: 6px; }
+
+.restaurant-payment-balance {
+  display: grid;
+  justify-items: center;
+  gap: 0.12rem;
+  padding: 1rem;
+  background: #092b25;
+  border-bottom: 1px solid #315c53;
+}
+
+.restaurant-payment-balance span { color: #b8cfca; font-size: 0.82rem; }
+.restaurant-payment-balance strong { color: #f2bd4c; font-size: 1.9rem; }
+.restaurant-payment-balance small { color: #9fbab4; font-size: 0.78rem; }
+
+.restaurant-payment-warning {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0.8rem 1rem 0;
+  padding: 0.75rem;
+  color: #ffd7d0;
+  background: #4a2722;
+  border: 1px solid #84453c;
+  border-radius: 7px;
+}
+
+.restaurant-payment-warning.service { color: #ffedbd; background: #493b1b; border-color: #806d36; }
+.restaurant-payment-warning span { display: grid; gap: 0.15rem; }
+.restaurant-payment-warning small { color: inherit; opacity: 0.82; font-size: 0.8rem; line-height: 1.4; }
+.restaurant-payment-warning button { grid-column: 1 / -1; min-height: 46px; color: #2c2100; background: #f2bd4c; border: 0; border-radius: 6px; font-weight: 850; }
+
+.restaurant-payment-methods { padding: 0.85rem 1rem 0; }
+.restaurant-payment-methods > small { display: block; margin-bottom: 0.45rem; color: #b8cfca; font-size: 0.8rem; font-weight: 850; }
+.restaurant-payment-methods > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+.restaurant-payment-methods button { display: grid; min-height: 68px; place-items: center; gap: 0.25rem; padding: 0.5rem; color: #dff8f1; background: #092b25; border: 1px solid #37675e; border-radius: 6px; font-size: 0.78rem; font-weight: 850; }
+.restaurant-payment-methods button.active { color: #102e28; background: #72dbc2; border-color: #72dbc2; }
+
+.restaurant-payment-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; padding: 0.8rem 1rem; }
+.restaurant-payment-form label { display: grid; gap: 0.3rem; color: #b8cfca; font-size: 0.8rem; font-weight: 800; }
+.restaurant-payment-form label.wide { grid-column: 1 / -1; }
+.restaurant-payment-form label > span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.restaurant-payment-form input { width: 100%; min-height: 46px; padding: 0.6rem 0.7rem; color: #fff; background: #092b25; border: 1px solid #37675e; border-radius: 6px; font-size: 0.92rem; }
+.restaurant-payment-quick-amounts { display: flex; align-items: end; gap: 0.3rem; }
+.restaurant-payment-quick-amounts button { min-width: 54px; min-height: 46px; flex: 1; color: #dff8f1; background: #174a41; border: 1px solid #3f7469; border-radius: 6px; font-weight: 850; }
+
+.restaurant-payment-submit {
+  display: flex;
+  width: calc(100% - 2rem);
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0 1rem 0.9rem;
+  color: #2c2100;
+  background: #f2bd4c;
+  border: 0;
+  border-radius: 6px;
+  font-size: 0.94rem;
+  font-weight: 900;
+}
+
+.restaurant-payment-submit:disabled { opacity: 0.4; }
+.restaurant-payment-history { margin: 0 1rem 1rem; overflow: hidden; background: #092b25; border: 1px solid #37675e; border-radius: 7px; }
+.restaurant-payment-history > header { display: flex; justify-content: space-between; gap: 0.6rem; padding: 0.65rem 0.7rem; background: #174a41; }
+.restaurant-payment-history > header small { color: #b8cfca; }
+.restaurant-payment-history article { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; padding: 0.65rem 0.7rem; border-top: 1px solid #254c45; }
+.restaurant-payment-history article > svg { color: #72dbc2; }
+.restaurant-payment-history article span { display: grid; gap: 0.08rem; }
+.restaurant-payment-history article small { color: #a9c3bd; font-size: 0.78rem; }
+.restaurant-payment-history article b { color: #f2bd4c; }
+
+.restaurant-payment-complete { display: grid; min-height: 360px; place-content: center; justify-items: center; gap: 0.5rem; padding: 1.4rem; text-align: center; }
+.restaurant-payment-complete > svg { color: #72dbc2; }
+.restaurant-payment-complete h3 { color: #fff; font-size: 1.35rem; }
+.restaurant-payment-complete p { max-width: 420px; color: #b8cfca; line-height: 1.5; }
+.restaurant-payment-complete button { min-height: 48px; margin-top: 0.5rem; padding: 0.6rem 0.9rem; color: #102e28; background: #72dbc2; border: 0; border-radius: 6px; font-weight: 850; }
+.restaurant-payment-notice { position: sticky; z-index: 5; bottom: 0.6rem; margin: 0.6rem 1rem; padding: 0.7rem; color: #092b25; background: #f2bd4c; border-radius: 6px; font-weight: 850; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3); }
+.restaurant-payment-notice.danger { color: #fff; background: #a33e34; }
+
 .staff-payment-allocation { margin: 0.7rem; overflow: hidden; border: 1px solid #d6e3e0; border-radius: 7px; background: #f8fbfa; }
 .staff-payment-allocation > header { display: flex; align-items: center; justify-content: space-between; gap: 0.7rem; padding: 0.7rem; border-bottom: 1px solid #dce7e4; }
 .staff-payment-allocation > header > div:first-child { display: grid; gap: 0.12rem; }
@@ -1306,6 +1465,20 @@
 }
 
 @media (max-width: 520px) {
+  .restaurant-table-modal-backdrop { place-items: end stretch; padding: 0; background: rgba(3, 17, 14, 0.78); }
+  .restaurant-table-modal-shell,
+  .restaurant-table-modal-shell.order,
+  .restaurant-table-modal-shell.payment,
+  .restaurant-floor-detail.restaurant-table-modal-shell { width: 100%; max-height: calc(100dvh - 54px); border-right: 0; border-bottom: 0; border-left: 0; border-radius: 8px 8px 0 0; }
+  .restaurant-table-modal-shell.order .restaurant-order-panel,
+  .restaurant-table-payment { max-height: calc(100dvh - 54px); }
+  .restaurant-floor-detail.restaurant-table-modal-shell { padding: 0.9rem; }
+  .restaurant-payment-methods > div { grid-template-columns: 1fr 1fr; }
+  .restaurant-payment-methods button { min-height: 58px; grid-template-columns: auto 1fr; justify-items: start; padding-inline: 0.7rem; }
+  .restaurant-payment-form { grid-template-columns: 1fr; }
+  .restaurant-payment-form label.wide { grid-column: auto; }
+  .restaurant-payment-quick-amounts { order: 3; }
+  .restaurant-payment-submit { min-height: 54px; font-size: 0.96rem; }
   .restaurant-floor-studio { margin-inline: -0.15rem; padding: 0.7rem; }
   .restaurant-floor-toolbar h2 { font-size: 1.15rem; }
   .restaurant-floor-toolbar p { font-size: 0.86rem; }
@@ -10496,6 +10669,20 @@ button, input, select, textarea {
 .public-access-error p { max-width: 460px; color: #657a75; font-size: 0.75rem; line-height: 1.6; }
 .public-access-error a { display: flex; align-items: center; justify-content: center; gap: 0.4rem; min-height: 44px; padding: 0.6rem 0.75rem; border-radius: 6px; background: #176e63; color: #fff; font-size: 0.68rem; font-weight: 850; text-decoration: none; }
 .public-access-error small { padding-top: 0.55rem; border-top: 1px solid #e0e8e6; color: #84938f; font-size: 0.56rem; }
+
+.app-recovery-screen { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; color: #183d37; background: #edf3f1; }
+.app-recovery-screen > section { width: min(560px, 100%); display: grid; justify-items: center; gap: 0.75rem; padding: clamp(1.2rem, 5vw, 2rem); border: 1px solid #cadbd7; border-top: 5px solid #17786c; border-radius: 8px; background: #fff; box-shadow: 0 20px 55px rgba(24, 67, 60, 0.14); text-align: center; }
+.app-recovery-screen > section > span { display: inline-flex; align-items: center; gap: 0.4rem; color: #17786c; font-size: 0.78rem; font-weight: 900; }
+.app-recovery-screen img { width: 58px; height: 58px; border-radius: 8px; }
+.app-recovery-screen h1 { font-size: 1.65rem; }
+.app-recovery-screen p { max-width: 470px; color: #60756f; font-size: 0.92rem; line-height: 1.6; }
+.app-recovery-screen > section > div { display: grid; width: 100%; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 0.3rem; }
+.app-recovery-screen button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.65rem; color: #17786c; background: #fff; border: 1px solid #bcd2cd; border-radius: 6px; font-size: 0.88rem; font-weight: 850; }
+.app-recovery-screen button:last-child { color: #fff; background: #17786c; border-color: #17786c; }
+
+@media (max-width: 520px) {
+  .app-recovery-screen > section > div { grid-template-columns: 1fr; }
+}
 
 .portal-unavailable { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; background: #edf3f1; }
 .portal-unavailable > section { width: min(520px, 100%); display: grid; justify-items: start; gap: 0.65rem; padding: 1.6rem; border: 1px solid #d3e0dd; border-top: 5px solid #176e63; background: #fff; box-shadow: 0 18px 45px rgb(24 67 60 / 0.12); }

@@ -2621,30 +2621,34 @@ export const getDB = (): DatabaseState => {
   const data = localStorage.getItem(DB_KEY);
   if (!data) {
     const newState = initialDB();
-    saveDB(newState);
+    persistDB(newState);
     localStorage.setItem(DEMO_SEED_KEY, 'done');
     return newState;
   }
   if (localStorage.getItem(DEMO_SEED_KEY) !== 'done') {
     const newState = initialDB();
-    saveDB(newState);
+    persistDB(newState);
     localStorage.setItem(DEMO_SEED_KEY, 'done');
     return newState;
   }
   try {
     const parsedState = migrateDB(JSON.parse(data));
-    saveDB(parsedState);
+    persistDB(parsedState);
     return parsedState;
   } catch (e) {
     console.error("Failed to parse DB, resetting", e);
     const newState = initialDB();
-    saveDB(newState);
+    persistDB(newState);
     return newState;
   }
 };
 
-export const saveDB = (state: DatabaseState): void => {
+const persistDB = (state: DatabaseState): void => {
   localStorage.setItem(DB_KEY, JSON.stringify(state));
+};
+
+export const saveDB = (state: DatabaseState): void => {
+  persistDB(state);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sartal-db-updated'));
     if ('BroadcastChannel' in window) {

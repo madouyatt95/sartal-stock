@@ -11,6 +11,7 @@ import {
   DoorOpen,
   FileImage,
   Grid3X3,
+  HandCoins,
   History,
   Layers,
   LayoutGrid,
@@ -38,8 +39,10 @@ import {
   ZoomIn,
   ZoomOut
 } from 'lucide-react';
+import { hasEmployeePermission } from '../employeePermissions';
 import { StockState } from '../hooks/useStockState';
 import RestaurantTableOrderPanel from './RestaurantTableOrderPanel';
+import RestaurantTablePaymentPanel from './RestaurantTablePaymentPanel';
 import {
   RestaurantDiningTable,
   RestaurantDiningTablePart,
@@ -59,7 +62,10 @@ interface RestaurantFloorStudioProps {
   posId: string;
   editable?: boolean;
   compact?: boolean;
+  operatorId?: string;
   operatorName?: string;
+  paymentOrderRequestId?: string;
+  onPaymentOrderRequestHandled?: () => void;
 }
 
 const STATUS_LABELS: Record<FloorStatus, string> = { free: 'Libre', reserved: 'Réservée', occupied: 'Installée', kitchen: 'En cuisine', ready: 'À servir', bill: 'Addition' };
@@ -80,7 +86,7 @@ const clamp = (value: number, minimum: number, maximum: number) => Math.min(maxi
 const runtimeId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
 
-export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ state, posId, editable = false, compact = false, operatorName }) => {
+export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ state, posId, editable = false, compact = false, operatorId, operatorName, paymentOrderRequestId, onPaymentOrderRequestHandled }) => {
   const { db } = state;
   const actor = operatorName || db.currentUser.name;
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -131,6 +137,7 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
   const [reservationChoice, setReservationChoice] = useState('');
   const [transferTargetId, setTransferTargetId] = useState('');
   const [orderPanelOrderId, setOrderPanelOrderId] = useState('');
+  const [paymentOrderId, setPaymentOrderId] = useState('');
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string }>();
 
   const workingTables = studioMode ? draftTables : liveTables;
@@ -147,6 +154,13 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
     if (selectedObject?.kind === 'element') setElementEditor(clone(workingElements.find(element => element.id === selectedObject.id)));
     else setElementEditor(undefined);
   }, [selectedObject, workingElements, workingTables]);
+
+  useEffect(() => {
+    if (!paymentOrderRequestId || !db.restaurantGuestOrders.some(item => item.id === paymentOrderRequestId && item.posId === posId && !['paid', 'cancelled'].includes(item.status))) return;
+    setOrderPanelOrderId('');
+    setPaymentOrderId(paymentOrderRequestId);
+    onPaymentOrderRequestHandled?.();
+  }, [db.restaurantGuestOrders, onPaymentOrderRequestHandled, paymentOrderRequestId, posId]);
 
   const currentSnapshot = (): StudioSnapshot => ({ tables: clone(draftTables), elements: clone(draftElements), settings: clone(draftSettings) });
   const applySnapshot = (snapshot: StudioSnapshot) => { setDraftTables(clone(snapshot.tables)); setDraftElements(clone(snapshot.elements)); setDraftSettings(clone(snapshot.settings)); };
@@ -222,6 +236,10 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
   const selectedRuntime = studioMode ? undefined : tableRuntime.find(item => item.table.id === selectedObject?.id);
   const orderPanelOrder = db.restaurantGuestOrders.find(item => item.id === orderPanelOrderId && item.posId === posId && !['paid', 'cancelled'].includes(item.status));
   const orderPanelTable = workingTables.find(item => item.label === orderPanelOrder?.tableNumber);
+  const paymentOrder = db.restaurantGuestOrders.find(item => item.id === paymentOrderId && item.posId === posId && item.status !== 'cancelled');
+  const paymentTable = workingTables.find(item => item.label === paymentOrder?.tableNumber);
+  const operator = operatorId ? db.employeeProfiles.find(item => item.id === operatorId && item.active) : undefined;
+  const canCollectAtTable = Boolean(operator && hasEmployeePermission(operator, 'table_payment'));
   const selectedUpcomingReservation = selectedRuntime ? db.restaurantReservations
     .filter(item => item.posId === posId && item.tableNumber === selectedRuntime.table.label && item.date > today && item.status === 'confirmed')
     .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))[0] : undefined;
@@ -233,6 +251,24 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
   const freeTransferTargets = tableRuntime.filter(item => item.status === 'free' && item.table.id !== selectedRuntime?.table.id);
   const selectedAccess = selectedRuntime?.customer && db.sartalClientAccess.find(item => item.customerId === selectedRuntime.customer!.id && item.status === 'active');
   const currentBackground = workingSettings.backgrounds.find(background => background.floor === selectedFloor && background.zone === selectedZone);
+  const serviceModalOpen = !studioMode && Boolean(paymentOrder || (orderPanelOrder && orderPanelTable) || selectedRuntime);
+
+  useEffect(() => {
+    if (!serviceModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (paymentOrderId) setPaymentOrderId('');
+      else if (orderPanelOrderId) setOrderPanelOrderId('');
+      else setSelectedObject(undefined);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [orderPanelOrderId, paymentOrderId, serviceModalOpen]);
 
   const collisionPairs = useMemo(() => {
     const pairs: Array<[string, string]> = [];
@@ -449,7 +485,7 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
 
     {studioMode && selectedTableIds.size > 0 && <section className="restaurant-studio-selectionbar"><span><strong>{selectedTableIds.size}</strong> table(s) sélectionnée(s)</span><button type="button" onClick={() => alignSelection('center')}><AlignCenter size={16} /> Aligner ligne</button><button type="button" onClick={() => alignSelection('column')}><Columns3 size={16} /> Aligner colonne</button><button type="button" onClick={() => alignSelection('distribute')}><ArrowLeftRight size={16} /> Distribuer</button><button type="button" onClick={duplicateSelection}><Copy size={16} /> Dupliquer</button><button type="button" disabled={selectedTableIds.size < 2} onClick={mergeSelection}><Merge size={16} /> Fusionner</button><button type="button" disabled={selectedTableIds.size !== 1 || !draftTables.find(table => selectedTableIds.has(table.id))?.mergedFrom?.length} onClick={splitSelection}><Split size={16} /> Séparer</button><button type="button" className="danger" onClick={removeSelection}><Trash2 size={16} /> Retirer</button><button type="button" onClick={() => { setSelectedTableIds(new Set()); setSelectedObject(undefined); }}>Désélectionner</button></section>}
 
-    <div className={`restaurant-floor-workspace ${studioMode || selectedRuntime || orderPanelOrderId ? 'has-panel' : ''} ${orderPanelOrderId ? 'has-order-panel' : ''}`}>
+    <div className={`restaurant-floor-workspace ${studioMode ? 'has-panel' : ''}`}>
       <div className={`restaurant-floor-canvas ${panMode ? 'panning' : ''}`} ref={canvasRef} onPointerDown={startPan} onPointerMove={movePan} onPointerUp={finishPan} onPointerCancel={finishPan}>
         <div className="restaurant-floor-stage" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, '--floor-grid-size': `${Math.max(20, workingSettings.gridSize * 8)}px` } as React.CSSProperties}>
           {currentBackground && <img className="restaurant-floor-background" src={currentBackground.imageDataUrl} alt={`Plan importé ${currentBackground.name}`} style={{ opacity: currentBackground.opacity }} />}
@@ -472,7 +508,7 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
         </div>
       </div>
 
-      {!studioMode && orderPanelOrder && orderPanelTable ? <RestaurantTableOrderPanel state={state} orderId={orderPanelOrder.id} tableLabel={orderPanelTable.label} capacity={orderPanelTable.capacity} actor={actor} onClose={() => setOrderPanelOrderId('')} /> : studioMode && tableEditor ? <aside className="restaurant-studio-editor">
+      {!studioMode && paymentOrder && paymentTable && operatorId ? <div className="restaurant-table-modal-backdrop" role="presentation" onMouseDown={() => setPaymentOrderId('')}><div className="restaurant-table-modal-shell payment" role="dialog" aria-modal="true" aria-label={`Encaissement table ${paymentTable.label}`} onMouseDown={event => event.stopPropagation()}><RestaurantTablePaymentPanel state={state} orderId={paymentOrder.id} tableLabel={paymentTable.label} actorId={operatorId} actorName={actor} onClose={() => setPaymentOrderId('')} /></div></div> : !studioMode && orderPanelOrder && orderPanelTable ? <div className="restaurant-table-modal-backdrop" role="presentation" onMouseDown={() => setOrderPanelOrderId('')}><div className="restaurant-table-modal-shell order" role="dialog" aria-modal="true" aria-label={`Commande table ${orderPanelTable.label}`} onMouseDown={event => event.stopPropagation()}><RestaurantTableOrderPanel state={state} orderId={orderPanelOrder.id} tableLabel={orderPanelTable.label} capacity={orderPanelTable.capacity} actor={actor} onClose={() => setOrderPanelOrderId('')} /></div></div> : studioMode && tableEditor ? <aside className="restaurant-studio-editor">
         <header><div><span>TABLE SÉLECTIONNÉE</span><h3>{tableEditor.label}</h3></div><button type="button" onClick={() => setSelectedObject(undefined)} aria-label="Fermer"><X size={18} /></button></header>
         <div className="restaurant-studio-form"><label>Numéro<input value={tableEditor.label} onChange={event => setTableEditor({ ...tableEditor, label: event.target.value })} /></label><label>Capacité<input type="number" min="1" max="20" value={tableEditor.capacity} onChange={event => setTableEditor({ ...tableEditor, capacity: Number(event.target.value) || 1 })} /></label><label>Niveau<input value={tableEditor.floor} onChange={event => setTableEditor({ ...tableEditor, floor: event.target.value })} /></label><label>Zone<input value={tableEditor.zone} onChange={event => setTableEditor({ ...tableEditor, zone: event.target.value })} /></label><label className="wide">Serveur affecté<select value={tableEditor.assignedEmployeeId || ''} onChange={event => setTableEditor({ ...tableEditor, assignedEmployeeId: event.target.value || undefined })}><option value="">Équipe commune</option>{waiters.map(waiter => <option value={waiter.id} key={waiter.id}>{waiter.name} · {activeCountForWaiter(waiter.id)} table(s) active(s)</option>)}</select></label><label className="wide">Blocage éventuel<input value={tableEditor.blockedReason || ''} onChange={event => setTableEditor({ ...tableEditor, blockedReason: event.target.value || undefined })} placeholder="Ex. accès PMR temporairement indisponible" /></label></div>
         <fieldset><legend>Forme</legend><div>{(Object.entries(SHAPE_LABELS) as Array<[RestaurantDiningTableShape, string]>).map(([shape, label]) => <button type="button" className={tableEditor.shape === shape ? 'active' : ''} key={shape} onClick={() => setTableEditor({ ...tableEditor, shape })}><i className={shape} /> {label}</button>)}</div></fieldset>
@@ -489,7 +525,7 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
         <div className="restaurant-studio-elements">{ELEMENT_CATALOG.map(item => <button type="button" key={item.type} onClick={() => addElement(item)}><i className={item.type} /><span>{item.label}</span></button>)}</div>
         <section className="restaurant-studio-background"><header><FileImage size={18} /><div><strong>Fond de plan</strong><small>{currentBackground?.name || 'Aucun plan importé'}</small></div></header><input ref={backgroundInputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={event => importBackground(event.target.files?.[0])} /><button type="button" onClick={() => backgroundInputRef.current?.click()}><Upload size={16} /> Importer une image</button>{currentBackground && <><label>Opacité <b>{Math.round(currentBackground.opacity * 100)}%</b><input type="range" min="0.1" max="0.9" step="0.05" value={currentBackground.opacity} onChange={event => updateBackgroundOpacity(Number(event.target.value))} /></label><button type="button" className="danger" onClick={removeBackground}><Trash2 size={15} /> Retirer le fond</button></>}</section>
         <section className={`restaurant-studio-collision-report ${collisionPairs.length ? 'danger' : 'clear'}`}><ScanLine size={20} /><div><strong>{collisionPairs.length ? `${collisionPairs.length} chevauchement(s)` : 'Circulation contrôlée'}</strong><small>{collisionPairs.length ? 'Les tables concernées sont cerclées en rouge.' : 'Aucun conflit détecté dans cette zone.'}</small></div></section>
-      </aside> : selectedRuntime ? <aside className={`restaurant-floor-detail ${selectedRuntime.status}`}>
+      </aside> : selectedRuntime ? <div className="restaurant-table-modal-backdrop" role="presentation" onMouseDown={() => setSelectedObject(undefined)}><aside className={`restaurant-floor-detail restaurant-table-modal-shell ${selectedRuntime.status}`} role="dialog" aria-modal="true" aria-label={`Actions table ${selectedRuntime.table.label}`} onMouseDown={event => event.stopPropagation()}>
         <header><div><span>{STATUS_LABELS[selectedRuntime.status]}</span><h3>{selectedRuntime.table.label}</h3><p>{selectedRuntime.table.capacity} places · {selectedRuntime.table.zone}</p></div><button type="button" onClick={() => setSelectedObject(undefined)}><X size={18} /></button></header>
         {selectedRuntime.waiter && <div className="restaurant-floor-waiter"><span style={{ background: WAITER_COLORS[Math.max(0, waiters.findIndex(item => item.id === selectedRuntime.waiter!.id)) % WAITER_COLORS.length] }}>{selectedRuntime.waiter.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><small>Responsable de table</small><strong>{selectedRuntime.waiter.name}</strong></div></div>}
         {editable && <label className="restaurant-floor-waiter-select">Réaffecter<select value={selectedRuntime.table.assignedEmployeeId || ''} onChange={event => execute(() => state.assignRestaurantDiningTableWaiter(selectedRuntime.table.id, event.target.value || undefined), 'Affectation mise à jour en direct.')}><option value="">Équipe commune</option>{waiters.map(waiter => <option value={waiter.id} key={waiter.id}>{waiter.name}</option>)}</select></label>}
@@ -503,11 +539,11 @@ export const RestaurantFloorStudio: React.FC<RestaurantFloorStudioProps> = ({ st
         {selectedRuntime.order && !['paid', 'cancelled'].includes(selectedRuntime.order.status) && <button type="button" className="restaurant-floor-primary restaurant-floor-order-button" onClick={() => setOrderPanelOrderId(selectedRuntime.order!.id)}><ReceiptText size={16} /> Prendre ou compléter la commande</button>}
         {selectedRuntime.request && <button type="button" className="restaurant-floor-primary" onClick={() => execute(() => state.updateSartalServiceRequest(selectedRuntime.request!.id, selectedRuntime.request!.status === 'requested' ? 'accepted' : 'completed', actor), 'Demande client mise à jour.')}><BellRing size={16} /> {selectedRuntime.request.status === 'requested' ? 'Prendre la demande' : 'Confirmer effectué'}</button>}
         {!selectedRuntime.request && selectedRuntime.order?.status === 'ready' && <button type="button" className="restaurant-floor-primary" onClick={() => execute(() => state.updateRestaurantGuestOrderStatus(selectedRuntime.order!.id, 'served'), `${selectedRuntime.table.label} marquée servie.`)}><CheckCircle2 size={16} /> Confirmer le service</button>}
-        {selectedRuntime.order?.status === 'served' && <><div className="restaurant-floor-bill"><ReceiptText size={17} /><span><small>Addition en attente</small><strong>{formatFCFA(Math.max(0, selectedRuntime.order.total - selectedRuntime.order.payments.reduce((sum, payment) => sum + payment.amount, 0)))}</strong></span></div><button type="button" className="restaurant-floor-primary" onClick={() => execute(() => state.requestRestaurantTableBill(selectedRuntime.table.id, actor), 'Demande d’addition transmise à la caisse.')}><ReceiptText size={16} /> Demander l’addition</button></>}
+        {selectedRuntime.order?.status === 'served' && <><div className="restaurant-floor-bill"><ReceiptText size={17} /><span><small>Addition en attente</small><strong>{formatFCFA(Math.max(0, selectedRuntime.order.total - selectedRuntime.order.payments.reduce((sum, payment) => sum + payment.amount, 0)))}</strong></span></div>{canCollectAtTable && <button type="button" className="restaurant-floor-primary restaurant-floor-pay-button" onClick={() => { setOrderPanelOrderId(''); setPaymentOrderId(selectedRuntime.order!.id); }}><HandCoins size={17} /> Encaisser à table</button>}<button type="button" className="restaurant-floor-secondary" onClick={() => execute(() => state.requestRestaurantTableBill(selectedRuntime.table.id, actor), 'Demande d’addition transmise à la caisse.')}><ReceiptText size={16} /> Transmettre à la caisse</button></>}
         {selectedRuntime.customer && <button type="button" className="restaurant-floor-secondary" onClick={() => createTableQR(selectedRuntime.table.id)}><QrCode size={16} /> Créer l’accès QR client</button>}
         {selectedAccess && <div className="restaurant-floor-access"><QrCode size={18} /><span><small>Accès actif</small><strong>Code {selectedAccess.code}</strong></span></div>}
-        {!['free', 'reserved'].includes(selectedRuntime.status) && <div className="restaurant-floor-transfer"><select value={transferTargetId} onChange={event => setTransferTargetId(event.target.value)}><option value="">Transférer vers une table libre</option>{freeTransferTargets.filter(item => item.table.capacity >= (selectedRuntime.reservation?.guests || 1)).map(item => <option key={item.table.id} value={item.table.id}>{item.table.label} · {item.table.capacity} places</option>)}</select><button type="button" disabled={!transferTargetId} onClick={() => { if (execute(() => state.transferRestaurantTable(selectedRuntime.table.id, transferTargetId, actor), 'Table transférée avec sa commande et sa réservation.')) setTransferTargetId(''); }}><ArrowLeftRight size={16} /> Transférer</button></div>}
-      </aside> : null}
+        {!['free', 'reserved'].includes(selectedRuntime.status) && <div className="restaurant-floor-transfer"><select value={transferTargetId} onChange={event => setTransferTargetId(event.target.value)}><option value="">Transférer vers une table libre</option>{freeTransferTargets.filter(item => item.table.capacity >= (selectedRuntime.reservation?.guests || 1)).map(item => <option key={item.table.id} value={item.table.id}>{item.table.label} · {item.table.capacity} places</option>)}</select><button type="button" disabled={!transferTargetId} onClick={() => { const targetId = transferTargetId; if (execute(() => state.transferRestaurantTable(selectedRuntime.table.id, targetId, actor), 'Table transférée avec sa commande et sa réservation.')) { setTransferTargetId(''); setSelectedObject({ kind: 'table', id: targetId }); } }}><ArrowLeftRight size={16} /> Transférer</button></div>}
+      </aside></div> : null}
     </div>
 
     <footer className="restaurant-floor-legend"><div>{(Object.entries(STATUS_LABELS) as Array<[FloorStatus, string]>).map(([status, label]) => <span className={status} key={status}><i /> {label}</span>)}</div><div className="restaurant-floor-waiter-legend">{waiters.map((waiter, index) => <span key={waiter.id}><i style={{ background: WAITER_COLORS[index % WAITER_COLORS.length] }} /> {waiter.name.split(' ')[0]} <b>{activeCountForWaiter(waiter.id)}</b></span>)}</div>{editable && <button type="button" onClick={() => execute(() => state.rebalanceRestaurantServiceSections(posId, actor), 'Secteurs rééquilibrés selon l’équipe disponible.')}><Users size={16} /> Rééquilibrer les secteurs</button>}<button type="button" onClick={() => setShowGovernance(value => !value)}><History size={16} /> Versions & journal</button><b>{visibleTables.length} table(s)</b></footer>
