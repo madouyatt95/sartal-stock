@@ -97,10 +97,40 @@ type PMSConfigRecord =
   | PMSDebtorAccount
   | PMSPropertySummary;
 
-const isOffline = () => typeof navigator !== 'undefined' && !navigator.onLine;
+const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 const createRuntimeId = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
 const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+
+const queueRestaurantOfflineAction = (
+  database: DatabaseState,
+  payload: Pick<SartalOfflineAction, 'customerId' | 'actorId' | 'actorName' | 'posId' | 'entityId' | 'operationId' | 'actionType' | 'summary'>
+) => {
+  if (!isOffline()) return;
+  if (payload.operationId && database.sartalOfflineActions.some(item => item.operationId === payload.operationId)) return;
+  database.sartalOfflineActions.unshift({
+    id: createRuntimeId('OFFLINE-REST'),
+    ...payload,
+    scope: 'restaurant',
+    status: 'queued',
+    createdAt: new Date().toISOString()
+  });
+};
+
+const syncQueuedOfflineActions = () => {
+  if (isOffline()) return 0;
+  const database = getDB();
+  const queued = database.sartalOfflineActions.filter(item => item.status === 'queued');
+  if (!queued.length) return 0;
+  const now = new Date().toISOString();
+  queued.forEach(item => {
+    item.status = 'synced';
+    item.syncedAt = now;
+    item.errorMessage = undefined;
+  });
+  saveDB(database);
+  return queued.length;
+};
 
 const canManageRestaurantFloor = (database: DatabaseState, posId: string) => (
   ['admin', 'director'].includes(database.currentUser.role)
@@ -213,13 +243,18 @@ export const useStockState = () => {
       }
     };
     const handleRealtime = () => refresh();
+    const handleOnline = () => {
+      if (syncQueuedOfflineActions() > 0) refresh();
+    };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('sartal-db-updated', handleRealtime);
+    window.addEventListener('online', handleOnline);
     const channel = 'BroadcastChannel' in window ? new BroadcastChannel('sartal-realtime') : undefined;
     if (channel) channel.onmessage = event => { if (event.data?.type === 'database-updated') refresh(); };
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('sartal-db-updated', handleRealtime);
+      window.removeEventListener('online', handleOnline);
       channel?.close();
     };
   }, [refresh]);
@@ -756,6 +791,12 @@ export const useStockState = () => {
       throw new Error('Votre profil ne permet pas de demander une remise ou un offert');
     }
     if (!payload.reason.trim()) throw new Error('Le motif est obligatoire');
+    const existing = newDb.employeeApprovals.find(item => item.status === 'pending'
+      && item.type === payload.type
+      && item.referenceId === payload.referenceId
+      && item.requestedBy === payload.requestedBy
+      && String(item.metadata?.itemId || '') === String(payload.metadata?.itemId || ''));
+    if (existing) return existing.id;
     const id = `APPROVAL-${Date.now().toString().slice(-7)}`;
     newDb.employeeApprovals.unshift({ ...payload, id, reason: payload.reason.trim(), status: 'pending', createdAt: new Date().toISOString() });
     saveDB(newDb);
@@ -2871,8 +2912,10 @@ export const useStockState = () => {
     return sections.length;
   };
 
-  const seatRestaurantWalkIn = (payload: { tableId: string; guestName: string; guests: number; actor: string }) => {
+  const seatRestaurantWalkIn = (payload: { tableId: string; guestName: string; guests: number; actor: string; operationId?: string }) => {
     const newDb = getDB();
+    const existingAudit = payload.operationId ? newDb.restaurantFloorAudit.find(item => item.metadata?.operationId === payload.operationId) : undefined;
+    if (existingAudit?.metadata?.customerId && existingAudit.metadata.reservationId) return { customerId: String(existingAudit.metadata.customerId), reservationId: String(existingAudit.metadata.reservationId) };
     const table = newDb.restaurantDiningTables.find(item => item.id === payload.tableId && item.active);
     if (!table || payload.guests < 1 || payload.guests > table.capacity) throw new Error('Table ou nombre de personnes invalide');
     const serviceDate = new Date().toISOString().slice(0, 10);
@@ -2884,14 +2927,17 @@ export const useStockState = () => {
     newDb.sartalCustomers.unshift({ id: customerId, fullName: payload.guestName.trim() || 'Client de passage', phone: `walkin-${now.getTime()}`, preferredLanguage: 'fr', preferredChannel: 'portal', profileConsent: false, marketingConsent: false, guestSession: true, defaultPaymentType: 'cash', loyaltyPoints: 0, loyaltyTier: 'welcome', visits: 0, totalSpend: 0, addresses: [] });
     const reservationId = createRuntimeId('TABLE-WALKIN');
     newDb.restaurantReservations.unshift({ id: reservationId, customerId, posId: table.posId, date: now.toISOString().slice(0, 10), time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), guests: payload.guests, occasion: 'meal', status: 'seated', tableNumber: table.label, notes: 'Client installé sans réservation.', createdAt: now.toISOString() });
-    appendRestaurantFloorAudit(newDb, table.posId, 'guest_seated', `${payload.guestName.trim() || 'Client de passage'} installé à ${table.label}`, payload.actor, { tableId: table.id, guests: payload.guests });
+    appendRestaurantFloorAudit(newDb, table.posId, 'guest_seated', `${payload.guestName.trim() || 'Client de passage'} installé à ${table.label}`, payload.actor, { tableId: table.id, guests: payload.guests, customerId, reservationId, operationId: payload.operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === payload.actor);
+    queueRestaurantOfflineAction(newDb, { customerId, actorId: actorProfile?.id, actorName: payload.actor, posId: table.posId, entityId: reservationId, operationId: payload.operationId, actionType: 'restaurant_table', summary: `${payload.guestName.trim() || 'Client de passage'} installé à ${table.label}` });
     saveDB(newDb);
     refresh();
     return { customerId, reservationId };
   };
 
-  const seatRestaurantReservation = (reservationId: string, tableId: string, actor: string) => {
+  const seatRestaurantReservation = (reservationId: string, tableId: string, actor: string, operationId?: string) => {
     const newDb = getDB();
+    if (operationId && newDb.restaurantFloorAudit.some(item => item.metadata?.operationId === operationId)) return;
     const table = newDb.restaurantDiningTables.find(item => item.id === tableId && item.active);
     const reservation = newDb.restaurantReservations.find(item => item.id === reservationId && item.status === 'confirmed');
     if (!table || !reservation || reservation.posId !== table.posId || reservation.guests > table.capacity) throw new Error('Réservation incompatible avec cette table');
@@ -2900,7 +2946,9 @@ export const useStockState = () => {
     if (occupied) throw new Error(`${table.label} n’est plus disponible`);
     reservation.tableNumber = table.label;
     reservation.status = 'seated';
-    appendRestaurantFloorAudit(newDb, table.posId, 'reservation_seated', `Réservation ${reservation.id} installée à ${table.label}`, actor, { tableId, reservationId });
+    appendRestaurantFloorAudit(newDb, table.posId, 'reservation_seated', `Réservation ${reservation.id} installée à ${table.label}`, actor, { tableId, reservationId, operationId: operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: reservation.customerId, actorId: actorProfile?.id, actorName: actor, posId: table.posId, entityId: reservation.id, operationId, actionType: 'restaurant_table', summary: `Réservation installée à ${table.label}` });
     saveDB(newDb);
     refresh();
   };
@@ -2927,7 +2975,7 @@ export const useStockState = () => {
     refresh();
   };
 
-  const openRestaurantTableOrder = (tableId: string, actor: string) => {
+  const openRestaurantTableOrder = (tableId: string, actor: string, operationId?: string) => {
     const newDb = getDB();
     const table = newDb.restaurantDiningTables.find(item => item.id === tableId && item.active);
     if (!table) throw new Error('Table introuvable');
@@ -2939,14 +2987,17 @@ export const useStockState = () => {
     const id = createRuntimeId('REST-TABLE');
     const customer = newDb.sartalCustomers.find(item => item.id === reservation.customerId);
     newDb.restaurantGuestOrders.unshift({ id, customerId: reservation.customerId, posId: table.posId, reservationId: reservation.id, tableNumber: table.label, serviceType: 'dine_in', intendedPaymentMethod: 'cash', status: 'placed', paymentStatus: 'pending', items: [], payments: [], total: 0, grossTotal: 0, discountTotal: 0, complimentaryTotal: 0, tipTotal: 0, currentCourse: 'drinks', servicePace: customer?.restaurantPreferences?.servicePace || 'standard', trainingMode: false, serviceEvents: [{ id: createRuntimeId('REST-EVENT'), type: 'order_opened', label: `Commande ${table.label} ouverte`, actor, createdAt: now }], estimatedMinutes: 30, createdAt: now, updatedAt: now });
-    appendRestaurantFloorAudit(newDb, table.posId, 'order_opened', `Commande ouverte sur ${table.label}`, actor, { tableId, orderId: id });
+    appendRestaurantFloorAudit(newDb, table.posId, 'order_opened', `Commande ouverte sur ${table.label}`, actor, { tableId, orderId: id, operationId: operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: reservation.customerId, actorId: actorProfile?.id, actorName: actor, posId: table.posId, entityId: id, operationId, actionType: 'restaurant_order', summary: `Commande ouverte sur ${table.label}` });
     saveDB(newDb);
     refresh();
     return id;
   };
 
-  const transferRestaurantTable = (sourceTableId: string, targetTableId: string, actor: string) => {
+  const transferRestaurantTable = (sourceTableId: string, targetTableId: string, actor: string, operationId?: string) => {
     const newDb = getDB();
+    if (operationId && newDb.restaurantFloorAudit.some(item => item.metadata?.operationId === operationId)) return;
     const source = newDb.restaurantDiningTables.find(item => item.id === sourceTableId);
     const target = newDb.restaurantDiningTables.find(item => item.id === targetTableId && item.active);
     if (!source || !target || source.posId !== target.posId || source.id === target.id) throw new Error('Transfert de table invalide');
@@ -2965,13 +3016,20 @@ export const useStockState = () => {
     }
     reservations.forEach(reservation => { reservation.tableNumber = target.label; });
     target.assignedEmployeeId = source.assignedEmployeeId;
-    appendRestaurantFloorAudit(newDb, source.posId, 'table_transferred', `${source.label} transférée vers ${target.label}`, actor, { sourceTableId, targetTableId });
+    appendRestaurantFloorAudit(newDb, source.posId, 'table_transferred', `${source.label} transférée vers ${target.label}`, actor, { sourceTableId, targetTableId, operationId: operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: order?.customerId || reservations[0]?.customerId, actorId: actorProfile?.id, actorName: actor, posId: source.posId, entityId: order?.id || reservations[0]?.id, operationId, actionType: 'restaurant_table', summary: `${source.label} transférée vers ${target.label}` });
     saveDB(newDb);
     refresh();
   };
 
-  const createRestaurantTableQR = (tableId: string, actor: string) => {
+  const createRestaurantTableQR = (tableId: string, actor: string, operationId?: string) => {
     const newDb = getDB();
+    const existingAudit = operationId ? newDb.restaurantFloorAudit.find(item => item.metadata?.operationId === operationId) : undefined;
+    if (existingAudit?.metadata?.accessId) {
+      const existingAccess = newDb.sartalClientAccess.find(item => item.id === existingAudit.metadata?.accessId);
+      if (existingAccess) return existingAccess;
+    }
     const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
     if (!table) throw new Error('Table introuvable');
     const order = newDb.restaurantGuestOrders.find(item => item.posId === table.posId && item.tableNumber === table.label && !['paid', 'cancelled'].includes(item.status));
@@ -2982,13 +3040,15 @@ export const useStockState = () => {
     const now = new Date();
     const access = { id: createRuntimeId('access-table'), customerId, channel: 'qr' as const, destination: `Table ${table.label}`, code: String(Math.floor(1000 + Math.random() * 9000)), linkToken: createRuntimeId(`table-${table.label}`), status: 'active' as const, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 4 * 3600000).toISOString() };
     newDb.sartalClientAccess.unshift(access);
-    appendRestaurantFloorAudit(newDb, table.posId, 'qr_created', `Accès client créé pour ${table.label}`, actor, { tableId, accessId: access.id });
+    appendRestaurantFloorAudit(newDb, table.posId, 'qr_created', `Accès client créé pour ${table.label}`, actor, { tableId, accessId: access.id, operationId: operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId, actorId: actorProfile?.id, actorName: actor, posId: table.posId, entityId: access.id, operationId, actionType: 'restaurant_table', summary: `Accès client créé pour ${table.label}` });
     saveDB(newDb);
     refresh();
     return access;
   };
 
-  const requestRestaurantTableBill = (tableId: string, actor: string) => {
+  const requestRestaurantTableBill = (tableId: string, actor: string, operationId?: string) => {
     const newDb = getDB();
     const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
     const order = table && newDb.restaurantGuestOrders.find(item => item.posId === table.posId && item.tableNumber === table.label && !['paid', 'cancelled'].includes(item.status));
@@ -2998,7 +3058,9 @@ export const useStockState = () => {
     const now = new Date();
     const id = createRuntimeId('service-bill');
     newDb.sartalServiceRequests.unshift({ id, customerId: order.customerId, context: 'restaurant', referenceId: order.id, type: 'bill', label: `Addition ${table.label}`, status: 'requested', priority: 'urgent', assignedTo: 'Caisse restaurant', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + 3 * 60000).toISOString() });
-    appendRestaurantFloorAudit(newDb, table.posId, 'bill_requested', `Addition demandée pour ${table.label}`, actor, { tableId, orderId: order.id });
+    appendRestaurantFloorAudit(newDb, table.posId, 'bill_requested', `Addition demandée pour ${table.label}`, actor, { tableId, orderId: order.id, operationId: operationId || '' });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: actorProfile?.id, actorName: actor, posId: table.posId, entityId: order.id, operationId, actionType: 'restaurant_service', summary: `Addition demandée pour ${table.label}` });
     saveDB(newDb);
     refresh();
     return id;
@@ -3112,23 +3174,25 @@ export const useStockState = () => {
     return id;
   };
 
-  const appendRestaurantGuestOrderItems = (orderId: string, customerId: string, payloadItems: Array<{ productId: string; quantity: number; note?: string; seatNumber?: number; guestName?: string; course?: RestaurantServiceCourse; modifiers?: string[]; status?: 'held' | 'sent'; actorName?: string }>) => {
+  const appendRestaurantGuestOrderItems = (orderId: string, customerId: string, payloadItems: Array<{ productId: string; quantity: number; note?: string; seatNumber?: number; guestName?: string; course?: RestaurantServiceCourse; modifiers?: string[]; status?: 'held' | 'sent'; actorName?: string }>, operationId?: string) => {
     const snapshot = getDB();
     const order = snapshot.restaurantGuestOrders.find(item => item.id === orderId && item.customerId === customerId);
     const pos = snapshot.posList.find(item => item.id === order?.posId && item.type === 'restaurant');
     const staffAddition = payloadItems.some(item => Boolean(item.actorName));
     if (!order || !pos || order.serviceType !== 'dine_in' || (!['placed', 'confirmed'].includes(order.status) && !(staffAddition && ['preparing', 'ready', 'served'].includes(order.status)))) throw new Error('La commande ne peut plus recevoir de complément');
     if (!payloadItems.length) throw new Error('Ajoutez au moins un article');
+    const externalSaleId = operationId ? `${order.id}-ADD-${operationId}` : createRuntimeId(`${order.id}-ADD`);
+    const existingSale = snapshot.externalSales.find(item => item.posId === pos.id && item.externalSaleId === externalSaleId);
+    if (existingSale) return existingSale.items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const addedAt = new Date().toISOString();
     const items: RestaurantGuestOrderItem[] = payloadItems.map((item, index) => {
       const price = snapshot.posPricing.find(rule => rule.posId === pos.id && rule.productId === item.productId && rule.isAvailable);
       if (!price || item.quantity <= 0) throw new Error('Un article du complément est indisponible');
       const profile = inferRestaurantLineProfile(snapshot, item.productId);
       const status = item.status || 'sent';
-      return { id: createRuntimeId(`REST-LINE-${index + 1}`), productId: item.productId, quantity: item.quantity, note: item.note?.trim(), seatNumber: item.seatNumber, guestName: item.guestName?.trim(), course: item.course || profile.course, modifiers: item.modifiers || [], station: profile.station, status, salePrice: price.salePrice, addedAt, sentAt: status === 'sent' ? addedAt : undefined };
+      return { id: createRuntimeId(`REST-LINE-${index + 1}`), operationId, productId: item.productId, quantity: item.quantity, note: item.note?.trim(), seatNumber: item.seatNumber, guestName: item.guestName?.trim(), course: item.course || profile.course, modifiers: item.modifiers || [], station: profile.station, status, salePrice: price.salePrice, addedAt, sentAt: status === 'sent' ? addedAt : undefined };
     });
     const additionTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
-    const externalSaleId = createRuntimeId(`${order.id}-ADD`);
     const result = stockEngine.processExternalSale({ externalSaleId, siteId: pos.siteId, posId: pos.id, items: items.map(item => ({ productId: item.productId, quantity: item.quantity })), paymentContext: { type: 'other', amount: additionTotal } }, snapshot.currentUser.id, snapshot.currentUser.name);
     if (!result.success) throw new Error(result.error || 'Complément impossible');
     const newDb = getDB();
@@ -3139,10 +3203,13 @@ export const useStockState = () => {
     storedOrder.paymentStatus = storedOrder.payments.reduce((sum, item) => sum + item.amount, 0) > 0 ? 'partial' : 'pending';
     storedOrder.updatedAt = addedAt;
     const sentItems = items.filter(item => item.status === 'sent');
-    appendRestaurantServiceEvent(storedOrder, { type: sentItems.length ? 'items_sent' : 'items_added', label: `${items.length} ligne(s) ${sentItems.length ? 'envoyée(s)' : 'gardée(s) en attente'}`, actor: payloadItems.find(item => item.actorName)?.actorName || snapshot.currentUser.name, itemIds: items.map(item => item.id!).filter(Boolean) });
+    const actorName = payloadItems.find(item => item.actorName)?.actorName || snapshot.currentUser.name;
+    appendRestaurantServiceEvent(storedOrder, { type: sentItems.length ? 'items_sent' : 'items_added', label: `${items.length} ligne(s) ${sentItems.length ? 'envoyée(s)' : 'gardée(s) en attente'}`, actor: actorName, itemIds: items.map(item => item.id!).filter(Boolean), operationId });
     updateRestaurantTicketStatus(storedOrder);
     const sale = newDb.externalSales.find(item => item.externalSaleId === externalSaleId);
     if (sale) { sale.paymentStatus = 'pending'; sale.paymentBreakdown = []; }
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actorName);
+    queueRestaurantOfflineAction(newDb, { customerId, actorId: actorProfile?.id, actorName, posId: pos.id, entityId: order.id, operationId, actionType: 'restaurant_order', summary: `${items.length} ligne(s) ajoutée(s) à ${order.tableNumber || order.id}` });
     saveDB(newDb);
     refresh();
     return additionTotal;
@@ -3159,46 +3226,55 @@ export const useStockState = () => {
     refresh();
   };
 
-  const sendRestaurantOrderItems = (orderId: string, itemIds: string[], actor: string) => {
+  const sendRestaurantOrderItems = (orderId: string, itemIds: string[], actor: string, operationId?: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
     if (!order || !itemIds.length) throw new Error('Commande ou lignes introuvables');
+    const existingEvent = operationId ? order.serviceEvents?.find(item => item.operationId === operationId) : undefined;
+    if (existingEvent) return existingEvent.itemIds?.length || 0;
     const now = new Date().toISOString();
     const lines = order.items.filter(item => item.id && itemIds.includes(item.id) && item.status === 'held');
     if (!lines.length) throw new Error('Ces lignes ont déjà été envoyées');
     lines.forEach(item => { item.status = 'sent'; item.sentAt = now; });
-    appendRestaurantServiceEvent(order, { type: 'items_sent', label: `${lines.length} ligne(s) envoyée(s) aux postes de préparation`, actor, itemIds: lines.map(item => item.id!).filter(Boolean) });
+    appendRestaurantServiceEvent(order, { type: 'items_sent', label: `${lines.length} ligne(s) envoyée(s) aux postes de préparation`, actor, itemIds: lines.map(item => item.id!).filter(Boolean), operationId });
     order.updatedAt = now;
     updateRestaurantTicketStatus(order);
     appendRestaurantFloorAudit(newDb, order.posId, 'order_sent', `${lines.length} ligne(s) envoyée(s) depuis ${order.tableNumber || order.id}`, actor, { orderId, lines: lines.length });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: actorProfile?.id, actorName: actor, posId: order.posId, entityId: order.id, operationId, actionType: 'restaurant_service', summary: `${lines.length} ligne(s) envoyée(s) en préparation` });
     saveDB(newDb);
     refresh();
     return lines.length;
   };
 
-  const fireRestaurantOrderCourse = (orderId: string, course: RestaurantServiceCourse, actor: string) => {
+  const fireRestaurantOrderCourse = (orderId: string, course: RestaurantServiceCourse, actor: string, operationId?: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
     if (!order) throw new Error('Commande introuvable');
+    const existingEvent = operationId ? order.serviceEvents?.find(item => item.operationId === operationId) : undefined;
+    if (existingEvent) return existingEvent.itemIds?.length || 0;
     const now = new Date().toISOString();
     const lines = order.items.filter(item => item.course === course && item.status === 'held');
     if (!lines.length) throw new Error('Aucune ligne de ce service n’attend son envoi');
     lines.forEach(item => { item.status = 'sent'; item.sentAt = now; });
     order.currentCourse = course;
     order.updatedAt = now;
-    appendRestaurantServiceEvent(order, { type: 'course_fired', label: `Service ${course} envoyé`, actor, course, itemIds: lines.map(item => item.id!).filter(Boolean) });
+    appendRestaurantServiceEvent(order, { type: 'course_fired', label: `Service ${course} envoyé`, actor, course, itemIds: lines.map(item => item.id!).filter(Boolean), operationId });
     updateRestaurantTicketStatus(order);
     appendRestaurantFloorAudit(newDb, order.posId, 'course_fired', `${course} envoyé pour ${order.tableNumber || order.id}`, actor, { orderId, course, lines: lines.length });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: actorProfile?.id, actorName: actor, posId: order.posId, entityId: order.id, operationId, actionType: 'restaurant_service', summary: `Service ${course} envoyé en préparation` });
     saveDB(newDb);
     refresh();
     return lines.length;
   };
 
-  const updateRestaurantOrderItemStatus = (orderId: string, itemId: string, status: RestaurantOrderItemStatus, actor: string) => {
+  const updateRestaurantOrderItemStatus = (orderId: string, itemId: string, status: RestaurantOrderItemStatus, actor: string, operationId?: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
     const line = order?.items.find(item => item.id === itemId);
     if (!order || !line || line.status === 'voided') throw new Error('Ligne de préparation introuvable');
+    if (operationId && order.serviceEvents?.some(item => item.operationId === operationId)) return order.status;
     const allowed: Record<RestaurantOrderItemStatus, RestaurantOrderItemStatus[]> = { held: ['sent', 'voided'], sent: ['preparing', 'ready', 'voided'], preparing: ['ready', 'voided'], ready: ['served'], served: [], voided: [] };
     if (!allowed[line.status || 'held'].includes(status)) throw new Error('Cette transition de préparation n’est pas autorisée');
     const now = new Date().toISOString();
@@ -3211,10 +3287,12 @@ export const useStockState = () => {
     if (status === 'ready' && order.items.filter(item => item.status !== 'voided').every(item => ['ready', 'served'].includes(item.status || 'held'))) order.readyAt = now;
     if (status === 'served' && order.items.filter(item => item.status !== 'voided').every(item => item.status === 'served')) order.servedAt = now;
     const eventTypes = { preparing: 'item_preparing', ready: 'item_ready', served: 'item_served' } as const;
-    if (status in eventTypes) appendRestaurantServiceEvent(order, { type: eventTypes[status as keyof typeof eventTypes], label: `${newDb.products.find(item => item.id === line.productId)?.name || 'Article'} · ${status}`, actor, itemIds: [itemId], course: line.course });
+    if (status in eventTypes) appendRestaurantServiceEvent(order, { type: eventTypes[status as keyof typeof eventTypes], label: `${newDb.products.find(item => item.id === line.productId)?.name || 'Article'} · ${status}`, actor, itemIds: [itemId], course: line.course, operationId });
     updateRestaurantTicketStatus(order);
     completeRestaurantTableService(newDb, order);
     appendRestaurantFloorAudit(newDb, order.posId, 'item_updated', `${line.id} passée à ${status}`, actor, { orderId, itemId, status });
+    const actorProfile = newDb.employeeProfiles.find(item => item.name === actor);
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: actorProfile?.id, actorName: actor, posId: order.posId, entityId: order.id, operationId, actionType: 'restaurant_service', summary: `${newDb.products.find(item => item.id === line.productId)?.name || 'Article'} · ${status}` });
     saveDB(newDb);
     refresh();
     return order.status;
@@ -3253,11 +3331,14 @@ export const useStockState = () => {
     refresh();
   };
 
-  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio'; operatorId?: string }) => {
+  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio'; operatorId?: string; operationId?: string }) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
     if (!order || amount <= 0) throw new Error('Paiement invalide');
+    const existingPayment = allocation?.operationId ? order.payments.find(item => item.operationId === allocation.operationId) : undefined;
+    if (existingPayment) return existingPayment.amount;
     if (order.status === 'cancelled') throw new Error('Une commande annulée ne peut pas être réglée');
+    if (isOffline() && method !== 'cash') throw new Error('Sans réseau, seul un règlement en espèces peut être enregistré puis synchronisé');
     const operator = allocation?.operatorId ? newDb.employeeProfiles.find(item => item.id === allocation.operatorId && item.active) : undefined;
     if (allocation?.operatorId && !operator) throw new Error('Collaborateur introuvable ou inactif');
     if (operator && !hasEmployeePermission(operator, 'table_payment')) throw new Error('Votre profil ne permet pas d’encaisser à table');
@@ -3273,11 +3354,20 @@ export const useStockState = () => {
     if (itemIds.some(itemId => order.payments.some(payment => payment.itemIds?.includes(itemId)))) throw new Error('Une ligne sélectionnée a déjà été réglée');
     if (seatNumbers.some(seatNumber => order.payments.some(payment => payment.seatNumbers?.includes(seatNumber)))) throw new Error('Un convive sélectionné a déjà réglé sa part');
     const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
-    const accepted = Math.min(amount, Math.max(0, order.total - paid));
+    const remainingBeforePayment = Math.max(0, order.total - paid);
+    const accepted = Math.min(amount, remainingBeforePayment);
     if (accepted <= 0) throw new Error('Cette addition est déjà soldée');
+    const allocationTotal = itemIds.length
+      ? order.items.filter(item => item.id && itemIds.includes(item.id) && item.status !== 'voided').reduce((sum, item) => sum + item.quantity * item.salePrice, 0)
+      : seatNumbers.length
+        ? order.items.filter(item => item.seatNumber && seatNumbers.includes(item.seatNumber) && item.status !== 'voided').reduce((sum, item) => sum + item.quantity * item.salePrice, 0)
+        : 0;
+    if (allocationTotal > 0 && accepted !== Math.min(remainingBeforePayment, allocationTotal)) {
+      throw new Error('Une sélection par convive ou article doit être réglée entièrement');
+    }
     const tipAmount = Math.max(0, allocation?.tipAmount || 0);
     const paidAt = new Date().toISOString();
-    order.payments.push({ id: createRuntimeId('rest-payment'), amount: accepted, method, paidAt, payerName, cashSessionId, seatNumbers: seatNumbers.length ? seatNumbers : undefined, itemIds: itemIds.length ? itemIds : undefined, tipAmount: tipAmount || undefined, reference: allocation?.reference?.trim() || undefined, source: allocation?.source || (method === 'room_charge' ? 'folio' : cashSessionId ? 'cashier' : 'pay_at_table') });
+    order.payments.push({ id: createRuntimeId('rest-payment'), operationId: allocation?.operationId, amount: accepted, method, paidAt, payerName, cashSessionId, seatNumbers: seatNumbers.length ? seatNumbers : undefined, itemIds: itemIds.length ? itemIds : undefined, tipAmount: tipAmount || undefined, reference: allocation?.reference?.trim() || undefined, source: allocation?.source || (method === 'room_charge' ? 'folio' : cashSessionId ? 'cashier' : 'pay_at_table') });
     order.tipTotal = (order.tipTotal || 0) + tipAmount;
     const linkedSales = newDb.externalSales.filter(item => item.posId === order.posId && (item.externalSaleId === order.id || item.externalSaleId.startsWith(`${order.id}-ADD-`)));
     const deferredPayment = linkedSales.some(item => item.paymentStatus === 'pending' || item.paymentStatus === 'partial');
@@ -3316,9 +3406,10 @@ export const useStockState = () => {
     }
     if (order.paymentStatus === 'paid' && order.status === 'served') order.status = 'paid';
     completeRestaurantTableService(newDb, order);
-    appendRestaurantServiceEvent(order, { type: 'payment', label: `${accepted} FCFA réglé${tipAmount ? ` + ${tipAmount} FCFA de pourboire` : ''}`, actor: payerName || 'Client', amount: accepted });
+    appendRestaurantServiceEvent(order, { type: 'payment', label: `${accepted} FCFA réglé${tipAmount ? ` + ${tipAmount} FCFA de pourboire` : ''}`, actor: payerName || 'Client', amount: accepted, operationId: allocation?.operationId });
     order.updatedAt = new Date().toISOString();
     appendRestaurantFloorAudit(newDb, order.posId, 'payment_recorded', `${order.tableNumber || order.id} · ${accepted} FCFA via ${method}`, payerName || newDb.currentUser.name, { orderId, amount: accepted, tipAmount, method });
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: operator?.id, actorName: operator?.name || payerName, posId: order.posId, entityId: order.id, operationId: allocation?.operationId, actionType: 'restaurant_payment', summary: `${accepted} FCFA en espèces à rapprocher · ${order.tableNumber || order.id}` });
     saveDB(newDb);
     refresh();
     return accepted;
@@ -3985,13 +4076,9 @@ export const useStockState = () => {
   };
 
   const syncSartalOfflineActions = () => {
-    const newDb = getDB();
-    const now = new Date().toISOString();
-    const queued = newDb.sartalOfflineActions.filter(item => item.status === 'queued');
-    queued.forEach(item => { item.status = 'synced'; item.syncedAt = now; });
-    saveDB(newDb);
+    const count = syncQueuedOfflineActions();
     refresh();
-    return queued.length;
+    return count;
   };
 
   const runSartalCommercialScenario = (scenario: SartalDemoRun['scenario']) => {

@@ -37,6 +37,7 @@ try {
   const { EmployeeWorkspace } = await server.ssrLoadModule('/src/views/EmployeeWorkspace.tsx');
   const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
   const { RestaurantFloorStudio } = await server.ssrLoadModule('/src/components/RestaurantFloorStudio.tsx');
+  const { getRestaurantProductAvailability, getRestaurantTableSuggestions } = await server.ssrLoadModule('/src/utils/restaurantService.ts');
   let state;
   const Harness = () => {
     state = useStockState();
@@ -54,16 +55,19 @@ try {
   const floorSource = readFileSync(new URL('../src/components/RestaurantFloorStudio.tsx', import.meta.url), 'utf8');
   const orderPanelSource = readFileSync(new URL('../src/components/RestaurantTableOrderPanel.tsx', import.meta.url), 'utf8');
   const paymentPanelSource = readFileSync(new URL('../src/components/RestaurantTablePaymentPanel.tsx', import.meta.url), 'utf8');
-  ['ELEMENT_CATALOG', 'Annuler', 'Magnétisme', 'Multi-sélection', 'chevauchement', 'Fusionner', 'Installer sans réservation', 'Serveur affecté', 'Heatmap', 'Brouillon', 'Publier', 'Journal d’audit', 'Fond de plan', 'Mode tablette', 'Transférer'].forEach(marker => {
+  const serviceModalSource = readFileSync(new URL('../src/components/RestaurantTableServiceModal.tsx', import.meta.url), 'utf8');
+  ['ELEMENT_CATALOG', 'Annuler', 'Magnétisme', 'Multi-sélection', 'chevauchement', 'Fusionner', 'Placement assisté', 'RADAR DU SERVICE', 'Mode coup de feu', 'Heatmap', 'Brouillon', 'Publier', 'Journal d’audit', 'Fond de plan', 'Mode tablette'].forEach(marker => {
     assert(floorSource.includes(marker), `Expérience Studio premium incomplète : ${marker}`);
   });
-  ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'requestEmployeeApproval'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
-  ['Installer et prendre la commande', 'orderPanelOrder', 'seatReservationAndTakeOrder'].forEach(marker => assert(floorSource.includes(marker), `Parcours table vers commande incomplet : ${marker}`));
-  ['restaurant-table-modal-backdrop', 'Encaisser à table', 'RestaurantTablePaymentPanel'].forEach(marker => assert(floorSource.includes(marker), `Fenêtre d’action de table incomplète : ${marker}`));
-  ['ENCAISSEMENT À TABLE', 'Activer la caisse de service', 'operatorId', 'pay_at_table'].forEach(marker => assert(paymentPanelSource.includes(marker), `Encaissement serveur incomplet : ${marker}`));
+  ['Synthèse', 'Commande', 'Addition', 'Client', 'Historique', 'Installer et commander', 'Installer et prendre la commande', 'Transférer', 'RestaurantTablePaymentPanel'].forEach(marker => assert(serviceModalSource.includes(marker), `Fenêtre unifiée de table incomplète : ${marker}`));
+  ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'getRestaurantProductAvailability', 'Alternative', 'operationRef', 'submittingRef', 'item.itemIds.join', 'requestEmployeeApproval'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
+  ['RestaurantTableServiceModal', 'selectTable', "setServiceTab('bill')", 'initialTab={serviceTab}'].forEach(marker => assert(floorSource.includes(marker), `Parcours table vers fenêtre unifiée incomplet : ${marker}`));
+  ['restaurant-table-modal-backdrop', 'Encaisser à table', 'RestaurantTablePaymentPanel'].forEach(marker => assert(serviceModalSource.includes(marker), `Fenêtre d’action de table incomplète : ${marker}`));
+  ['ENCAISSEMENT À TABLE', 'Activer la caisse de service', 'Convives', 'Articles', 'Parts égales', 'operationId', 'collectingRef', "readOnly={allocationMode !== 'free'}", 'pay_at_table'].forEach(marker => assert(paymentPanelSource.includes(marker), `Encaissement serveur incomplet : ${marker}`));
   assert(!/<button(?![^>]*\btype=)/.test(floorSource), 'Un bouton du plan de salle peut encore soumettre la page et perdre les paramètres de démonstration');
   assert(!/<button(?![^>]*\btype=)/.test(orderPanelSource), 'Un bouton de prise de commande peut encore soumettre la page et quitter le profil');
   assert(!/<button(?![^>]*\btype=)/.test(paymentPanelSource), 'Un bouton d’encaissement peut encore soumettre la page et quitter le profil');
+  assert(!/<button(?![^>]*\btype=)/.test(serviceModalSource), 'Un bouton de la fenêtre unifiée peut encore soumettre la page et quitter le profil');
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
@@ -74,7 +78,7 @@ try {
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'CHEF D’ORCHESTRE DU SERVICE'].forEach(marker => {
     assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
   });
-  ['Mon quotidien', 'Mon planning', "id: 'schedule'", 'Voir tout mon planning avant de commencer', 'RestaurantFloorStudio', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
+  ['Mon quotidien', 'Mon planning', "id: 'schedule'", 'Voir tout mon planning avant de commencer', 'RestaurantFloorStudio', 'staff-manager-floor', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
     assert(employeeSource.includes(marker), `Expérience collaborateur incomplète : ${marker}`);
   });
   ['updateRestaurantOrderItemStatus', 'confirmRestaurantPassItem', 'setRestaurantIngredientAvailability', 'Mode entraînement', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval'].forEach(marker => {
@@ -372,6 +376,8 @@ try {
   assert(sourceTable, 'Une table libre est nécessaire au scénario salle');
   const targetTable = serviceTables.find(item => item.id !== sourceTable.id && item.capacity >= 2);
   assert(targetTable, 'Une table de transfert est nécessaire au scénario salle');
+  const suggestedTables = getRestaurantTableSuggestions(serviceDb, 'pos-1', 2, 'customer-awa', 4);
+  assert(suggestedTables.length > 0 && suggestedTables.every(item => item.table.capacity >= 2), 'Le placement assisté ne propose pas de table adaptée et réellement libre');
   const futureDate = new Date(`${serviceDate}T12:00:00`);
   futureDate.setDate(futureDate.getDate() + 4);
   const futureReservationId = state.createRestaurantReservation({ customerId: 'customer-awa', posId: 'pos-1', date: futureDate.toISOString().slice(0, 10), time: '19:30', guests: 2, occasion: 'business', durationMinutes: 120, notes: 'Affectation depuis le plan de salle.' });
@@ -386,14 +392,27 @@ try {
   const orderProduct = getDB().posPricing.find(rule => rule.posId === 'pos-1' && rule.isAvailable && getDB().stocks.some(stock => stock.warehouseId === 'wh-restaurant' && stock.productId === rule.productId && stock.quantityAvailable >= 1));
   assert(orderProduct, 'Aucun produit disponible pour le scénario de commande à table');
   const orderWarehouseId = orderProduct.defaultWarehouseId || getDB().posList.find(item => item.id === 'pos-1').defaultWarehouseId;
+  const productAvailability = getRestaurantProductAvailability(getDB(), 'pos-1', orderProduct.productId);
+  assert(productAvailability.status !== 'out' && productAvailability.warehouseId === orderWarehouseId, 'La disponibilité affichée ne correspond pas au dépôt du POS');
   const stockBeforeOrder = getDB().stocks.find(item => item.productId === orderProduct.productId && item.warehouseId === orderWarehouseId).quantityAvailable;
-  state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1, seatNumber: 1, course: 'main', modifiers: ['Sans piment'], status: 'held', actorName: waiter.name }]);
+  const orderOperationId = 'EMPLOYEE-SMOKE-ORDER-IDEMPOTENT';
+  Object.defineProperty(globalThis.navigator, 'onLine', { value: false, configurable: true });
+  state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1, seatNumber: 1, course: 'main', modifiers: ['Sans piment'], status: 'held', actorName: waiter.name }], orderOperationId);
+  state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1, seatNumber: 1, course: 'main', modifiers: ['Sans piment'], status: 'held', actorName: waiter.name }], orderOperationId);
   let tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
   const serviceLine = tableOrder.items.find(item => item.productId === orderProduct.productId && item.seatNumber === 1 && item.status === 'held');
   assert(serviceLine?.id && serviceLine.course === 'main', 'Commande tactile non enregistrée par convive et service');
+  assert(tableOrder.items.filter(item => item.operationId === orderOperationId).length === 1, 'Un double appui recrée les lignes de commande');
   assert(getDB().stocks.find(item => item.productId === orderProduct.productId && item.warehouseId === orderWarehouseId).quantityAvailable === stockBeforeOrder - 1, 'La commande tactile ne déduit pas le dépôt configuré du POS');
   assert(getDB().movements.some(item => item.externalReference?.startsWith(`${tableOrderId}-ADD-`) && item.warehouseId === orderWarehouseId), 'Mouvement stock de la commande tactile absent ou mauvais dépôt');
-  state.sendRestaurantOrderItems(tableOrderId, [serviceLine.id], waiter.name);
+  const queuedOrderActions = getDB().sartalOfflineActions.filter(item => item.operationId === orderOperationId && item.status === 'queued');
+  assert(queuedOrderActions.length === 1, 'La commande hors connexion n’est pas mise une seule fois en file');
+  assert(state.syncSartalOfflineActions() === 0 && getDB().sartalOfflineActions.find(item => item.operationId === orderOperationId)?.status === 'queued', 'Une action hors connexion ne doit pas être déclarée synchronisée sans réseau');
+  Object.defineProperty(globalThis.navigator, 'onLine', { value: true, configurable: true });
+  state.syncSartalOfflineActions();
+  assert(getDB().sartalOfflineActions.find(item => item.operationId === orderOperationId)?.status === 'synced', 'La commande hors connexion ne passe pas au statut synchronisé');
+  state.sendRestaurantOrderItems(tableOrderId, [serviceLine.id], waiter.name, `SEND-${serviceLine.id}`);
+  state.sendRestaurantOrderItems(tableOrderId, [serviceLine.id], waiter.name, `SEND-${serviceLine.id}`);
   assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === serviceLine.id).status === 'sent', 'Envoi salle vers cuisine non persistant');
   state.updateRestaurantOrderItemStatus(tableOrderId, serviceLine.id, 'preparing', kitchen.name);
   state.updateRestaurantOrderItemStatus(tableOrderId, serviceLine.id, 'ready', kitchen.name);
@@ -418,7 +437,10 @@ try {
   assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).total === totalBeforeDiscount - 100, 'Remise validée non appliquée à l’addition');
   const tableAccess = state.createRestaurantTableQR(sourceTable.id, waiter.name);
   assert(tableAccess.status === 'active' && tableAccess.destination.includes(sourceTable.label), 'Accès QR de table non créé');
-  const billRequestId = state.requestRestaurantTableBill(sourceTable.id, waiter.name);
+  const billRequestCountBefore = getDB().sartalServiceRequests.filter(item => item.referenceId === tableOrderId && item.type === 'bill').length;
+  const billRequestId = state.requestRestaurantTableBill(sourceTable.id, waiter.name, 'EMPLOYEE-SMOKE-BILL-IDEMPOTENT');
+  const duplicateBillRequestId = state.requestRestaurantTableBill(sourceTable.id, waiter.name, 'EMPLOYEE-SMOKE-BILL-IDEMPOTENT');
+  assert(duplicateBillRequestId === billRequestId && getDB().sartalServiceRequests.filter(item => item.referenceId === tableOrderId && item.type === 'bill').length === billRequestCountBefore + 1, 'Un double appui recrée la demande d’addition');
   assert(getDB().sartalServiceRequests.find(item => item.id === billRequestId)?.type === 'bill', 'Demande d’addition non transmise à la caisse');
   state.transferRestaurantTable(sourceTable.id, targetTable.id, waiter.name);
   assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId)?.tableNumber === targetTable.label, 'La commande ne suit pas le transfert de table');
@@ -427,8 +449,23 @@ try {
   assert(getDB().sartalClientAccess.find(item => item.id === tableAccess.id)?.destination === `Table ${targetTable.label}`, 'L’accès client ne suit pas le transfert de table');
   tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
   const tableCashSessionId = state.openCashSession('pos-1', 0, { id: waiter.id, name: waiter.name });
-  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, { seatNumbers: [1], itemIds: [serviceLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table', operatorId: waiter.id });
-  const detailedPayment = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).payments.at(-1);
+  let partialAllocationBlocked = false;
+  try {
+    state.addRestaurantGuestOrderPayment(tableOrderId, Math.max(1, Math.floor(tableOrder.total / 2)), 'wave', 'Client Studio Test', tableCashSessionId, { itemIds: [serviceLine.id], source: 'pay_at_table', operatorId: waiter.id, operationId: 'EMPLOYEE-SMOKE-PARTIAL-ITEM' });
+  } catch {
+    partialAllocationBlocked = true;
+  }
+  assert(partialAllocationBlocked, 'Un article peut être marqué réglé avec un paiement partiel incohérent');
+  const paymentCountBefore = tableOrder.payments.length;
+  const waveTotalBefore = getDB().cashSessions.find(item => item.id === tableCashSessionId).paymentTotals.wave;
+  const paymentOperationId = 'EMPLOYEE-SMOKE-PAYMENT-IDEMPOTENT';
+  const paymentAllocation = { seatNumbers: [1], itemIds: [serviceLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table', operatorId: waiter.id, operationId: paymentOperationId };
+  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, paymentAllocation);
+  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, paymentAllocation);
+  const paidOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
+  const detailedPayment = paidOrder.payments.find(item => item.operationId === paymentOperationId);
+  assert(paidOrder.payments.length === paymentCountBefore + 1, 'Un double appui recrée le paiement à table');
+  assert(getDB().cashSessions.find(item => item.id === tableCashSessionId).paymentTotals.wave === waveTotalBefore + tableOrder.total + 250, 'Un double appui modifie deux fois les totaux de caisse');
   assert(detailedPayment.seatNumbers?.includes(1) && detailedPayment.itemIds?.includes(serviceLine.id) && detailedPayment.tipAmount === 250 && detailedPayment.source === 'pay_at_table', 'Paiement à table détaillé non conservé');
   assert(detailedPayment.cashSessionId === tableCashSessionId, 'Paiement serveur non rattaché à la caisse du POS');
   assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).status === 'paid', 'Addition soldée non clôturée');

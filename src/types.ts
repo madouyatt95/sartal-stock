@@ -531,10 +531,12 @@ export interface RestaurantServiceEvent {
   itemIds?: string[];
   course?: RestaurantServiceCourse;
   amount?: number;
+  operationId?: string;
 }
 
 export interface RestaurantGuestOrderItem {
   id?: string;
+  operationId?: string;
   productId: string;
   quantity: number;
   salePrice: number;
@@ -557,6 +559,7 @@ export interface RestaurantGuestOrderItem {
 
 export interface RestaurantGuestOrderPayment {
   id: string;
+  operationId?: string;
   amount: number;
   method: PaymentType;
   paidAt: string;
@@ -844,12 +847,19 @@ export interface SartalBrandSettings {
 
 export interface SartalOfflineAction {
   id: string;
-  customerId: string;
-  actionType: 'service_request' | 'message' | 'feedback' | 'profile';
+  customerId?: string;
+  actorId?: string;
+  actorName?: string;
+  posId?: string;
+  entityId?: string;
+  operationId?: string;
+  scope?: 'customer' | 'restaurant';
+  actionType: 'service_request' | 'message' | 'feedback' | 'profile' | 'restaurant_order' | 'restaurant_service' | 'restaurant_payment' | 'restaurant_table';
   summary: string;
   status: 'queued' | 'synced' | 'error';
   createdAt: string;
   syncedAt?: string;
+  errorMessage?: string;
 }
 
 export interface SartalDemoRun {
