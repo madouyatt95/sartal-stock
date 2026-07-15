@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { useStockState } from './hooks/useStockState';
 import { 
   LayoutDashboard, 
@@ -39,7 +39,8 @@ import {
   LogIn,
   Radio,
   RefreshCw,
-  WifiOff
+  WifiOff,
+  ChevronDown
 } from 'lucide-react';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
@@ -85,6 +86,8 @@ export const App: React.FC = () => {
   const [view, setView] = useState<string>('pulse');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState<Set<string>>(() => new Set());
+  const mainScrollRef = useRef<HTMLDivElement>(null);
   const [globalSearch, setGlobalSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -137,6 +140,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('sartal_read_notifications', JSON.stringify([...readNotificationIds]));
   }, [readNotificationIds]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      mainScrollRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+      if (window.matchMedia('(max-width: 768px)').matches) window.scrollTo({ top: 0, behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view]);
 
   const accessCenterMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('connexion') : null;
   if (accessCenterMode !== null) {
@@ -306,6 +317,7 @@ export const App: React.FC = () => {
 
   const openView = (nextView: string) => {
     setView(nextView);
+    setExpandedSidebarSections(new Set());
     setMobileMenuOpen(false);
     setGlobalSearch('');
     setSearchOpen(false);
@@ -449,36 +461,55 @@ export const App: React.FC = () => {
         </div>
 
         {/* Sidebar Links Navigation */}
-        <nav style={{ flexGrow: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+        <nav className="sidebar-navigation" aria-label="Navigation du back-office">
           {sidebarSections.map(section => {
             const sectionLinks = allowedLinks.filter(link => link.section === section.id);
             if (sectionLinks.length === 0) return null;
+            const isCurrentSection = currentNavLink?.section === section.id;
+            const isExpanded = isCurrentSection || expandedSidebarSections.has(section.id);
+            const sectionPanelId = `sidebar-section-${section.id.toLowerCase().replaceAll(' ', '-')}`;
 
             return (
               <div
-                className={`sidebar-section ${['Restaurant', 'Livraison'].includes(section.id) ? 'sidebar-section-business' : ''}`}
+                className={`sidebar-section ${['Restaurant', 'Livraison'].includes(section.id) ? 'sidebar-section-business' : ''} ${isCurrentSection ? 'current' : ''}`}
                 key={section.id}
               >
-                <span className="sidebar-section-title">{section.label}</span>
-                {sectionLinks.map(link => {
-                  const isActive = view === link.id;
-                  return (
-                    <button
-                      key={link.id}
-                      onClick={() => {
-                        openView(link.id);
-                      }}
-                      className={`sidebar-link ${isActive ? 'active' : ''}`}
-                      style={{
-                        color: isActive ? 'white' : 'rgba(255, 255, 255, 0.7)',
-                        fontWeight: isActive ? 700 : 500
-                      }}
-                    >
-                      <span className="sidebar-link-icon">{link.icon}</span>
-                      <span>{link.label}</span>
-                    </button>
-                  );
-                })}
+                <button
+                  type="button"
+                  className="sidebar-section-toggle"
+                  aria-expanded={isExpanded}
+                  aria-controls={sectionPanelId}
+                  disabled={isCurrentSection}
+                  onClick={() => {
+                    if (isCurrentSection) return;
+                    setExpandedSidebarSections(current => {
+                      if (current.has(section.id)) return new Set();
+                      return new Set([section.id]);
+                    });
+                  }}
+                >
+                  <span>{section.label}</span>
+                  <span className="sidebar-section-count">{sectionLinks.length}</span>
+                  <ChevronDown className={isExpanded ? 'expanded' : ''} size={16} aria-hidden="true" />
+                </button>
+                {isExpanded && (
+                  <div className="sidebar-section-links" id={sectionPanelId}>
+                    {sectionLinks.map(link => {
+                      const isActive = view === link.id;
+                      return (
+                        <button
+                          key={link.id}
+                          onClick={() => openView(link.id)}
+                          className={`sidebar-link ${isActive ? 'active' : ''}`}
+                          aria-current={isActive ? 'page' : undefined}
+                        >
+                          <span className="sidebar-link-icon">{link.icon}</span>
+                          <span className="sidebar-link-label">{link.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -566,7 +597,7 @@ export const App: React.FC = () => {
         </header>
 
         {/* Tab View Component Render */}
-        <div className="main-view-scroll" style={{ flexGrow: 1, overflowY: 'auto' }}>
+        <div className="main-view-scroll" ref={mainScrollRef}>
           <Suspense fallback={<AppLoading />}>{renderView()}</Suspense>
         </div>
 
