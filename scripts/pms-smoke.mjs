@@ -53,9 +53,12 @@ try {
   }
 
   const guestPortalHtml = renderToStaticMarkup(React.createElement(PMSGuestExperiencePortal, { state, initialReservationId: 'res-204', standalone: true }));
-  ['Mon séjour Sártal', 'Services', 'Conciergerie', 'Ma chambre', 'Départ'].forEach(marker => assert(guestPortalHtml.includes(marker), `Portail client incomplet : ${marker} absent`));
+  ['Mon séjour Sártal', 'Services', 'Conciergerie', 'Ma chambre', 'Mes préférences', 'Départ'].forEach(marker => assert(guestPortalHtml.includes(marker), `Portail client incomplet : ${marker} absent`));
   assert(!guestPortalHtml.includes('Quitter'), 'Le portail séjour ne doit pas revenir vers le back-office par l’historique navigateur');
   assert(!guestPortalHtml.includes('Accueil Stock'), 'Le portail public ne doit pas afficher la navigation interne');
+  const protectedGuestPortalHtml = renderToStaticMarkup(React.createElement(PMSGuestExperiencePortal, { state, initialReservationId: 'res-204', standalone: true, requireAccess: true }));
+  ['Votre séjour commence ici', 'Accès privé', 'Recevoir mon code'].forEach(marker => assert(protectedGuestPortalHtml.includes(marker), `Protection du séjour incomplète : ${marker}`));
+  assert(!protectedGuestPortalHtml.includes('Aminata'), 'Le nom du client ne doit pas être exposé avant la vérification du téléphone');
 
   const unifiedJourney = buildPMSUnifiedJourney(getDB(), 'res-204');
   assert(unifiedJourney.score === 100, `La vérité métier du séjour 204 devrait être complète (${unifiedJourney.score}%)`);
@@ -172,8 +175,16 @@ try {
   const guestMessageId = state.sendPMSGuestMessage(reservation.id, 'Je souhaite une recommandation pour Dakar.', 'portal');
   assert(getDB().pmsGuestMessages.some(item => item.id === guestMessageId && item.content.includes('Dakar')), 'Message de conciergerie client non enregistré');
 
-  state.updatePMSGuestExperienceProfile(reservation.id, { preferredLanguage: 'fr', profileConsent: true, allergies: 'Arachides', pillowPreference: 'firm' });
-  assert(getDB().pmsGuests.find(item => item.id === reservation.guestId).pillowPreference === 'firm', 'Préférences mémorisées du client non enregistrées');
+  state.updatePMSGuestExperienceProfile(reservation.id, {
+    preferredLanguage: 'fr', profileConsent: true, allergies: 'Arachides', pillowPreference: 'firm',
+    roomTemperature: 'cool', roomLocationPreference: 'high_floor', housekeepingPreference: 'afternoon',
+    minibarPreference: 'family', communicationPreference: 'whatsapp', dietaryPreferences: 'Peu salé',
+    accessibilityNeeds: 'Proche des ascenseurs', doNotDisturb: true
+  });
+  const experienceGuest = getDB().pmsGuests.find(item => item.id === reservation.guestId);
+  assert(experienceGuest.pillowPreference === 'firm' && experienceGuest.roomTemperature === 'cool', 'Confort de chambre non enregistré');
+  assert(experienceGuest.housekeepingPreference === 'afternoon' && experienceGuest.minibarPreference === 'family', 'Préférences de ménage ou minibar non enregistrées');
+  assert(experienceGuest.communicationPreference === 'whatsapp' && experienceGuest.doNotDisturb === true, 'Confidentialité ou canal client non enregistré');
 
   const companionId = state.addPMSStayCompanion(reservation.id, { fullName: 'Accompagnant Test', phone: '+221 77 111 22 33', relationship: 'Collègue' });
   const sharedKeyCode = state.issuePMSDoorKey(reservation.id);
@@ -246,7 +257,7 @@ try {
   }
   assert(auditBlocked, 'La clôture devrait être bloquée en présence d’anomalies');
 
-  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et 41 actions critiques validés.`);
+  console.log(`PMS smoke test: ${Object.keys(tabs).length} onglets et plus de 45 actions critiques validés.`);
 } finally {
   await server.close();
 }

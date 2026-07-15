@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 import { DeliveryOrderStatus, PAYMENT_TYPE_LABELS, PaymentType, RestaurantGuestOrder } from '../types';
+import SartalClientAccessGateway from './SartalClientAccessGateway';
 import SartalClientHub from './SartalClientHub';
 
 type ClientMode = 'restaurant' | 'delivery';
@@ -19,6 +20,7 @@ interface SartalClientProps {
   standalone?: boolean;
   initialCustomerId?: string;
   initialHub?: boolean;
+  requireAccess?: boolean;
 }
 
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
@@ -52,13 +54,14 @@ const normalizeSearchTerm = (value: string) => value
   .replace(/[^a-z0-9]+/g, ' ')
   .trim();
 
-export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode = 'restaurant', standalone = false, initialCustomerId, initialHub = false }) => {
+export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode = 'restaurant', standalone = false, initialCustomerId, initialHub = false, requireAccess = false }) => {
   const {
     db, createRestaurantReservation, updateRestaurantReservation, cancelRestaurantReservation,
     placeRestaurantGuestOrder, addRestaurantGuestOrderPayment, createDeliveryCustomerOrder,
     updateConfirmedDeliveryOrder, decideDeliverySubstitution, reorderDeliveryOrder, sendSartalCustomerMessage,
     submitSartalCustomerFeedback, requestSartalService, inviteRestaurantGuest,
-    payRestaurantGuestShare, toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus
+    payRestaurantGuestShare, toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus,
+    appendRestaurantGuestOrderItems, updateRestaurantGuestOrderItemNote
   } = state;
   const brandSettings = db.sartalBrandSettings;
   const restaurantEnabled = brandSettings.enabledModules.includes('restaurant');
@@ -69,10 +72,12 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
       ? 'delivery'
       : restaurantEnabled ? 'restaurant' : 'delivery';
   const [space, setSpace] = useState<'hub' | 'service'>(initialHub || !standalone ? 'hub' : 'service');
+  const [hubInitialTab, setHubInitialTab] = useState<'today' | 'passport' | 'wallet' | 'history'>('today');
   const [mode, setMode] = useState<ClientMode>(availableInitialMode);
   const [restaurantTab, setRestaurantTab] = useState<RestaurantTab>('welcome');
   const [deliveryTab, setDeliveryTab] = useState<DeliveryTab>('shop');
   const [customerId, setCustomerId] = useState(initialCustomerId || (availableInitialMode === 'restaurant' ? 'customer-aminata' : 'customer-awa'));
+  const [accessGranted, setAccessGranted] = useState(!requireAccess || Boolean(initialCustomerId));
   const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
   const [deliveryCart, setDeliveryCart] = useState<Record<string, number>>({});
   const [substitutionPolicies, setSubstitutionPolicies] = useState<Record<string, 'replace' | 'contact' | 'refund' | 'cancel_order'>>({});
@@ -89,6 +94,9 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const [feedbackScore, setFeedbackScore] = useState(5);
   const [feedbackNote, setFeedbackNote] = useState('');
   const [inviteForm, setInviteForm] = useState({ fullName: '', phone: '' });
+  const [inviteShareAmount, setInviteShareAmount] = useState('');
+  const [splitPayment, setSplitPayment] = useState({ payerName: '', amount: '', method: 'wave' as PaymentType });
+  const [orderNotes, setOrderNotes] = useState<Record<string, string>>({});
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [reservationForm, setReservationForm] = useState({ date: tomorrow, time: '20:00', guests: 2, occasion: 'meal' as const, notes: '' });
 
@@ -102,6 +110,9 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const upcomingReservation = restaurantReservations.find(item => ['confirmed', 'seated'].includes(item.status));
   const restaurantOrders = db.restaurantGuestOrders.filter(item => item.customerId === customer?.id);
   const activeRestaurantOrder = restaurantOrders.find(item => !['paid', 'cancelled'].includes(item.status)) || restaurantOrders[0];
+  const restaurantPaid = activeRestaurantOrder?.payments.reduce((sum, item) => sum + item.amount, 0) || 0;
+  const restaurantRemaining = Math.max(0, (activeRestaurantOrder?.total || 0) - restaurantPaid);
+  const restaurantOrderEditable = Boolean(activeRestaurantOrder && ['placed', 'confirmed'].includes(activeRestaurantOrder.status));
   const pmsGuest = db.pmsGuests.find(item => item.phone.replace(/\s/g, '') === customer?.phone.replace(/\s/g, ''));
   const activePmsFolio = db.pmsFolios.find(item => item.guestId === pmsGuest?.id && item.status === 'open');
   const activePmsRoom = db.pmsRooms.find(item => item.id === activePmsFolio?.roomId);
@@ -135,6 +146,13 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const onlineProducts = useMemo(() => onlineCatalog
     .filter(item => `${item.product!.name} ${item.product!.category}`.toLowerCase().includes(search.toLowerCase()))
     .slice(0, 24), [onlineCatalog, search]);
+
+  if (!accessGranted) {
+    return <SartalClientAccessGateway state={state} mode={availableInitialMode} onAuthenticated={authenticatedCustomerId => {
+      setCustomerId(authenticatedCustomerId);
+      setAccessGranted(true);
+    }} />;
+  }
 
   if (!customer || !restaurant || !deliveryChannel || !deliveryWarehouse) {
     return <main className="portal-unavailable">
@@ -180,7 +198,6 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     if (nextMode === 'restaurant' ? !restaurantEnabled : !deliveryEnabled) return;
     setMode(nextMode);
     setSpace('service');
-    setCustomerId(nextMode === 'restaurant' ? 'customer-aminata' : 'customer-awa');
     setPaymentMethod('wave');
     setServiceType('dine_in');
     setMessage('');
@@ -211,14 +228,29 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   };
   const placeRestaurantOrder = () => {
     try {
-      const id = placeRestaurantGuestOrder({ customerId: customer.id, posId: restaurant.id, reservationId: upcomingReservation?.id, tableNumber: upcomingReservation?.tableNumber, folioId: paymentMethod === 'room_charge' ? activePmsFolio?.id : undefined, roomNumber: paymentMethod === 'room_charge' ? activePmsRoom?.roomNumber : undefined, serviceType, items: Object.entries(restaurantCart).map(([productId, quantity]) => ({ productId, quantity })), paymentMethod });
+      const items = Object.entries(restaurantCart).map(([productId, quantity]) => ({ productId, quantity }));
+      if (activeRestaurantOrder && activeRestaurantOrder.serviceType === 'dine_in' && ['placed', 'confirmed'].includes(activeRestaurantOrder.status)) {
+        const amount = appendRestaurantGuestOrderItems(activeRestaurantOrder.id, customer.id, items);
+        setRestaurantCart({});
+        setMessage(`Complément de ${formatFCFA(amount)} ajouté en direct à la table ${activeRestaurantOrder.tableNumber || ''}.`);
+        setRestaurantTab('order');
+        return;
+      }
+      const id = placeRestaurantGuestOrder({ customerId: customer.id, posId: restaurant.id, reservationId: upcomingReservation?.id, tableNumber: upcomingReservation?.tableNumber, folioId: paymentMethod === 'room_charge' ? activePmsFolio?.id : undefined, roomNumber: paymentMethod === 'room_charge' ? activePmsRoom?.roomNumber : undefined, serviceType, items, paymentMethod });
       setRestaurantCart({});
       setMessage(`Commande ${id} transmise directement à la cuisine.`);
       setRestaurantTab('order');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Commande impossible'); }
   };
   const placeDeliveryOrder = () => {
-    if (!defaultAddress || !selectedSlot) return;
+    if (!defaultAddress) {
+      setMessage('Ajoutez une adresse de livraison avant de confirmer votre commande.');
+      return;
+    }
+    if (!selectedSlot) {
+      setMessage('Choisissez un créneau de livraison avant de confirmer.');
+      return;
+    }
     try {
       const items = Object.entries(deliveryCart).map(([productId, quantity]) => ({ productId, quantity, substitutionPolicy: substitutionPolicies[productId] || 'contact' as const }));
       const slot = { id: selectedSlot.id, label: selectedSlot.label, feeDelta: selectedSlot.feeDelta, capacity: selectedSlot.capacity };
@@ -375,10 +407,37 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const inviteGuest = () => {
     if (!activeRestaurantOrder) return;
     try {
-      inviteRestaurantGuest(activeRestaurantOrder.id, inviteForm);
+      inviteRestaurantGuest(activeRestaurantOrder.id, { ...inviteForm, shareAmount: Number(inviteShareAmount) || undefined });
       setInviteForm({ fullName: '', phone: '' });
+      setInviteShareAmount('');
       setMessage('Invitation envoyée avec un accès personnel à l’addition.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Invitation impossible'); }
+  };
+  const saveOrderNote = (productId: string) => {
+    if (!activeRestaurantOrder) return;
+    try {
+      updateRestaurantGuestOrderItemNote(activeRestaurantOrder.id, customer.id, productId, orderNotes[productId] || '');
+      setMessage('Votre consigne a été transmise en direct à la salle et à la cuisine.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Consigne non modifiée'); }
+  };
+  const requestLineRemoval = (productId: string) => {
+    if (!activeRestaurantOrder) return;
+    const product = db.products.find(item => item.id === productId);
+    requestSartalService({ customerId: customer.id, context: 'restaurant', referenceId: activeRestaurantOrder.id, type: 'other', label: `Valider le retrait de ${product?.name || 'cet article'}`, note: 'Demande client transmise avant modification du ticket et du stock.', priority: 'urgent' });
+    setMessage('Demande de retrait envoyée. La cuisine confirme avant de corriger le ticket et le stock.');
+  };
+  const payCustomShare = () => {
+    if (!activeRestaurantOrder) return;
+    const requestedAmount = Number(splitPayment.amount);
+    if (!splitPayment.payerName.trim() || !Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      setMessage('Indiquez le nom du payeur et un montant valide.');
+      return;
+    }
+    try {
+      const accepted = addRestaurantGuestOrderPayment(activeRestaurantOrder.id, requestedAmount, splitPayment.method, splitPayment.payerName.trim());
+      setSplitPayment({ ...splitPayment, payerName: '', amount: '' });
+      setMessage(`${splitPayment.payerName} a réglé ${formatFCFA(accepted)} par ${PAYMENT_TYPE_LABELS[splitPayment.method]}.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Paiement impossible'); }
   };
   const sendFeedback = () => {
     const referenceId = mode === 'restaurant' ? activeRestaurantOrder?.id : activeDeliveryOrder?.id;
@@ -410,10 +469,10 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     >
       <header className="sartal-client-header">
         <div><span>{brandSettings.clientAppName.toUpperCase()}</span><strong>{mode === 'restaurant' ? restaurant.name : 'Épicerie & livraison'}</strong></div>
-        <div className="client-mode-switch"><button className={space === 'hub' ? 'active' : ''} onClick={() => setSpace('hub')}><UserRound size={17} /> Mon Sártal</button>{restaurantEnabled && <button className={space === 'service' && mode === 'restaurant' ? 'active' : ''} onClick={() => switchMode('restaurant')}><UtensilsCrossed size={17} /> À table</button>}{deliveryEnabled && <button className={space === 'service' && mode === 'delivery' ? 'active' : ''} onClick={() => switchMode('delivery')}><ShoppingBag size={17} /> Livraison</button>}</div>
+        <div className="client-mode-switch"><button className={space === 'hub' ? 'active' : ''} onClick={() => { setHubInitialTab('today'); setSpace('hub'); }}><UserRound size={17} /> Mon Sártal</button>{restaurantEnabled && <button className={space === 'service' && mode === 'restaurant' ? 'active' : ''} onClick={() => switchMode('restaurant')}><UtensilsCrossed size={17} /> À table</button>}{deliveryEnabled && <button className={space === 'service' && mode === 'delivery' ? 'active' : ''} onClick={() => switchMode('delivery')}><ShoppingBag size={17} /> Livraison</button>}</div>
         {!standalone && <div className="client-preview-controls"><select className="form-control" value={customer.id} onChange={event => changeCustomer(event.target.value)}>{db.sartalCustomers.map(item => <option value={item.id} key={item.id}>{item.fullName}</option>)}</select><button className="btn btn-primary" onClick={() => window.open(`${window.location.origin}${window.location.pathname}?client=${mode}`, '_blank', 'noopener,noreferrer')}>Ouvrir comme client <ArrowRight size={16} /></button></div>}
       </header>
-      {space === 'hub' ? <main className="sartal-client-body hub-body"><SartalClientHub key={customer.id} state={state} customerId={customer.id} onOpenRestaurant={() => switchMode('restaurant')} onOpenDelivery={() => switchMode('delivery')} onMessage={setMessage} /></main> : <>
+      {space === 'hub' ? <main className="sartal-client-body hub-body"><SartalClientHub key={`${customer.id}-${hubInitialTab}`} state={state} customerId={customer.id} initialTab={hubInitialTab} onOpenRestaurant={() => switchMode('restaurant')} onOpenDelivery={() => switchMode('delivery')} onMessage={setMessage} /></main> : <>
       <nav className="sartal-client-tabs">{tabs.map(item => <button key={item.id} className={currentTab === item.id ? 'active' : ''} onClick={() => mode === 'restaurant' ? setRestaurantTab(item.id as RestaurantTab) : setDeliveryTab(item.id as DeliveryTab)}>{item.icon}<span>{item.label}</span>{item.id === 'basket' && Object.values(deliveryCart).reduce((sum, value) => sum + value, 0) > 0 && <b>{Object.values(deliveryCart).reduce((sum, value) => sum + value, 0)}</b>}</button>)}</nav>
 
       <main className="sartal-client-body">
@@ -427,7 +486,40 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
 
         {mode === 'restaurant' && restaurantTab === 'menu' && <><section className="client-section-title"><div><span>DISPONIBLE MAINTENANT</span><h1>La carte de La Terrasse</h1><p>Les indisponibilités de cuisine sont actualisées automatiquement.</p></div><div className="client-service-choice">{(['dine_in', 'takeaway', ...(activePmsFolio ? ['room_service' as const] : [])] as const).map(type => <button key={type} className={serviceType === type ? 'active' : ''} onClick={() => setServiceType(type)}>{type === 'dine_in' ? 'À table' : type === 'takeaway' ? 'À emporter' : `En chambre ${activePmsRoom?.roomNumber}`}</button>)}</div></section>{activePmsFolio && <div className="client-room-link"><BedDouble size={18} /><span>Séjour reconnu</span><strong>Chambre {activePmsRoom?.roomNumber} · imputation folio disponible</strong></div>}<div className="client-product-grid restaurant-menu">{restaurantMenu.map(item => <article className={!item.available ? 'unavailable' : ''} key={item.product!.id}><div className="client-menu-photo" style={{ backgroundImage: customer.lowBandwidthMode ? 'none' : `url('./sartal-client-restaurant.jpg')` }}><span>{item.product!.category}</span><button className={customer.favoriteProductIds?.includes(item.product!.id) ? 'client-favorite-button active' : 'client-favorite-button'} title="Ajouter aux favoris" onClick={() => toggleFavorite(item.product!.id)}><Heart size={15} fill={customer.favoriteProductIds?.includes(item.product!.id) ? 'currentColor' : 'none'} /></button></div><div><h3>{item.product!.name}</h3><p>{item.recipe ? `${item.recipe.ingredients.length} ingrédients suivis en stock` : 'Préparé à la demande'}</p>{customer.allergies && item.recipe?.ingredients.some(ingredient => db.products.find(product => product.id === ingredient.productId)?.name.toLowerCase().includes('arachide')) && <small className="allergy-alert">Contient votre allergène</small>}<footer><strong>{formatFCFA(item.price)}</strong><div className="client-quantity"><button onClick={() => changeQuantity('restaurant', item.product!.id, -1)}><Minus size={15} /></button><span>{restaurantCart[item.product!.id] || 0}</span><button disabled={!item.available} onClick={() => changeQuantity('restaurant', item.product!.id, 1)}><Plus size={15} /></button></div></footer></div></article>)}</div>{restaurantTotal > 0 && <div className="client-sticky-cart"><div><span>{Object.values(restaurantCart).reduce((sum, value) => sum + value, 0)} article(s)</span><strong>{formatFCFA(restaurantTotal)}</strong></div><select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value as PaymentType)}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select><button onClick={placeRestaurantOrder}>Commander <ArrowRight size={16} /></button></div>}</>}
 
-        {mode === 'restaurant' && restaurantTab === 'order' && <section className="client-order-layout"><div>{activeRestaurantOrder ? <><div className="client-order-heading"><span>COMMANDE {activeRestaurantOrder.id}</span><h1>{restaurantStatus[activeRestaurantOrder.status]}</h1><p>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'} · environ {activeRestaurantOrder.estimatedMinutes} min</p></div><div className="client-progress">{(['confirmed', 'preparing', 'ready', 'served'] as const).map((status, index) => { const ranks = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'paid']; const done = ranks.indexOf(activeRestaurantOrder.status) >= ranks.indexOf(status); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={17} /> : index + 1}</span><strong>{restaurantStatus[status]}</strong></article>; })}</div><div className="client-order-lines">{activeRestaurantOrder.items.map(item => <div key={item.productId}><span>{item.quantity} × {db.products.find(product => product.id === item.productId)?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></div>)}<footer><span>Total</span><strong>{formatFCFA(activeRestaurantOrder.total)}</strong></footer></div><div className="client-table-actions"><button onClick={() => requestService('water', 'Apporter une carafe d’eau')}><Phone size={17} /> Demander de l’eau</button><button onClick={() => requestService('bill', 'Préparer et apporter l’addition')}><ReceiptText size={17} /> Demander l’addition</button><button onClick={() => requestService('waiter', 'Passage du serveur à table')}><MessageCircle size={17} /> Appeler le serveur</button></div>{activeServiceRequests.length > 0 && <div className="client-live-requests">{activeServiceRequests.map(item => <article key={item.id}><span className={item.status}><i />{item.status === 'accepted' ? 'Pris en charge' : 'Reçu'}</span><div><strong>{item.label}</strong><small>{item.assignedTo} · avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div></article>)}</div>}{activeRestaurantOrder.payments.reduce((sum, item) => sum + item.amount, 0) < activeRestaurantOrder.total && <div className="client-split-payment"><div><CircleDollarSign size={20} /><span><strong>Partager l’addition</strong><small>Chacun peut rejoindre la table et payer sa part.</small></span></div><button onClick={() => { const remaining = activeRestaurantOrder.total - activeRestaurantOrder.payments.reduce((sum, item) => sum + item.amount, 0); addRestaurantGuestOrderPayment(activeRestaurantOrder.id, Math.ceil(remaining / 2), 'wave', customer.fullName); setMessage('Votre part a été réglée par Wave.'); }}>Payer ma moitié</button></div>}<section className="client-group-bill"><header><UserPlus size={20} /><div><strong>Les convives de la table</strong><small>Invitation privée par téléphone avec code personnel.</small></div></header><div className="client-invite-form"><input className="form-control" placeholder="Prénom et nom" value={inviteForm.fullName} onChange={event => setInviteForm({ ...inviteForm, fullName: event.target.value })} /><input className="form-control" placeholder="+221 77…" value={inviteForm.phone} onChange={event => setInviteForm({ ...inviteForm, phone: event.target.value })} /><button onClick={inviteGuest}>Inviter</button></div>{restaurantInvites.map(invite => <article key={invite.id}><div><strong>{invite.fullName}</strong><small>Code {invite.accessCode} · {invite.status === 'paid' ? 'part réglée' : invite.status === 'joined' ? 'a rejoint la table' : 'invitation envoyée'}</small></div><b>{formatFCFA(invite.shareAmount)}</b>{invite.status !== 'paid' && <button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'orange_money'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Orange Money.`); }}>Payer sa part</button>}</article>)}</section></> : <div className="client-empty"><ChefHat size={32} /><h2>Aucune commande en cours</h2><button onClick={() => setRestaurantTab('menu')}>Découvrir la carte</button></div>}</div><aside className="client-conversation"><header><span>M</span><div><strong>Moussa · Votre serveur</strong><small>Disponible maintenant</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button title="Envoyer une note vocale" onClick={() => sendRichMessage('voice')}><Mic size={16} /></button><button title="Joindre une photo" onClick={() => sendRichMessage('photo')}><Camera size={16} /></button></div><footer><input className="form-control" placeholder="Écrire à l’équipe…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer></aside></section>}
+        {mode === 'restaurant' && restaurantTab === 'order' && <section className="client-order-layout">
+          <div>{activeRestaurantOrder ? <>
+            <div className="client-order-heading">
+              <span>COMMANDE {activeRestaurantOrder.id}</span>
+              <h1>{restaurantStatus[activeRestaurantOrder.status]}</h1>
+              <p>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'} · environ {activeRestaurantOrder.estimatedMinutes} min</p>
+              <b className={restaurantOrderEditable ? 'live' : 'locked'}>{restaurantOrderEditable ? 'Modifiable en direct' : 'Préparation verrouillée'}</b>
+            </div>
+            <div className="client-progress">{(['confirmed', 'preparing', 'ready', 'served'] as const).map((status, index) => { const ranks = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'paid']; const done = ranks.indexOf(activeRestaurantOrder.status) >= ranks.indexOf(status); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={17} /> : index + 1}</span><strong>{restaurantStatus[status]}</strong></article>; })}</div>
+            <section className="client-live-basket">
+              <header><div><ShoppingBag size={19} /><span><strong>Mon panier en direct</strong><small>Ajoutez un complément ou transmettez une consigne avant le verrouillage cuisine.</small></span></div>{restaurantOrderEditable && <button onClick={() => setRestaurantTab('menu')}><Plus size={15} /> Ajouter un article</button>}</header>
+              <div className="client-order-lines">{activeRestaurantOrder.items.map((item, index) => {
+                const product = db.products.find(productItem => productItem.id === item.productId);
+                return <article key={`${item.productId}-${index}`}>
+                  <div><span>{item.quantity} × {product?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></div>
+                  {item.note && <small>Consigne : {item.note}</small>}
+                  {restaurantOrderEditable && <div className="client-order-line-tools"><input className="form-control" value={orderNotes[item.productId] ?? item.note ?? ''} onChange={event => setOrderNotes({ ...orderNotes, [item.productId]: event.target.value })} placeholder="Sans sauce, cuisson, allergie…" /><button onClick={() => saveOrderNote(item.productId)}>Transmettre</button><button className="danger" onClick={() => requestLineRemoval(item.productId)}>Demander le retrait</button></div>}
+                </article>;
+              })}<footer><span>Total actualisé</span><strong>{formatFCFA(activeRestaurantOrder.total)}</strong></footer></div>
+            </section>
+            <div className="client-table-actions"><button onClick={() => requestService('water', 'Apporter une carafe d’eau')}><Phone size={17} /> Demander de l’eau</button><button onClick={() => requestService('bill', 'Préparer et apporter l’addition')}><ReceiptText size={17} /> Demander l’addition</button><button onClick={() => requestService('waiter', 'Passage du serveur à table')}><MessageCircle size={17} /> Appeler le serveur</button></div>
+            {activeServiceRequests.length > 0 && <div className="client-live-requests">{activeServiceRequests.map(item => <article key={item.id}><span className={item.status}><i />{item.status === 'accepted' ? 'Pris en charge' : 'Reçu'}</span><div><strong>{item.label}</strong><small>{item.assignedTo} · avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div></article>)}</div>}
+            <section className="client-split-payment">
+              <header><CircleDollarSign size={21} /><div><strong>Partager l’addition librement</strong><small>{restaurantRemaining > 0 ? `${formatFCFA(restaurantRemaining)} reste à répartir` : 'Addition entièrement réglée'}</small></div><b>{formatFCFA(restaurantPaid)} payé</b></header>
+              {restaurantRemaining > 0 && <>
+                <div className="client-split-shortcuts"><button onClick={() => setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(Math.ceil(restaurantRemaining / 2)) })}>Moitié · {formatFCFA(Math.ceil(restaurantRemaining / 2))}</button><button onClick={() => { const people = upcomingReservation?.guests || customer.restaurantPreferences?.defaultPartySize || 2; setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(Math.ceil(restaurantRemaining / people)) }); }}>Par convive</button><button onClick={() => setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(restaurantRemaining) })}>Tout le solde</button></div>
+                <div className="client-split-form"><label>Qui paie ?<input className="form-control" value={splitPayment.payerName} onChange={event => setSplitPayment({ ...splitPayment, payerName: event.target.value })} placeholder="Prénom ou nom" /></label><label>Montant<input className="form-control" type="number" min="1" max={restaurantRemaining} value={splitPayment.amount} onChange={event => setSplitPayment({ ...splitPayment, amount: event.target.value })} /></label><label>Moyen<select className="form-control" value={splitPayment.method} onChange={event => setSplitPayment({ ...splitPayment, method: event.target.value as PaymentType })}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option><option value="cash">Espèces</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select></label><button onClick={payCustomShare}>Régler cette part</button></div>
+              </>}
+              {activeRestaurantOrder.payments.length > 0 && <div className="client-payment-history">{activeRestaurantOrder.payments.map(payment => <article key={payment.id}><CheckCircle size={15} /><span><strong>{payment.payerName || 'Payeur'}</strong><small>{PAYMENT_TYPE_LABELS[payment.method]}</small></span><b>{formatFCFA(payment.amount)}</b></article>)}</div>}
+            </section>
+            <section className="client-group-bill"><header><UserPlus size={20} /><div><strong>Inviter un convive à payer</strong><small>Choisissez sa part puis envoyez un accès personnel par téléphone.</small></div></header><div className="client-invite-form"><input className="form-control" placeholder="Prénom et nom" value={inviteForm.fullName} onChange={event => setInviteForm({ ...inviteForm, fullName: event.target.value })} /><input className="form-control" placeholder="+221 77…" value={inviteForm.phone} onChange={event => setInviteForm({ ...inviteForm, phone: event.target.value })} /><input className="form-control" type="number" min="1" max={restaurantRemaining} placeholder="Montant FCFA" value={inviteShareAmount} onChange={event => setInviteShareAmount(event.target.value)} /><button disabled={restaurantRemaining <= 0} onClick={inviteGuest}>Inviter</button></div>{restaurantInvites.map(invite => <article key={invite.id}><div><strong>{invite.fullName}</strong><small>Code {invite.accessCode} · {invite.status === 'paid' ? `réglé par ${PAYMENT_TYPE_LABELS[invite.paymentMethod || 'other']}` : invite.status === 'joined' ? 'a rejoint la table' : 'invitation envoyée'}</small></div><b>{formatFCFA(invite.paidAmount ?? invite.shareAmount)}</b>{invite.status !== 'paid' && <div className="client-invite-payments"><button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'wave'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Wave.`); }}>Wave</button><button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'orange_money'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Orange Money.`); }}>Orange Money</button></div>}</article>)}</section>
+          </> : <div className="client-empty"><ChefHat size={32} /><h2>Aucune commande en cours</h2><button onClick={() => setRestaurantTab('menu')}>Découvrir la carte</button></div>}</div>
+          <aside className="client-conversation"><header><span>M</span><div><strong>Moussa · Votre serveur</strong><small>Disponible maintenant</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button title="Envoyer une note vocale" onClick={() => sendRichMessage('voice')}><Mic size={16} /></button><button title="Joindre une photo" onClick={() => sendRichMessage('photo')}><Camera size={16} /></button></div><footer><input className="form-control" placeholder="Écrire à l’équipe…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer></aside>
+        </section>}
 
         {mode === 'delivery' && deliveryTab === 'shop' && <>
           <section className="client-hero grocery">
@@ -466,11 +558,11 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
           </div>
           <aside className="client-delivery-summary">
             <section className={`client-delivery-plus ${deliveryPlusActive ? 'active' : ''}`}><div><Gift size={21} /><span><strong>Livraison+</strong><small>{deliveryPlusActive ? `Actif · renouvellement ${customer.deliveryPlusRenewsAt ? formatDate(customer.deliveryPlusRenewsAt) : 'dans 30 jours'}` : 'Livraisons offertes et créneaux prioritaires'}</small></span></div><b>{deliveryPlusActive ? '0 FCFA' : '3 500 FCFA/mois'}</b><button onClick={() => { const status = toggleSartalDeliveryPlus(customer.id); setMessage(status === 'active' ? 'Livraison+ activée. Les frais de ce panier passent à 0 FCFA.' : 'Livraison+ est désormais en pause.'); }}>{deliveryPlusActive ? 'Mettre en pause' : 'Activer Livraison+'}</button></section>
-            <div className="client-address"><MapPin size={21} /><div><span>Livrer à</span><strong>{defaultAddress?.label} · {defaultAddress?.address}</strong><small>{defaultAddress?.landmark}</small><small>{defaultAddress?.instructions}</small></div></div>
+            {defaultAddress ? <div className="client-address"><MapPin size={21} /><div><span>Livrer à</span><strong>{defaultAddress.label} · {defaultAddress.address}</strong><small>{defaultAddress.landmark}</small><small>{defaultAddress.instructions}</small></div></div> : <div className="client-address missing"><MapPin size={21} /><div><span>Adresse requise</span><strong>Où souhaitez-vous être livré ?</strong><small>La zone permettra de calculer les frais et les créneaux disponibles.</small><button onClick={() => { setHubInitialTab('passport'); setSpace('hub'); }}>Ajouter une adresse</button></div></div>}
             <section className="client-slot-picker"><header><Clock3 size={18} /><div><strong>Choisir un créneau réel</strong><small>Les places se mettent à jour selon les commandes.</small></div></header><div>{deliverySlots.map(slot => { const full = slot.booked >= slot.capacity; return <button key={slot.id} disabled={full} className={selectedSlot?.id === slot.id ? 'active' : ''} onClick={() => setSelectedDeliverySlotId(slot.id)}><strong>{slot.label}</strong><small>{full ? 'Complet' : `${slot.capacity - slot.booked} place(s)`}{slot.priority ? ' · prioritaire' : ''}</small>{slot.feeDelta > 0 && !deliveryPlusActive ? <b>+{formatFCFA(slot.feeDelta)}</b> : null}</button>; })}</div></section>
-            <div className="client-summary-lines"><span>Sous-total <b>{formatFCFA(deliverySubtotal)}</b></span><span>Livraison · {defaultAddress?.zone} <b>{deliveryPlusActive ? 'Offerte' : formatFCFA(deliveryFee)}</b></span><strong>Total <b>{formatFCFA(deliverySubtotal + deliveryFee)}</b></strong></div>
+            <div className="client-summary-lines"><span>Sous-total <b>{formatFCFA(deliverySubtotal)}</b></span><span>Livraison{defaultAddress ? ` · ${defaultAddress.zone}` : ''} <b>{defaultAddress ? (deliveryPlusActive ? 'Offerte' : formatFCFA(deliveryFee)) : 'À calculer'}</b></span><strong>Total <b>{formatFCFA(deliverySubtotal + (defaultAddress ? deliveryFee : 0))}</b></strong></div>
             <div className="client-payment-methods">{(['wave', 'orange_money', 'cash'] as const).map(method => <button key={method} className={paymentMethod === method ? 'active' : ''} onClick={() => setPaymentMethod(method)}><WalletCards size={16} /> {PAYMENT_TYPE_LABELS[method]}</button>)}</div>
-            <button className="btn btn-primary" disabled={deliverySubtotal <= 0 || !selectedSlot} onClick={placeDeliveryOrder}>{editingDeliveryOrderId ? 'Enregistrer les modifications' : 'Confirmer la commande'} <ArrowRight size={17} /></button>
+            <button className="btn btn-primary" disabled={deliverySubtotal <= 0 || !selectedSlot || !defaultAddress} onClick={placeDeliveryOrder}>{editingDeliveryOrderId ? 'Enregistrer les modifications' : 'Confirmer la commande'} <ArrowRight size={17} /></button>
             <small>{selectedSlot ? `Livraison prévue ${selectedSlot.label}.` : 'Aucun créneau disponible.'} Aucun produit indisponible ne sera facturé.</small>
           </aside>
         </section>}

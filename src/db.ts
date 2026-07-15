@@ -788,7 +788,7 @@ const initialDB = (): DatabaseState => {
   ];
 
   const pmsGuests: PMSGuest[] = [
-    { id: 'guest-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', nationality: 'Sénégalaise', preferences: 'Petit-déjeuner sans sucre', stays: 3, documentType: 'identity_card', documentNumber: 'SN-1987-****-421', loyaltyTier: 'gold' },
+    { id: 'guest-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', nationality: 'Sénégalaise', preferences: 'Petit-déjeuner sans sucre et chambre calme', stays: 3, documentType: 'identity_card', documentNumber: 'SN-1987-****-421', loyaltyTier: 'gold', preferredLanguage: 'fr', profileConsent: true, allergies: 'Arachides', pillowPreference: 'firm', roomTemperature: 'cool', roomLocationPreference: 'quiet', housekeepingPreference: 'morning', minibarPreference: 'family', communicationPreference: 'whatsapp', dietaryPreferences: 'Sans sucre ajouté et peu salé', doNotDisturb: false },
     { id: 'guest-jean', fullName: 'Jean Morel', phone: '+33 6 24 18 40 10', email: 'jean.morel@example.com', nationality: 'Française', company: 'Sahel Conseil', stays: 2, documentType: 'passport', documentNumber: 'FR-22****19', loyaltyTier: 'silver' },
     { id: 'guest-sarah', fullName: 'Sarah Johnson', phone: '+44 7700 900123', email: 'sarah.j@example.com', nationality: 'Britannique', preferences: 'Chambre calme', stays: 1, documentType: 'passport', documentNumber: 'GB-51****83', loyaltyTier: 'standard' },
     { id: 'guest-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 610 44 20', email: 'm.ndiaye@example.com', nationality: 'Sénégalaise', company: 'Ndar Distribution', stays: 5 },
@@ -999,9 +999,9 @@ const initialDB = (): DatabaseState => {
   };
 
   const sartalCustomers: SartalCustomer[] = [
-    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferredChannel: 'whatsapp', birthday: '1987-09-18', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, marketingConsent: true, favoriteProductIds: ['prod-yassa-poulet', 'prod-jus-gingembre'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
-    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferredChannel: 'whatsapp', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, marketingConsent: false, favoriteProductIds: ['prod-riz-5kg', 'prod-huile-1l'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
-    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, favoriteProductIds: ['prod-cafe-touba'], lowBandwidthMode: true, corporateAccountId: 'corporate-ndar', loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
+    { id: 'customer-aminata', fullName: 'Aminata Diop', phone: '+221 77 245 18 09', email: 'aminata.diop@example.com', preferredLanguage: 'fr', preferredChannel: 'whatsapp', birthday: '1987-09-18', preferences: 'Table calme et boissons sans sucre', allergies: 'Arachides', profileConsent: true, marketingConsent: true, defaultPaymentType: 'wave', restaurantPreferences: { seatingArea: 'quiet', servicePace: 'relaxed', dietaryStyle: 'low_salt', defaultPartySize: 4 }, deliveryPreferences: { substitutionPolicy: 'contact', dropoffMethod: 'hand_delivery', preferredWindow: 'evening', callOnArrival: true, ecoPackaging: true }, notificationPreferences: { serviceUpdates: true, reservationReminders: true, deliveryTracking: true, loyaltyNews: false }, privacyPreferences: { shareAcrossServices: true, personalizedRecommendations: true, anonymousAnalytics: false }, favoriteProductIds: ['prod-yassa-poulet', 'prod-jus-gingembre'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 1840, loyaltyTier: 'signature', visits: 12, totalSpend: 426500, addresses: [{ id: 'address-aminata-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Près de la piscine olympique', instructions: 'Appeler à l’arrivée.', isDefault: true }] },
+    { id: 'customer-awa', fullName: 'Awa Diop', phone: '+221 77 200 14 14', email: 'awa.diop@example.sn', preferredLanguage: 'fr', preferredChannel: 'whatsapp', preferences: 'Produits locaux et paniers familiaux', profileConsent: true, marketingConsent: false, defaultPaymentType: 'orange_money', restaurantPreferences: { seatingArea: 'terrace', servicePace: 'standard', dietaryStyle: 'none', defaultPartySize: 2 }, deliveryPreferences: { substitutionPolicy: 'replace', dropoffMethod: 'reception', preferredWindow: 'evening', callOnArrival: true, ecoPackaging: true }, notificationPreferences: { serviceUpdates: true, reservationReminders: true, deliveryTracking: true, loyaltyNews: false }, privacyPreferences: { shareAcrossServices: true, personalizedRecommendations: true, anonymousAnalytics: false }, favoriteProductIds: ['prod-riz-5kg', 'prod-huile-1l'], lowBandwidthMode: false, householdId: 'household-diop', loyaltyPoints: 760, loyaltyTier: 'teranga', visits: 7, totalSpend: 189000, addresses: [{ id: 'address-awa-home', label: 'Maison', address: 'Point E, Dakar', zone: 'Point E / Fann', landmark: 'Immeuble beige derrière la pharmacie', instructions: 'Sonner chez Diop, 2e étage.', isDefault: true }] },
+    { id: 'customer-moussa', fullName: 'Moussa Ndiaye', phone: '+221 78 500 30 20', preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', profileConsent: true, marketingConsent: false, defaultPaymentType: 'cash', restaurantPreferences: { seatingArea: 'no_preference', servicePace: 'quick', dietaryStyle: 'halal', defaultPartySize: 3 }, deliveryPreferences: { substitutionPolicy: 'contact', dropoffMethod: 'hand_delivery', preferredWindow: 'evening', callOnArrival: true, ecoPackaging: false }, notificationPreferences: { serviceUpdates: true, reservationReminders: false, deliveryTracking: true, loyaltyNews: false }, privacyPreferences: { shareAcrossServices: false, personalizedRecommendations: false, anonymousAnalytics: false }, favoriteProductIds: ['prod-cafe-touba'], lowBandwidthMode: true, corporateAccountId: 'corporate-ndar', loyaltyPoints: 330, loyaltyTier: 'welcome', visits: 3, totalSpend: 81500, addresses: [{ id: 'address-moussa-home', label: 'Domicile', address: 'Mermoz, Dakar', zone: 'Mermoz / Sacré-Coeur', landmark: 'En face du terrain de basket', isDefault: true }] }
   ];
 
   const restaurantReservations: RestaurantTableReservation[] = [
@@ -1010,7 +1010,7 @@ const initialDB = (): DatabaseState => {
   ];
 
   const restaurantGuestOrders: RestaurantGuestOrder[] = [
-    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', status: 'served', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
+    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', intendedPaymentMethod: 'wave', status: 'served', paymentStatus: 'pending', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
   ];
 
   const sartalCustomerMessages: SartalCustomerMessage[] = [
@@ -2010,7 +2010,20 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       ? { ...baseRoom, holdUntil: undefined, holdBy: undefined, holdReservationId: undefined }
       : baseRoom;
   });
-  const pmsGuests = [...(state.pmsGuests || [])];
+  const pmsGuests = [...(state.pmsGuests || [])].map(guest => guest.id === 'guest-aminata' ? {
+    ...guest,
+    preferredLanguage: guest.preferredLanguage || 'fr' as const,
+    profileConsent: guest.profileConsent ?? true,
+    allergies: guest.allergies || 'Arachides',
+    pillowPreference: guest.pillowPreference || 'firm' as const,
+    roomTemperature: guest.roomTemperature || 'cool' as const,
+    roomLocationPreference: guest.roomLocationPreference || 'quiet' as const,
+    housekeepingPreference: guest.housekeepingPreference || 'morning' as const,
+    minibarPreference: guest.minibarPreference || 'family' as const,
+    communicationPreference: guest.communicationPreference || 'whatsapp' as const,
+    dietaryPreferences: guest.dietaryPreferences || 'Sans sucre ajouté et peu salé',
+    doNotDisturb: guest.doNotDisturb ?? false
+  } : guest);
   if (!pmsGuests.some(guest => guest.id === 'guest-coumba')) {
     pmsGuests.push({ id: 'guest-coumba', fullName: 'Coumba Diallo', phone: '+221 77 620 14 52', email: 'coumba.diallo@example.com', nationality: 'Sénégalaise', preferences: 'Étage élevé et chambre calme', stays: 2, loyaltyTier: 'silver' });
   }
@@ -2037,6 +2050,17 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     ...customer,
     preferredChannel: customer.preferredChannel || 'whatsapp' as const,
     marketingConsent: customer.marketingConsent ?? false,
+    defaultPaymentType: customer.defaultPaymentType || (customer.id === 'customer-awa' ? 'orange_money' as const : customer.id === 'customer-moussa' ? 'cash' as const : 'wave' as const),
+    restaurantPreferences: customer.restaurantPreferences || (customer.id === 'customer-aminata'
+      ? { seatingArea: 'quiet' as const, servicePace: 'relaxed' as const, dietaryStyle: 'low_salt' as const, defaultPartySize: 4 }
+      : customer.id === 'customer-awa'
+        ? { seatingArea: 'terrace' as const, servicePace: 'standard' as const, dietaryStyle: 'none' as const, defaultPartySize: 2 }
+        : { seatingArea: 'no_preference' as const, servicePace: 'quick' as const, dietaryStyle: 'halal' as const, defaultPartySize: 3 }),
+    deliveryPreferences: customer.deliveryPreferences || (customer.id === 'customer-awa'
+      ? { substitutionPolicy: 'replace' as const, dropoffMethod: 'reception' as const, preferredWindow: 'evening' as const, callOnArrival: true, ecoPackaging: true }
+      : { substitutionPolicy: 'contact' as const, dropoffMethod: 'hand_delivery' as const, preferredWindow: 'evening' as const, callOnArrival: true, ecoPackaging: customer.id === 'customer-aminata' }),
+    notificationPreferences: customer.notificationPreferences || { serviceUpdates: true, reservationReminders: customer.id !== 'customer-moussa', deliveryTracking: true, loyaltyNews: false },
+    privacyPreferences: customer.privacyPreferences || { shareAcrossServices: customer.id !== 'customer-moussa', personalizedRecommendations: customer.id !== 'customer-moussa', anonymousAnalytics: false },
     favoriteProductIds: customer.favoriteProductIds || (customer.id === 'customer-aminata' ? ['prod-yassa-poulet', 'prod-jus-gingembre'] : customer.id === 'customer-awa' ? ['prod-riz-5kg', 'prod-huile-1l'] : customer.id === 'customer-moussa' ? ['prod-cafe-touba'] : []),
     lowBandwidthMode: customer.lowBandwidthMode ?? customer.id === 'customer-moussa',
     householdId: customer.householdId || (['customer-aminata', 'customer-awa'].includes(customer.id) ? 'household-diop' : undefined),

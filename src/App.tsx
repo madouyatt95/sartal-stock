@@ -214,7 +214,7 @@ export const App: React.FC = () => {
   const guestReservationId = queryParams.get('sejour');
   if (guestReservationId !== null) {
     if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
-      return <Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main></Suspense>;
+      return <Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone requireAccess /></main></Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÉJOUR" title="Ce lien de séjour n’est plus disponible" message="Demandez un nouveau lien privé à la réception pour retrouver votre chambre, vos services et votre folio." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
@@ -235,7 +235,7 @@ export const App: React.FC = () => {
   }
   if (publicClientMode !== null) {
     if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
-      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone /></main></Suspense>;
+      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone requireAccess /></main></Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÁRTAL" title="Adresse client incorrecte" message="Le service demandé n’existe pas ou n’est plus actif. Utilisez le lien transmis par l’établissement." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }

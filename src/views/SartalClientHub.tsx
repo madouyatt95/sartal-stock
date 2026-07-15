@@ -1,18 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import {
   ArrowRight, BedDouble, Building2, CalendarCheck, CheckCircle, Clock3, Gift,
-  Heart, HeartHandshake, History, KeyRound, Languages, LockKeyhole,
+  Heart, HeartHandshake, History, KeyRound, LockKeyhole,
   MessageCircle, QrCode, ReceiptText, RefreshCw, ShieldCheck, ShoppingBag,
   Sparkles, Star, TicketCheck, Truck, UserRound, Users, UtensilsCrossed,
-  WalletCards, WifiOff
+  WalletCards
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
+import SartalClientProfileCenter from './SartalClientProfileCenter';
 
 type HubTab = 'today' | 'passport' | 'wallet' | 'history';
 
 interface SartalClientHubProps {
   state: StockState;
   customerId: string;
+  initialTab?: HubTab;
   onOpenRestaurant: () => void;
   onOpenDelivery: () => void;
   onMessage: (message: string) => void;
@@ -21,28 +23,18 @@ interface SartalClientHubProps {
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
 const formatMoment = (value: string) => new Date(value).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-export const SartalClientHub: React.FC<SartalClientHubProps> = ({ state, customerId, onOpenRestaurant, onOpenDelivery, onMessage }) => {
+export const SartalClientHub: React.FC<SartalClientHubProps> = ({ state, customerId, initialTab = 'today', onOpenRestaurant, onOpenDelivery, onMessage }) => {
   const {
-    db, updateSartalCustomerProfile, createSartalClientAccess, requestSartalService,
+    db, createSartalClientAccess, requestSartalService,
     redeemSartalPoints, reorderDeliveryOrder, toggleFavoriteProduct,
     toggleSartalRecurringOrder, runSartalRecurringOrder, joinRestaurantWaitlist,
-    toggleLowBandwidthMode, transferSartalHouseholdPoints, syncSartalOfflineActions
+    transferSartalHouseholdPoints
   } = state;
   const restaurantEnabled = db.sartalBrandSettings.enabledModules.includes('restaurant');
   const deliveryEnabled = db.sartalBrandSettings.enabledModules.includes('delivery');
   const pmsEnabled = db.sartalBrandSettings.enabledModules.includes('pms');
   const customer = db.sartalCustomers.find(item => item.id === customerId);
-  const [tab, setTab] = useState<HubTab>('today');
-  const [profile, setProfile] = useState(() => ({
-    fullName: customer?.fullName || '',
-    email: customer?.email || '',
-    preferredLanguage: customer?.preferredLanguage || 'fr' as const,
-    preferredChannel: customer?.preferredChannel || 'whatsapp' as const,
-    preferences: customer?.preferences || '',
-    allergies: customer?.allergies || '',
-    profileConsent: customer?.profileConsent ?? false,
-    marketingConsent: customer?.marketingConsent ?? false
-  }));
+  const [tab, setTab] = useState<HubTab>(initialTab);
 
   const restaurantOrder = restaurantEnabled ? db.restaurantGuestOrders.find(item => item.customerId === customerId && !['paid', 'cancelled'].includes(item.status)) || db.restaurantGuestOrders.find(item => item.customerId === customerId) : undefined;
   const restaurantReservation = restaurantEnabled ? db.restaurantReservations.find(item => item.customerId === customerId && ['confirmed', 'seated'].includes(item.status)) : undefined;
@@ -60,7 +52,6 @@ export const SartalClientHub: React.FC<SartalClientHubProps> = ({ state, custome
   const waitlistEntry = restaurantEnabled ? db.restaurantWaitlist.find(item => item.customerId === customerId && ['waiting', 'notified'].includes(item.status)) : undefined;
   const household = db.sartalHouseholds.find(item => item.id === customer?.householdId);
   const corporateAccount = db.sartalCorporateAccounts.find(item => item.id === customer?.corporateAccountId);
-  const queuedOfflineActions = db.sartalOfflineActions.filter(item => item.customerId === customerId && item.status === 'queued');
 
   const timeline = useMemo(() => {
     const events: Array<{ id: string; date: string; icon: React.ReactNode; title: string; detail: string; tone: string }> = [];
@@ -86,10 +77,6 @@ export const SartalClientHub: React.FC<SartalClientHubProps> = ({ state, custome
   const issueAccess = (channel: 'qr' | 'whatsapp' | 'sms') => {
     const access = createSartalClientAccess(customer.id, channel);
     onMessage(`${channel === 'qr' ? 'QR personnel' : channel === 'whatsapp' ? 'Lien WhatsApp' : 'Code SMS'} créé · code ${access.code}, valable 30 min.`);
-  };
-  const saveProfile = () => {
-    updateSartalCustomerProfile(customer.id, profile);
-    onMessage('Votre passeport Sártal a été mis à jour avec votre consentement.');
   };
   const askReception = () => {
     const context = pmsReservation ? 'hotel' : restaurantEnabled ? 'restaurant' : 'delivery';
@@ -163,7 +150,7 @@ export const SartalClientHub: React.FC<SartalClientHubProps> = ({ state, custome
 
     {tab === 'passport' && <section className="sartal-passport-layout">
       <aside><div className="sartal-passport-monogram">{customer.fullName.split(' ').map(part => part[0]).join('').slice(0, 2)}</div><span>PASSEPORT SÁRTAL</span><h2>{customer.fullName}</h2><p>Depuis {customer.visits} visite(s)</p><div><strong>{customer.loyaltyTier}</strong><small>{customer.loyaltyPoints} points</small></div><ShieldCheck size={22} /></aside>
-      <div className="sartal-passport-form"><header><UserRound size={22} /><div><h2>Ce que les équipes peuvent connaître</h2><p>Vous gardez la main sur les informations mémorisées.</p></div></header><div className="client-form-grid"><label>Nom complet<input className="form-control" value={profile.fullName} onChange={event => setProfile({ ...profile, fullName: event.target.value })} /></label><label>E-mail<input className="form-control" value={profile.email} onChange={event => setProfile({ ...profile, email: event.target.value })} /></label><label><Languages size={14} /> Langue<select className="form-control" value={profile.preferredLanguage} onChange={event => setProfile({ ...profile, preferredLanguage: event.target.value as typeof profile.preferredLanguage })}><option value="fr">Français</option><option value="wo">Wolof</option><option value="en">English</option></select></label><label>Canal préféré<select className="form-control" value={profile.preferredChannel} onChange={event => setProfile({ ...profile, preferredChannel: event.target.value as typeof profile.preferredChannel })}><option value="whatsapp">WhatsApp</option><option value="sms">SMS</option><option value="email">E-mail</option><option value="portal">Portail uniquement</option></select></label></div><label>Mes préférences<textarea className="form-control" value={profile.preferences} onChange={event => setProfile({ ...profile, preferences: event.target.value })} /></label><label>Allergies et besoins importants<input className="form-control" value={profile.allergies} onChange={event => setProfile({ ...profile, allergies: event.target.value })} /></label><div className="sartal-consent-row"><label><input type="checkbox" checked={profile.profileConsent} onChange={event => setProfile({ ...profile, profileConsent: event.target.checked })} /><span><strong>Mémoire de service</strong><small>Autoriser les équipes à retrouver vos préférences.</small></span></label><label><input type="checkbox" checked={profile.marketingConsent} onChange={event => setProfile({ ...profile, marketingConsent: event.target.checked })} /><span><strong>Offres personnalisées</strong><small>Recevoir uniquement les attentions qui vous correspondent.</small></span></label></div><div className="sartal-low-data"><WifiOff size={19} /><span><strong>Mode réseau faible</strong><small>Allège les images et garde les actions essentielles disponibles · {queuedOfflineActions.length} action(s) à synchroniser.</small></span><div><button className={customer.lowBandwidthMode ? 'active' : ''} onClick={() => { toggleLowBandwidthMode(customer.id, !customer.lowBandwidthMode); onMessage(!customer.lowBandwidthMode ? 'Mode léger activé.' : 'Mode complet réactivé.'); }}>{customer.lowBandwidthMode ? 'Activé' : 'Activer'}</button>{queuedOfflineActions.length > 0 && <button onClick={() => { const count = syncSartalOfflineActions(); onMessage(`${count} action(s) synchronisée(s).`); }}>Synchroniser</button>}</div></div><button className="btn btn-primary" onClick={saveProfile}>Enregistrer mes choix</button></div>
+      <SartalClientProfileCenter state={state} customer={customer} restaurantEnabled={restaurantEnabled} deliveryEnabled={deliveryEnabled} onMessage={onMessage} />
     </section>}
 
     {tab === 'wallet' && <section className="sartal-wallet-layout">

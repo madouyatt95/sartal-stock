@@ -259,6 +259,13 @@ export interface ExternalSale {
     folioId?: string;
     amount: number;
   };
+  paymentStatus?: 'pending' | 'partial' | 'paid';
+  paymentBreakdown?: Array<{
+    amount: number;
+    method: PaymentType;
+    payerName?: string;
+    paidAt: string;
+  }>;
   exportedToPms: boolean;
   date: string;
 }
@@ -341,6 +348,34 @@ export interface SartalCustomerAddress {
   isDefault: boolean;
 }
 
+export interface SartalRestaurantPreferences {
+  seatingArea: 'no_preference' | 'quiet' | 'terrace' | 'accessible';
+  servicePace: 'relaxed' | 'standard' | 'quick';
+  dietaryStyle: 'none' | 'vegetarian' | 'halal' | 'low_salt';
+  defaultPartySize: number;
+}
+
+export interface SartalDeliveryPreferences {
+  substitutionPolicy: 'contact' | 'replace' | 'refund';
+  dropoffMethod: 'hand_delivery' | 'doorstep' | 'reception';
+  preferredWindow: 'morning' | 'afternoon' | 'evening';
+  callOnArrival: boolean;
+  ecoPackaging: boolean;
+}
+
+export interface SartalNotificationPreferences {
+  serviceUpdates: boolean;
+  reservationReminders: boolean;
+  deliveryTracking: boolean;
+  loyaltyNews: boolean;
+}
+
+export interface SartalPrivacyPreferences {
+  shareAcrossServices: boolean;
+  personalizedRecommendations: boolean;
+  anonymousAnalytics: boolean;
+}
+
 export interface SartalCustomer {
   id: string;
   fullName: string;
@@ -353,6 +388,12 @@ export interface SartalCustomer {
   allergies?: string;
   profileConsent: boolean;
   marketingConsent?: boolean;
+  guestSession?: boolean;
+  defaultPaymentType?: PaymentType;
+  restaurantPreferences?: SartalRestaurantPreferences;
+  deliveryPreferences?: SartalDeliveryPreferences;
+  notificationPreferences?: SartalNotificationPreferences;
+  privacyPreferences?: SartalPrivacyPreferences;
   favoriteProductIds?: string[];
   lowBandwidthMode?: boolean;
   householdId?: string;
@@ -407,7 +448,10 @@ export interface RestaurantGuestOrder {
   folioId?: string;
   roomNumber?: string;
   serviceType: 'dine_in' | 'takeaway' | 'room_service';
+  intendedPaymentMethod?: PaymentType;
   status: 'placed' | 'confirmed' | 'preparing' | 'ready' | 'served' | 'paid' | 'cancelled';
+  paymentStatus?: 'pending' | 'partial' | 'paid';
+  loyaltyCreditedAt?: string;
   items: RestaurantGuestOrderItem[];
   payments: RestaurantGuestOrderPayment[];
   total: number;
@@ -484,6 +528,8 @@ export interface RestaurantGuestInvite {
   phone: string;
   status: 'invited' | 'joined' | 'paid';
   shareAmount: number;
+  paidAmount?: number;
+  paymentMethod?: PaymentType;
   accessCode: string;
   invitedAt: string;
   paidAt?: string;
@@ -773,6 +819,14 @@ export interface PMSGuest {
   profileConsent?: boolean;
   allergies?: string;
   pillowPreference?: 'soft' | 'firm' | 'none';
+  roomTemperature?: 'cool' | 'balanced' | 'warm';
+  roomLocationPreference?: 'quiet' | 'high_floor' | 'near_elevator' | 'accessible';
+  housekeepingPreference?: 'morning' | 'afternoon' | 'on_request';
+  minibarPreference?: 'standard' | 'empty' | 'family';
+  communicationPreference?: 'whatsapp' | 'sms' | 'email' | 'portal';
+  dietaryPreferences?: string;
+  accessibilityNeeds?: string;
+  doNotDisturb?: boolean;
   returnStayRequestedAt?: string;
 }
 

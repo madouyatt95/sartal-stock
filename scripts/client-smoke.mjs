@@ -23,6 +23,7 @@ try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
   const { getDB, saveDB } = await server.ssrLoadModule('/src/db.ts');
   const { SartalClient } = await server.ssrLoadModule('/src/views/SartalClient.tsx');
+  const { SartalClientHub } = await server.ssrLoadModule('/src/views/SartalClientHub.tsx');
   const { CustomerExperienceCockpit } = await server.ssrLoadModule('/src/views/CustomerExperienceCockpit.tsx');
   const { GuidedDemo } = await server.ssrLoadModule('/src/views/GuidedDemo.tsx');
   const { Settings } = await server.ssrLoadModule('/src/views/Settings.tsx');
@@ -37,6 +38,8 @@ try {
   ['Mon Sártal', 'À table', 'Réserver', 'La carte', 'Ma table'].forEach(marker => assert(restaurantHtml.includes(marker), `Parcours restaurant incomplet : ${marker}`));
   assert(restaurantHtml.includes('Votre table, à votre façon'), 'Accueil personnalisé du restaurant absent');
   assert(!restaurantHtml.includes('Quitter'), 'Le portail client ne doit pas revenir vers le back-office par l’historique navigateur');
+  const restaurantAccessHtml = renderToStaticMarkup(React.createElement(SartalClient, { state, initialMode: 'restaurant', standalone: true, requireAccess: true }));
+  ['Reconnaissance par téléphone', 'Recevoir mon code', 'Vos préférences restent sous votre contrôle'].forEach(marker => assert(restaurantAccessHtml.includes(marker), `Accès restaurant incomplet : ${marker}`));
 
   const deliveryHtml = renderToStaticMarkup(React.createElement(StateHarness, { mode: 'delivery' }));
   ['Mon Sártal', 'Boutique', 'Panier', 'Suivi', 'Aide'].forEach(marker => assert(deliveryHtml.includes(marker), `Parcours livraison incomplet : ${marker}`));
@@ -45,6 +48,10 @@ try {
 
   const hubHtml = renderToStaticMarkup(React.createElement(SartalClient, { state, initialMode: 'restaurant', initialCustomerId: 'customer-aminata', initialHub: true, standalone: true }));
   ['Mon Sártal', 'Aujourd', 'Passeport', 'Portefeuille', 'Mon histoire', 'Entrer sans mot de passe', 'Ma journée Sártal', 'Mes favoris', 'Commande récurrente'].forEach(marker => assert(hubHtml.includes(marker), `Espace client universel incomplet : ${marker}`));
+  const profileHtml = renderToStaticMarkup(React.createElement(SartalClientHub, { state, customerId: 'customer-aminata', initialTab: 'passport', onOpenRestaurant: () => {}, onOpenDelivery: () => {}, onMessage: () => {} }));
+  ['Mes réglages', 'Restaurant', 'Livraison', 'Adresses', 'Notifications', 'Confidentialité'].forEach(marker => assert(profileHtml.includes(marker), `Réglages client incomplets : ${marker}`));
+  const profileSource = readFileSync(new URL('../src/views/SartalClientProfileCenter.tsx', import.meta.url), 'utf8');
+  ['Mon expérience restaurant', 'Mes habitudes de livraison', 'Mes adresses de livraison', 'Confidentialité et appareils'].forEach(marker => assert(profileSource.includes(marker), `Centre de préférences incomplet : ${marker}`));
   const cockpitHtml = renderToStaticMarkup(React.createElement(CustomerExperienceCockpit, { state }));
   ['PILOTAGE CLIENTS · ÉQUIPE INTERNE', 'Brief avant service', 'Parcours en cours', 'Demandes à tenir', 'Ne laisser personne déçu', 'Occasions spéciales', 'Liste d’attente intelligente'].forEach(marker => assert(cockpitHtml.includes(marker), `Cockpit expérience client incomplet : ${marker}`));
   const guidedHtml = renderToStaticMarkup(React.createElement(GuidedDemo, { state, setView: () => {} }));
@@ -56,14 +63,39 @@ try {
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   ['PublicAccessError', 'guestReservationId !== null', 'publicAccessToken !== null', 'publicClientMode !== null'].forEach(marker => assert(appSource.includes(marker), `Protection des routes publiques absente : ${marker}`));
   assert(appSource.includes('if (!accessCustomer)'), 'un jeton orphelin ne doit jamais ouvrir le profil d’un autre client');
+  assert((appSource.match(/requireAccess/g) || []).length >= 2, 'Les accès publics client et séjour doivent exiger une vérification');
   const clientSource = readFileSync(new URL('../src/views/SartalClient.tsx', import.meta.url), 'utf8');
   assert(!clientSource.includes('|| db.sartalCustomers[0]'), 'un profil absent ne doit jamais retomber sur le premier client');
-  ['PANIER PARTAGÉ', 'Choisir un créneau réel', 'Modifier ma commande', 'VOTRE CHOIX EST ATTENDU', 'Livraison+'].forEach(marker => assert(clientSource.includes(marker), `Expérience livraison incomplète : ${marker}`));
+  ['PANIER PARTAGÉ', 'Choisir un créneau réel', 'Modifier ma commande', 'VOTRE CHOIX EST ATTENDU', 'Livraison+', 'Adresse requise'].forEach(marker => assert(clientSource.includes(marker), `Expérience livraison incomplète : ${marker}`));
+  ['Mon panier en direct', 'Partager l’addition librement', 'Régler cette part', 'inviteShareAmount', 'appendRestaurantGuestOrderItems'].forEach(marker => assert(clientSource.includes(marker), `Expérience restaurant en direct incomplète : ${marker}`));
 
   let db = getDB();
   ['sartalJourneyItems', 'sartalOccasionPlans', 'sartalHouseholds', 'sartalCorporateAccounts', 'sartalRecurringOrders', 'restaurantWaitlist', 'sartalRecoveryPlaybooks', 'sartalOfflineActions', 'sartalDemoRuns'].forEach(collection => assert(Array.isArray(db[collection]), `Collection expérience absente : ${collection}`));
   const customer = db.sartalCustomers.find(item => item.id === 'customer-awa');
   const restaurant = db.posList.find(item => item.type === 'restaurant');
+
+  const firstVisitCustomerId = state.findOrCreateSartalCustomer({ fullName: 'Khady Ndiaye', phone: '+221 77 321 45 67' });
+  assert(state.findOrCreateSartalCustomer({ fullName: 'Khady N.', phone: '+221 77 321 45 67' }) === firstVisitCustomerId, 'Un téléphone vérifié ne doit pas créer un second profil');
+  state.updateSartalCustomerProfile(firstVisitCustomerId, {
+    restaurantPreferences: { seatingArea: 'terrace', servicePace: 'relaxed', dietaryStyle: 'halal', defaultPartySize: 4 },
+    deliveryPreferences: { substitutionPolicy: 'refund', dropoffMethod: 'reception', preferredWindow: 'evening', callOnArrival: true, ecoPackaging: true },
+    notificationPreferences: { serviceUpdates: true, reservationReminders: true, deliveryTracking: true, loyaltyNews: false },
+    privacyPreferences: { shareAcrossServices: false, personalizedRecommendations: true, anonymousAnalytics: false },
+    defaultPaymentType: 'orange_money'
+  });
+  const firstAddressId = state.saveSartalCustomerAddress(firstVisitCustomerId, { label: 'Maison', address: 'Rue 12, Point E', zone: 'Point E / Fann', landmark: 'Près de la pharmacie', instructions: 'Appeler à l’arrivée', isDefault: true });
+  await new Promise(resolve => setTimeout(resolve, 2));
+  const secondAddressId = state.saveSartalCustomerAddress(firstVisitCustomerId, { label: 'Bureau', address: 'Route des Almadies', zone: 'Ouakam / Almadies', landmark: 'Immeuble Horizon', instructions: 'Remettre à l’accueil', isDefault: false });
+  state.setDefaultSartalCustomerAddress(firstVisitCustomerId, secondAddressId);
+  state.deleteSartalCustomerAddress(firstVisitCustomerId, firstAddressId);
+  const firstVisitCustomer = getDB().sartalCustomers.find(item => item.id === firstVisitCustomerId);
+  assert(firstVisitCustomer.addresses.length === 1 && firstVisitCustomer.addresses[0].isDefault, 'Gestion des adresses client incohérente');
+  assert(firstVisitCustomer.restaurantPreferences.defaultPartySize === 4 && firstVisitCustomer.defaultPaymentType === 'orange_money', 'Préférences métier du client non conservées');
+  const firstVisitAccess = state.createSartalClientAccess(firstVisitCustomerId, 'sms');
+  state.revokeSartalClientAccess(firstVisitAccess.id);
+  assert(getDB().sartalClientAccess.find(item => item.id === firstVisitAccess.id).status === 'expired', 'Session client non révoquée');
+  const guestSessionId = state.createSartalGuestSession('Client table T12');
+  assert(getDB().sartalCustomers.find(item => item.id === guestSessionId).guestSession === true, 'Accès restaurant sans profil non créé');
 
   const journey = db.sartalJourneyItems.find(item => item.customerId === 'customer-aminata' && item.status === 'in_progress');
   state.updateSartalJourneyItemStatus(journey.id, 'completed');
@@ -120,14 +152,38 @@ try {
   assert(getDB().sartalOccasionPlans.some(item => item.reservationId === reservationId && item.checklist.length === 3), 'Préparation d’occasion non créée avec la réservation');
 
   const stockBefore = getDB().stocks.find(item => item.productId === 'prod-coca' && item.warehouseId === restaurant.defaultWarehouseId).quantityAvailable;
+  const loyaltyBeforeRestaurantOrder = getDB().sartalCustomers.find(item => item.id === customer.id).loyaltyPoints;
   const restaurantOrderId = state.placeRestaurantGuestOrder({ customerId: customer.id, posId: restaurant.id, reservationId, tableNumber: 'T08', serviceType: 'dine_in', items: [{ productId: 'prod-coca', quantity: 1 }], paymentMethod: 'wave' });
   db = getDB();
-  assert(db.restaurantGuestOrders.some(item => item.id === restaurantOrderId), 'Commande restaurant client non enregistrée');
+  const initialRestaurantOrder = db.restaurantGuestOrders.find(item => item.id === restaurantOrderId);
+  assert(initialRestaurantOrder?.paymentStatus === 'pending' && initialRestaurantOrder.payments.length === 0, 'Commande à table encaissée avant le partage de l’addition');
   assert(db.stocks.find(item => item.productId === 'prod-coca' && item.warehouseId === restaurant.defaultWarehouseId).quantityAvailable === stockBefore - 1, 'Commande restaurant non déduite du bon dépôt');
   assert(db.movements.some(item => item.externalReference === restaurantOrderId), 'Mouvement stock de la commande restaurant absent');
+  const additionTotal = state.appendRestaurantGuestOrderItems(restaurantOrderId, customer.id, [{ productId: 'prod-coca', quantity: 1, note: 'Très frais' }]);
+  state.updateRestaurantGuestOrderItemNote(restaurantOrderId, customer.id, 'prod-coca', 'Sans glaçons · allergie vérifiée');
+  db = getDB();
+  const supplementedOrder = db.restaurantGuestOrders.find(item => item.id === restaurantOrderId);
+  assert(supplementedOrder.total === initialRestaurantOrder.total + additionTotal, 'Total du panier restaurant non actualisé après ajout');
+  assert(db.stocks.find(item => item.productId === 'prod-coca' && item.warehouseId === restaurant.defaultWarehouseId).quantityAvailable === stockBefore - 2, 'Complément restaurant non déduit du stock réel');
+  assert(supplementedOrder.items.find(item => item.productId === 'prod-coca').note.includes('Sans glaçons'), 'Consigne client non transmise au ticket');
+  assert(db.sartalCustomers.find(item => item.id === customer.id).loyaltyPoints === loyaltyBeforeRestaurantOrder, 'Fidélité créditée avant le règlement de l’addition');
   state.updateRestaurantGuestOrderStatus(restaurantOrderId, 'preparing');
+  let lateAdditionBlocked = false;
+  try { state.appendRestaurantGuestOrderItems(restaurantOrderId, customer.id, [{ productId: 'prod-coca', quantity: 1 }]); } catch { lateAdditionBlocked = true; }
+  assert(lateAdditionBlocked, 'La commande reste modifiable après le démarrage de la cuisine');
   state.updateRestaurantGuestOrderStatus(restaurantOrderId, 'ready');
   assert(getDB().restaurantGuestOrders.find(item => item.id === restaurantOrderId).readyAt, 'Suivi cuisine non mis à jour');
+  state.updateRestaurantGuestOrderStatus(restaurantOrderId, 'served');
+  const payableRestaurantOrder = getDB().restaurantGuestOrders.find(item => item.id === restaurantOrderId);
+  const firstShare = Math.max(1, Math.floor(payableRestaurantOrder.total * 0.35));
+  state.addRestaurantGuestOrderPayment(restaurantOrderId, firstShare, 'wave', 'Awa');
+  state.addRestaurantGuestOrderPayment(restaurantOrderId, payableRestaurantOrder.total, 'orange_money', 'Fatou');
+  const paidRestaurantOrder = getDB().restaurantGuestOrders.find(item => item.id === restaurantOrderId);
+  assert(paidRestaurantOrder.status === 'paid' && paidRestaurantOrder.paymentStatus === 'paid', 'Addition à table non clôturée après règlement complet');
+  assert(paidRestaurantOrder.payments.some(item => item.payerName === 'Awa' && item.amount === firstShare && item.method === 'wave'), 'Montant libre du premier payeur non conservé');
+  assert(paidRestaurantOrder.payments.some(item => item.payerName === 'Fatou' && item.method === 'orange_money'), 'Second moyen de paiement non conservé');
+  assert(new Set(paidRestaurantOrder.payments.map(item => item.id)).size === paidRestaurantOrder.payments.length, 'Identifiants de paiements restaurant dupliqués');
+  assert(getDB().sartalCustomers.find(item => item.id === customer.id).loyaltyPoints === loyaltyBeforeRestaurantOrder + Math.floor(payableRestaurantOrder.total / 500), 'Fidélité non créditée après le paiement complet');
 
   state.updateSartalCustomerProfile(customer.id, { preferredLanguage: 'wo', preferredChannel: 'sms', preferences: 'Livraison après 18 h', marketingConsent: false });
   assert(getDB().sartalCustomers.find(item => item.id === customer.id).preferredChannel === 'sms', 'Passeport client non mis à jour');
@@ -142,9 +198,10 @@ try {
   assert(state.escalateOverdueSartalRequests() >= 1 && getDB().sartalServiceRequests.find(item => item.id === serviceRequestId).assignedTo === 'Responsable expérience client', 'SLA dépassé non escaladé');
 
   const groupOrder = getDB().restaurantGuestOrders.find(item => item.id === 'REST-CLIENT-204');
-  const inviteId = state.inviteRestaurantGuest(groupOrder.id, { fullName: 'Astou Diop', phone: '+221 77 111 22 33' });
+  const inviteId = state.inviteRestaurantGuest(groupOrder.id, { fullName: 'Astou Diop', phone: '+221 77 111 22 33', shareAmount: 3200 });
   const invitedAmount = state.payRestaurantGuestShare(inviteId, 'orange_money');
-  assert(invitedAmount > 0 && getDB().restaurantGuestInvites.find(item => item.id === inviteId).status === 'paid', 'Paiement invité non enregistré');
+  const paidInvite = getDB().restaurantGuestInvites.find(item => item.id === inviteId);
+  assert(invitedAmount === 3200 && paidInvite.status === 'paid' && paidInvite.paidAmount === 3200 && paidInvite.paymentMethod === 'orange_money', 'Montant exact du paiement invité non enregistré');
   const voiceMessageId = state.sendSartalCustomerMessage(customer.id, 'restaurant', 'Note vocale envoyée', restaurantOrderId, 'voice', 'Note vocale · 12 sec');
   assert(getDB().sartalCustomerMessages.find(item => item.id === voiceMessageId).channel === 'voice', 'Message vocal non conservé');
 
@@ -220,7 +277,7 @@ try {
   state.cancelRestaurantReservation(reservationId);
   assert(getDB().restaurantReservations.find(item => item.id === reservationId).status === 'cancelled', 'Annulation autonome de réservation non enregistrée');
 
-  console.log('Sártal Client smoke test: 20 axes premium et 68 contrôles fonctionnels validés.');
+  console.log('Sártal Client smoke test: 20 axes premium et plus de 80 contrôles fonctionnels validés.');
 } finally {
   await server.close();
 }

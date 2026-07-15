@@ -35,7 +35,7 @@ import {
   Warehouse
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
-import { PAYMENT_TYPE_LABELS, PMSReservation, PMSServiceRequest } from '../types';
+import { PAYMENT_TYPE_LABELS, PMSGuest, PMSReservation, PMSServiceRequest } from '../types';
 import { buildPMSUnifiedJourney, PMSJourneyEventType } from '../utils/pmsUnifiedJourney';
 
 interface PMSPanelProps { state: StockState; }
@@ -158,9 +158,69 @@ const portalFormFor = (db: StockState['db'], reservation?: PMSReservation) => {
   };
 };
 
-type GuestPortalTab = 'home' | 'services' | 'concierge' | 'stay' | 'departure';
+interface PMSGuestAccessGatewayProps {
+  db: StockState['db'];
+  reservation: PMSReservation;
+  guest: PMSGuest;
+  onAuthenticated: () => void;
+}
 
-export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReservationId?: string; standalone?: boolean }> = ({ state, initialReservationId, standalone = false }) => {
+const PMSGuestAccessGateway: React.FC<PMSGuestAccessGatewayProps> = ({ db, reservation, guest, onAuthenticated }) => {
+  const [step, setStep] = useState<'identity' | 'verification'>('identity');
+  const [phone, setPhone] = useState('+221 ');
+  const [code, setCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
+  const [error, setError] = useState('');
+  const normalizedGuestPhone = guest.phone.replace(/\D/g, '').slice(-9);
+
+  const sendCode = () => {
+    const normalizedPhone = phone.replace(/\D/g, '').slice(-9);
+    if (normalizedPhone.length !== 9 || normalizedPhone !== normalizedGuestPhone) {
+      setError('Ce numéro ne correspond pas à la réservation. Vérifiez-le ou contactez la réception.');
+      return;
+    }
+    setGeneratedCode(String(Math.floor(1000 + Math.random() * 9000)));
+    setCode('');
+    setError('');
+    setStep('verification');
+  };
+
+  const verifyCode = () => {
+    if (code !== generatedCode) {
+      setError('Le code saisi ne correspond pas au code reçu.');
+      return;
+    }
+    onAuthenticated();
+  };
+
+  return <main className="pms-guest-access-gateway">
+    <section className="pms-guest-access-visual">
+      <img src="./pms-room-categories.jpg" alt="Chambre préparée pour le séjour" />
+      <div><span><BedDouble size={17} /> {db.pmsSettings.hotelName}</span><h1>Votre séjour commence ici</h1><p>Préparez votre arrivée, suivez votre chambre, échangez avec la réception et gardez la main sur vos préférences.</p></div>
+    </section>
+    <section className="pms-guest-access-panel">
+      <header><img src="./brand-mark.svg" alt="Sártal" /><div><span>MON SÉJOUR</span><strong>Réservation ••••{reservation.confirmationNumber.slice(-4)}</strong></div></header>
+      {step === 'identity' ? <div className="pms-guest-access-form">
+        <div className="pms-guest-access-promise"><ShieldCheck size={20} /><span><strong>Accès privé</strong><small>Confirmez le téléphone utilisé lors de la réservation. Aucun mot de passe à mémoriser.</small></span></div>
+        <label>Numéro de téléphone<input type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="+221 77 000 00 00" /></label>
+        {error && <p className="pms-guest-access-error">{error}</p>}
+        <button className="pms-guest-access-primary" onClick={sendCode}><Smartphone size={17} /> Recevoir mon code <ArrowRight size={17} /></button>
+        <small>Les informations du séjour ne sont affichées qu’après cette vérification.</small>
+      </div> : <div className="pms-guest-access-form verification">
+        <button className="pms-guest-access-back" onClick={() => { setStep('identity'); setError(''); }}>Modifier le numéro</button>
+        <div className="pms-guest-access-code"><Smartphone size={23} /><span>Code reçu</span><strong>{generatedCode}</strong><small>Valable pendant 5 minutes</small></div>
+        <label>Code à 4 chiffres<input autoFocus inputMode="numeric" maxLength={4} value={code} onChange={event => setCode(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="0000" /></label>
+        {error && <p className="pms-guest-access-error">{error}</p>}
+        <button className="pms-guest-access-primary" disabled={code.length !== 4} onClick={verifyCode}><ShieldCheck size={17} /> Ouvrir mon séjour <ArrowRight size={17} /></button>
+      </div>}
+      <footer><MessageCircle size={15} /> Besoin d’aide ? {db.sartalBrandSettings.supportPhone}</footer>
+    </section>
+  </main>;
+};
+
+type GuestPortalTab = 'home' | 'services' | 'concierge' | 'stay' | 'profile' | 'departure';
+
+export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReservationId?: string; standalone?: boolean; requireAccess?: boolean }> = ({ state, initialReservationId, standalone = false, requireAccess = false }) => {
   const {
     db, completePMSPreCheckIn, addPMSServiceRequest, addPMSReservationPayment, processSale,
     updatePMSGuestExperienceProfile, sendPMSGuestMessage, addPMSStayCompanion, sharePMSDoorKey,
@@ -168,8 +228,10 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
   } = state;
   const active = db.pmsReservations.filter(item => ['confirmed', 'checked_in', 'checked_out'].includes(item.status));
   const initial = active.find(item => item.id === initialReservationId) || active.find(item => item.status === 'confirmed') || active[0];
+  const initialGuest = initial ? db.pmsGuests.find(item => item.id === initial.guestId) : undefined;
   const [reservationId, setReservationId] = useState(initial?.id || '');
   const [tab, setTab] = useState<GuestPortalTab>('home');
+  const [accessGranted, setAccessGranted] = useState(!requireAccess);
   const reservation = db.pmsReservations.find(item => item.id === reservationId);
   const guest = db.pmsGuests.find(item => item.id === reservation?.guestId);
   const room = db.pmsRooms.find(item => item.id === reservation?.roomId);
@@ -188,11 +250,19 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
   const [feedbackScore, setFeedbackScore] = useState(5);
   const [feedbackNote, setFeedbackNote] = useState('');
   const [companionForm, setCompanionForm] = useState({ fullName: '', phone: '', relationship: 'Accompagnant' });
-  const [language, setLanguage] = useState<'fr' | 'en' | 'wo'>(initial ? db.pmsGuests.find(item => item.id === initial.guestId)?.preferredLanguage || 'fr' : 'fr');
+  const [language, setLanguage] = useState<'fr' | 'en' | 'wo'>(initialGuest?.preferredLanguage || 'fr');
   const [lowData, setLowData] = useState(false);
-  const [profileConsent, setProfileConsent] = useState(initial ? db.pmsGuests.find(item => item.id === initial.guestId)?.profileConsent ?? true : true);
-  const [allergies, setAllergies] = useState(initial ? db.pmsGuests.find(item => item.id === initial.guestId)?.allergies || '' : '');
-  const [pillowPreference, setPillowPreference] = useState<'soft' | 'firm' | 'none'>(initial ? db.pmsGuests.find(item => item.id === initial.guestId)?.pillowPreference || 'none' : 'none');
+  const [profileConsent, setProfileConsent] = useState(initialGuest?.profileConsent ?? true);
+  const [allergies, setAllergies] = useState(initialGuest?.allergies || '');
+  const [pillowPreference, setPillowPreference] = useState<'soft' | 'firm' | 'none'>(initialGuest?.pillowPreference || 'none');
+  const [roomTemperature, setRoomTemperature] = useState<NonNullable<PMSGuest['roomTemperature']>>(initialGuest?.roomTemperature || 'balanced');
+  const [roomLocationPreference, setRoomLocationPreference] = useState<NonNullable<PMSGuest['roomLocationPreference']>>(initialGuest?.roomLocationPreference || 'quiet');
+  const [housekeepingPreference, setHousekeepingPreference] = useState<NonNullable<PMSGuest['housekeepingPreference']>>(initialGuest?.housekeepingPreference || 'morning');
+  const [minibarPreference, setMinibarPreference] = useState<NonNullable<PMSGuest['minibarPreference']>>(initialGuest?.minibarPreference || 'standard');
+  const [communicationPreference, setCommunicationPreference] = useState<NonNullable<PMSGuest['communicationPreference']>>(initialGuest?.communicationPreference || 'whatsapp');
+  const [dietaryPreferences, setDietaryPreferences] = useState(initialGuest?.dietaryPreferences || '');
+  const [accessibilityNeeds, setAccessibilityNeeds] = useState(initialGuest?.accessibilityNeeds || '');
+  const [doNotDisturb, setDoNotDisturb] = useState(initialGuest?.doNotDisturb ?? false);
 
   const chooseReservation = (id: string) => {
     const next = db.pmsReservations.find(item => item.id === id);
@@ -203,6 +273,14 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
     setProfileConsent(nextGuest?.profileConsent ?? true);
     setAllergies(nextGuest?.allergies || '');
     setPillowPreference(nextGuest?.pillowPreference || 'none');
+    setRoomTemperature(nextGuest?.roomTemperature || 'balanced');
+    setRoomLocationPreference(nextGuest?.roomLocationPreference || 'quiet');
+    setHousekeepingPreference(nextGuest?.housekeepingPreference || 'morning');
+    setMinibarPreference(nextGuest?.minibarPreference || 'standard');
+    setCommunicationPreference(nextGuest?.communicationPreference || 'whatsapp');
+    setDietaryPreferences(nextGuest?.dietaryPreferences || '');
+    setAccessibilityNeeds(nextGuest?.accessibilityNeeds || '');
+    setDoNotDisturb(nextGuest?.doNotDisturb ?? false);
     setTab('home');
     setMessage('');
   };
@@ -235,8 +313,32 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
     setMessage(activeKey ? 'Invitation envoyée avec un accès mobile à la chambre.' : 'Invitation envoyée. La clé pourra être partagée après le check-in.');
   };
   const saveExperienceProfile = () => {
-    updatePMSGuestExperienceProfile(reservationId, { preferredLanguage: language, profileConsent, allergies, pillowPreference, preferences: form.preferences });
+    updatePMSGuestExperienceProfile(reservationId, {
+      preferredLanguage: language, profileConsent, allergies, pillowPreference, preferences: form.preferences,
+      roomTemperature, roomLocationPreference, housekeepingPreference, minibarPreference,
+      communicationPreference, dietaryPreferences, accessibilityNeeds, doNotDisturb
+    });
     setMessage(profileConsent ? 'Vos préférences seront retrouvées lors de votre prochain séjour.' : 'Vos préférences restent limitées à ce séjour.');
+  };
+  const clearExperienceProfile = () => {
+    setProfileConsent(false);
+    setAllergies('');
+    setPillowPreference('none');
+    setRoomTemperature('balanced');
+    setRoomLocationPreference('quiet');
+    setHousekeepingPreference('on_request');
+    setMinibarPreference('standard');
+    setCommunicationPreference('portal');
+    setDietaryPreferences('');
+    setAccessibilityNeeds('');
+    setDoNotDisturb(false);
+    setForm(current => ({ ...current, preferences: '' }));
+    updatePMSGuestExperienceProfile(reservationId, {
+      profileConsent: false, allergies: '', pillowPreference: 'none', preferences: '', roomTemperature: 'balanced',
+      roomLocationPreference: 'quiet', housekeepingPreference: 'on_request', minibarPreference: 'standard',
+      communicationPreference: 'portal', dietaryPreferences: '', accessibilityNeeds: '', doNotDisturb: false
+    });
+    setMessage('Vos préférences mémorisées ont été effacées. Les informations obligatoires du séjour restent conservées.');
   };
   const sendFeedback = () => {
     submitPMSGuestFeedback(reservationId, feedbackScore, feedbackNote, reservation?.status === 'checked_out' ? 'post_stay' : 'in_stay');
@@ -278,6 +380,9 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
       </section>
     </main>;
   }
+  if (!accessGranted) {
+    return <PMSGuestAccessGateway db={db} reservation={reservation} guest={guest} onAuthenticated={() => setAccessGranted(true)} />;
+  }
   const preCheckComplete = guest.preCheckInStatus === 'completed';
   const roomReady = room && ['clean', 'inspected'].includes(room.housekeepingStatus);
   const nights = Math.max(1, Math.ceil((new Date(reservation.departureDate).getTime() - new Date(reservation.arrivalDate).getTime()) / 86400000));
@@ -293,6 +398,7 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
     { id: 'services', label: 'Services', icon: <Sparkles size={18} /> },
     { id: 'concierge', label: 'Conciergerie', icon: <MessageCircle size={18} /> },
     { id: 'stay', label: 'Ma chambre', icon: <KeyRound size={18} /> },
+    { id: 'profile', label: 'Mes préférences', icon: <ShieldCheck size={18} /> },
     { id: 'departure', label: phase === 'after' ? 'Après-séjour' : 'Départ', icon: <ReceiptText size={18} /> }
   ];
 
@@ -342,8 +448,40 @@ export const PMSGuestExperiencePortal: React.FC<PMSPanelProps & { initialReserva
             {!preCheckComplete && <section className="card pms-guest-portal-section"><header><span><UserCheck size={19} /></span><div><h3>Préparer mon arrivée</h3><p>Ces informations sont transmises à la réception.</p></div></header><div className="grid-2"><label>Téléphone<input className="form-control" value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} /></label><label>E-mail<input type="email" className="form-control" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></label><label>Pièce d’identité<select className="form-control" value={form.documentType} onChange={event => setForm({ ...form, documentType: event.target.value as 'passport' | 'identity_card' | 'residence_permit' })}><option value="identity_card">Carte d’identité</option><option value="passport">Passeport</option><option value="residence_permit">Titre de séjour</option></select></label><label>Numéro<input className="form-control" value={form.documentNumber} onChange={event => setForm({ ...form, documentNumber: event.target.value })} /></label><label>Arrivée estimée<input type="time" className="form-control" value={form.estimatedArrivalTime} onChange={event => setForm({ ...form, estimatedArrivalTime: event.target.value })} /></label><label>Préférences<input className="form-control" placeholder="Chambre calme…" value={form.preferences} onChange={event => setForm({ ...form, preferences: event.target.value })} /></label></div><button className="btn btn-primary" onClick={savePreCheckIn}><ShieldCheck size={16} /> Terminer mon pré-check-in</button></section>}
             <section className="pms-guest-key-card"><div><KeyRound size={28} /><span>{activeKey ? 'Clé mobile active' : 'Clé disponible après le check-in'}</span><strong>{activeKey?.code || '•••• ••••'}</strong><small>{room ? `Chambre ${room.roomNumber} · valable jusqu’au ${formatDate(reservation.departureDate)}` : 'Chambre en cours d’attribution'}</small></div>{activeKey && <button><Smartphone size={18} /> Ajouter au téléphone</button>}</section>
             <section className="card pms-guest-portal-section"><header><span><UserPlus size={19} /></span><div><h3>Mes accompagnants</h3><p>Invitez un proche et partagez son accès de manière contrôlée.</p></div><b>{companions.length}/{Math.max(1, reservation.adults + reservation.children - 1)}</b></header>{companions.map(item => <div className="pms-companion" key={item.id}><span>{item.fullName.split(' ').map(part => part[0]).slice(0, 2).join('')}</span><div><strong>{item.fullName}</strong><small>{item.relationship} · {item.status === 'active' ? 'Accès actif' : 'Invitation envoyée'}</small></div>{activeKey?.sharedWithIds?.includes(item.id) && <KeyRound size={16} />}</div>)}<div className="pms-companion-form"><input className="form-control" placeholder="Nom complet" value={companionForm.fullName} onChange={event => setCompanionForm({ ...companionForm, fullName: event.target.value })} /><input className="form-control" placeholder="Téléphone" value={companionForm.phone} onChange={event => setCompanionForm({ ...companionForm, phone: event.target.value })} /><button className="btn btn-secondary" onClick={inviteCompanion} disabled={!companionForm.fullName || !companionForm.phone}><UserPlus size={16} /> Inviter</button></div></section>
-            <section className="card pms-guest-portal-section"><header><span><ShieldCheck size={19} /></span><div><h3>Mes préférences</h3><p>Vous décidez ce que l’hôtel peut mémoriser.</p></div></header><div className="grid-2"><label>Langue<select className="form-control" value={language} onChange={event => setLanguage(event.target.value as 'fr' | 'en' | 'wo')}><option value="fr">Français</option><option value="en">English</option><option value="wo">Wolof</option></select></label><label>Oreiller<select className="form-control" value={pillowPreference} onChange={event => setPillowPreference(event.target.value as 'soft' | 'firm' | 'none')}><option value="none">Sans préférence</option><option value="soft">Souple</option><option value="firm">Ferme</option></select></label><label>Allergies ou besoins<textarea className="form-control" value={allergies} onChange={event => setAllergies(event.target.value)} /></label><label className="pms-consent-toggle"><input type="checkbox" checked={profileConsent} onChange={event => setProfileConsent(event.target.checked)} /><span><strong>Me reconnaître à mon prochain séjour</strong><small>Préférences modifiables ou supprimables à tout moment.</small></span></label></div><button className="btn btn-secondary" onClick={saveExperienceProfile}>Enregistrer mes choix</button></section>
+            <section className="card pms-guest-preference-shortcut"><ShieldCheck size={21} /><div><strong>Votre chambre, selon vos habitudes</strong><p>Température, oreiller, ménage, minibar et besoins importants sont entièrement modifiables.</p></div><button onClick={() => setTab('profile')}>Configurer mes préférences</button></section>
             <section className="card pms-local-guide"><MapPin size={21} /><div><strong>Votre guide à Dakar</strong><p>Île de Gorée, Musée des Civilisations Noires et bonnes adresses choisies par l’équipe.</p></div><button onClick={() => { setChatMessage('Pouvez-vous me conseiller une sortie à Dakar ?'); setTab('concierge'); }}>Demander conseil</button></section>
+          </>}
+
+          {tab === 'profile' && <>
+            <section className="card pms-guest-portal-section pms-guest-preferences">
+              <header><span><ShieldCheck size={19} /></span><div><h3>Mes préférences de séjour</h3><p>L’équipe voit uniquement les choix utiles à votre confort et à votre sécurité.</p></div><b>{profileConsent ? 'Mémorisées' : 'Ce séjour uniquement'}</b></header>
+              <div className="pms-guest-preference-summary">
+                <article><Languages size={18} /><span><strong>{language === 'fr' ? 'Français' : language === 'wo' ? 'Wolof' : 'English'}</strong><small>Langue de service</small></span></article>
+                <article><BedDouble size={18} /><span><strong>{roomLocationPreference === 'quiet' ? 'Chambre calme' : roomLocationPreference === 'high_floor' ? 'Étage élevé' : roomLocationPreference === 'near_elevator' ? 'Près de l’ascenseur' : 'Accès facilité'}</strong><small>Emplacement souhaité</small></span></article>
+                <article><Sparkles size={18} /><span><strong>{housekeepingPreference === 'morning' ? 'Ménage le matin' : housekeepingPreference === 'afternoon' ? 'Ménage l’après-midi' : 'Sur demande'}</strong><small>Passage en chambre</small></span></article>
+              </div>
+              <div className="grid-2 pms-guest-preference-grid">
+                <label>Langue de service<select className="form-control" value={language} onChange={event => setLanguage(event.target.value as 'fr' | 'en' | 'wo')}><option value="fr">Français</option><option value="en">English</option><option value="wo">Wolof</option></select></label>
+                <label>Canal de contact<select className="form-control" value={communicationPreference} onChange={event => setCommunicationPreference(event.target.value as NonNullable<PMSGuest['communicationPreference']>)}><option value="whatsapp">WhatsApp</option><option value="sms">SMS</option><option value="email">E-mail</option><option value="portal">Portail uniquement</option></select></label>
+                <label>Emplacement de chambre<select className="form-control" value={roomLocationPreference} onChange={event => setRoomLocationPreference(event.target.value as NonNullable<PMSGuest['roomLocationPreference']>)}><option value="quiet">Zone calme</option><option value="high_floor">Étage élevé</option><option value="near_elevator">Près de l’ascenseur</option><option value="accessible">Accès facilité</option></select></label>
+                <label>Température souhaitée<select className="form-control" value={roomTemperature} onChange={event => setRoomTemperature(event.target.value as NonNullable<PMSGuest['roomTemperature']>)}><option value="cool">Fraîche</option><option value="balanced">Équilibrée</option><option value="warm">Douce</option></select></label>
+                <label>Type d’oreiller<select className="form-control" value={pillowPreference} onChange={event => setPillowPreference(event.target.value as 'soft' | 'firm' | 'none')}><option value="none">Sans préférence</option><option value="soft">Souple</option><option value="firm">Ferme</option></select></label>
+                <label>Passage du ménage<select className="form-control" value={housekeepingPreference} onChange={event => setHousekeepingPreference(event.target.value as NonNullable<PMSGuest['housekeepingPreference']>)}><option value="morning">Le matin</option><option value="afternoon">L’après-midi</option><option value="on_request">Uniquement sur demande</option></select></label>
+                <label>Préparation du minibar<select className="form-control" value={minibarPreference} onChange={event => setMinibarPreference(event.target.value as NonNullable<PMSGuest['minibarPreference']>)}><option value="standard">Assortiment standard</option><option value="empty">Minibar vide</option><option value="family">Sélection familiale sans alcool</option></select></label>
+                <label>Ce qui rend le séjour plus agréable<input className="form-control" value={form.preferences} onChange={event => setForm({ ...form, preferences: event.target.value })} placeholder="Calme, lumière, occasion spéciale…" /></label>
+              </div>
+              <div className="pms-guest-preference-notes">
+                <label>Habitudes alimentaires<textarea className="form-control" value={dietaryPreferences} onChange={event => setDietaryPreferences(event.target.value)} placeholder="Végétarien, peu salé, repas enfant…" /></label>
+                <label>Allergies et informations importantes<textarea className="form-control" value={allergies} onChange={event => setAllergies(event.target.value)} placeholder="Signalées uniquement aux équipes concernées" /></label>
+                <label>Accessibilité ou assistance<textarea className="form-control" value={accessibilityNeeds} onChange={event => setAccessibilityNeeds(event.target.value)} placeholder="Mobilité, audition, vision, accompagnement…" /></label>
+              </div>
+              <div className="pms-guest-consent-stack">
+                <label className="pms-consent-toggle"><input type="checkbox" checked={doNotDisturb} onChange={event => setDoNotDisturb(event.target.checked)} /><span><strong>Ne pas déranger</strong><small>Le ménage et les appels non urgents attendent votre autorisation.</small></span></label>
+                <label className="pms-consent-toggle"><input type="checkbox" checked={profileConsent} onChange={event => setProfileConsent(event.target.checked)} /><span><strong>Retrouver mes choix au prochain séjour</strong><small>Vous pouvez les modifier ou les effacer à tout moment.</small></span></label>
+              </div>
+              <div className="pms-guest-profile-actions"><button className="btn btn-primary" onClick={saveExperienceProfile}>Enregistrer et transmettre</button><button className="btn btn-secondary danger" onClick={clearExperienceProfile}>Effacer mes préférences</button></div>
+            </section>
+            <section className="card pms-guest-profile-privacy"><ShieldCheck size={20} /><div><strong>Vos choix restent sous votre contrôle</strong><p>Téléphone vérifié : {guest.phone}. Les documents obligatoires, factures et paiements suivent leurs durées légales de conservation.</p></div></section>
           </>}
 
           {tab === 'departure' && <>
