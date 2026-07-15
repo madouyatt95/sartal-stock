@@ -14,6 +14,7 @@ import { StockState } from '../hooks/useStockState';
 interface MappingControlProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
 const discoveredPOS = [
@@ -38,7 +39,7 @@ const discoveredProducts = [
   { externalSku: 'EAUMIN', label: 'Eau minérale 50 cl', count: 12 }
 ];
 
-export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }) => {
+export const MappingControl: React.FC<MappingControlProps> = ({ state, setView, canAccessView }) => {
   const { db } = state;
 
   const mappedPOS = discoveredPOS.filter(item => (
@@ -78,12 +79,12 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('pos-imports')}>
+          {(canAccessView?.('pos-imports') ?? true) && <button className="btn btn-secondary" onClick={() => setView('pos-imports')}>
             Voir les ventes reçues
-          </button>
-          <button className="btn btn-primary" onClick={() => setView('stock-audit')}>
+          </button>}
+          {(canAccessView?.('stock-audit') ?? true) && <button className="btn btn-primary" onClick={() => setView('stock-audit')}>
             Lancer l'audit
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -325,15 +326,15 @@ export const MappingControl: React.FC<MappingControlProps> = ({ state, setView }
             ))}
           </div>
           <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" onClick={() => setView('products')}>
+            {(canAccessView?.('products') ?? true) && <button className="btn btn-secondary" onClick={() => setView('products')}>
               Corriger produits
-            </button>
-            <button className="btn btn-secondary" onClick={() => setView('warehouses')}>
+            </button>}
+            {(canAccessView?.('warehouses') ?? true) && <button className="btn btn-secondary" onClick={() => setView('warehouses')}>
               Corriger dépôts/POS
-            </button>
-            <button className="btn btn-primary" onClick={() => setView('stock-audit')}>
+            </button>}
+            {(canAccessView?.('stock-audit') ?? true) && <button className="btn btn-primary" onClick={() => setView('stock-audit')}>
               Continuer <ArrowRight size={16} />
-            </button>
+            </button>}
           </div>
         </div>
       </div>

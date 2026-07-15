@@ -5,6 +5,7 @@ import { StockState } from '../hooks/useStockState';
 interface SmartAlertsProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
 type AlertSeverity = 'critical' | 'warning' | 'info';
@@ -20,7 +21,7 @@ interface SmartAlert {
   value?: number;
 }
 
-export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
+export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView, canAccessView }) => {
   const { db } = state;
   const [searchQuery, setSearchQuery] = useState('');
   const [familyFilter, setFamilyFilter] = useState('all');
@@ -104,9 +105,8 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
     }
   });
 
-  db.deliveryOrders
-    .filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status))
-    .forEach(order => {
+  if (db.sartalBrandSettings.enabledModules.includes('delivery')) {
+    db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)).forEach(order => {
       if (order.status === 'failed') {
         alerts.push({
           id: `delivery-failed-${order.id}`,
@@ -130,10 +130,11 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
         });
       }
     });
+  }
 
-  const pendingPmsCharges = db.pmsFolios.flatMap(folio => (
+  const pendingPmsCharges = db.sartalBrandSettings.enabledModules.includes('pms') ? db.pmsFolios.flatMap(folio => (
     folio.charges.filter(charge => charge.status === 'pending').map(charge => ({ folio, charge }))
-  ));
+  )) : [];
   if (pendingPmsCharges.length > 0) {
     alerts.push({
       id: 'pms-pending-charges',
@@ -273,7 +274,7 @@ export const SmartAlerts: React.FC<SmartAlertsProps> = ({ state, setView }) => {
                 <span className={`badge ${severityMeta[alert.severity].className}`}>{severityMeta[alert.severity].label}</span>
               </div>
               <div className="mobile-card-actions">
-                <button className="btn btn-primary" onClick={() => setView(alert.view)}>{alert.action}</button>
+                {(canAccessView?.(alert.view) ?? true) && <button className="btn btn-primary" onClick={() => setView(alert.view)}>{alert.action}</button>}
               </div>
             </div>
           ))}

@@ -23,9 +23,11 @@ import { StockMovement } from '../types';
 interface DashboardProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
+  showRoleSwitcher?: boolean;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ state, setView, canAccessView, showRoleSwitcher = true }) => {
   const { db } = state;
 
   // 1. Calculate KPIs
@@ -160,7 +162,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
             Restaurant, hôtel, bar ou plateforme de livraison : chaque canal garde ses règles, le stock reste maîtrisé.
           </p>
         </div>
-        <div className="dashboard-profile-select" style={{ display: 'flex', gap: '12px' }}>
+        {showRoleSwitcher && <div className="dashboard-profile-select" style={{ display: 'flex', gap: '12px' }}>
           <span>Vue affichée pour</span>
           <select 
             value={db.currentUser.id} 
@@ -172,11 +174,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               <option key={u.id} value={u.id}>{u.name} ({u.role.toUpperCase()})</option>
             ))}
           </select>
-        </div>
+        </div>}
       </div>
 
       <div className="grid-4 demo-choice-grid">
-        <button
+        {(canAccessView?.('answer') ?? true) && <button
           className="card business-entry-card restaurant"
           onClick={() => setView('answer')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
@@ -194,9 +196,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <span className="business-entry-action">
             Ouvrir la réponse <ChevronRight size={17} />
           </span>
-        </button>
+        </button>}
 
-        <button
+        {(canAccessView?.('pms') ?? true) && <button
           className="card business-entry-card hotel"
           onClick={() => setView('pms')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
@@ -214,9 +216,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <span className="business-entry-action">
             Ouvrir le PMS <ChevronRight size={17} />
           </span>
-        </button>
+        </button>}
 
-        <button
+        {(canAccessView?.('delivery') ?? true) && <button
           className="card business-entry-card delivery"
           onClick={() => setView('delivery')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
@@ -234,9 +236,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <span className="business-entry-action">
             Ouvrir la livraison <ChevronRight size={17} />
           </span>
-        </button>
+        </button>}
 
-        <button
+        {(canAccessView?.('stock-control') ?? true) && <button
           className="card business-entry-card stock"
           onClick={() => setView('stock-control')}
           style={{ textAlign: 'left', cursor: 'pointer', display: 'grid', gap: '14px' }}
@@ -254,7 +256,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
           <span className="business-entry-action">
             Voir le stock réel <ChevronRight size={17} />
           </span>
-        </button>
+        </button>}
       </div>
 
       <div className="card demo-mode-strip">
@@ -454,9 +456,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Alertes</h3>
-            <button className="btn btn-secondary" onClick={() => setView('smart-alerts')} style={{ padding: '6px 9px', fontSize: '0.76rem' }}>
+            {(canAccessView?.('smart-alerts') ?? true) && <button className="btn btn-secondary" onClick={() => setView('smart-alerts')} style={{ padding: '6px 9px', fontSize: '0.76rem' }}>
               Voir tout
-            </button>
+            </button>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--danger-light)', fontSize: '0.875rem' }}>
@@ -471,12 +473,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
               <span style={{ fontWeight: 600, color: 'var(--danger)' }}>Lots bientôt périmés</span>
               <span style={{ fontWeight: 800, color: 'var(--danger)' }}>{nearExpiryBatches.length}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', fontSize: '0.875rem' }}>
+            {db.sartalBrandSettings.enabledModules.includes('delivery') && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--primary-lightest)', fontSize: '0.875rem' }}>
               <span style={{ fontWeight: 600, color: 'var(--primary)' }}>Commandes livraison</span>
               <span style={{ fontWeight: 800, color: 'var(--primary)' }}>
                 {db.deliveryOrders.filter(order => ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'failed'].includes(order.status)).length}
               </span>
-            </div>
+            </div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-app)', fontSize: '0.875rem' }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Prix/fournisseurs à compléter</span>
               <span style={{ fontWeight: 800 }}>{productsWithoutSupplier.length + productsWithMissingPricing.length}</span>
@@ -493,9 +495,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
         <div className="card" style={{ overflow: 'hidden', paddingBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Mouvements récents</h3>
-            <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => setView('movements')}>
+            {(canAccessView?.('movements') ?? true) && <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '0.75rem' }} onClick={() => setView('movements')}>
               Voir tout
-            </button>
+            </button>}
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table className="custom-table" style={{ fontSize: '0.75rem' }}>
@@ -624,18 +626,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ state, setView }) => {
       <div className="card dashboard-quick-actions" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Actions rapides</h3>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={() => setView('purchases')} style={{ flexGrow: 1 }}>
+          {(canAccessView?.('purchases') ?? true) && <button className="btn btn-secondary" onClick={() => setView('purchases')} style={{ flexGrow: 1 }}>
             <ShoppingCart size={18} /> Nouvelle commande fournisseur
-          </button>
-          <button className="btn btn-secondary" onClick={() => setView('transfers')} style={{ flexGrow: 1 }}>
+          </button>}
+          {(canAccessView?.('transfers') ?? true) && <button className="btn btn-secondary" onClick={() => setView('transfers')} style={{ flexGrow: 1 }}>
             <ArrowRightLeft size={18} /> Transférer du stock
-          </button>
-          <button className="btn btn-secondary" onClick={() => setView('inventories')} style={{ flexGrow: 1 }}>
+          </button>}
+          {(canAccessView?.('inventories') ?? true) && <button className="btn btn-secondary" onClick={() => setView('inventories')} style={{ flexGrow: 1 }}>
             <ClipboardList size={18} /> Nouvel inventaire
-          </button>
-          <button className="btn btn-secondary" onClick={() => setView('losses')} style={{ flexGrow: 1 }}>
+          </button>}
+          {(canAccessView?.('losses') ?? true) && <button className="btn btn-secondary" onClick={() => setView('losses')} style={{ flexGrow: 1 }}>
             <Trash2 size={18} /> Déclarer une perte
-          </button>
+          </button>}
         </div>
       </div>
 

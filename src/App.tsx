@@ -43,7 +43,8 @@ import {
   ChevronDown,
   ArrowLeft
 } from 'lucide-react';
-import { getDemoPerspective, getDemoUniverse, type DemoPerspective, type DemoUniverse } from './demoPortalConfig';
+import { canAccessBackofficeView, type BackofficeViewId } from './accessControl';
+import { DEMO_ACCESS_POLICIES, getDemoPerspective, getDemoUniverse, type DemoPerspective, type DemoUniverse } from './demoPortalConfig';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const ManagerAnswer = lazy(() => import('./views/ManagerAnswer'));
@@ -112,12 +113,15 @@ export const App: React.FC = () => {
   const demoUniverse = demoMode !== 'portal' ? getDemoUniverse(demoMode) : undefined;
   const demoPerspective = getDemoPerspective(demoUniverse, queryParams.get('profil'));
   const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
-  const db = demoBackoffice && demoUniverse ? {
+  const demoPolicy = demoBackoffice ? DEMO_ACCESS_POLICIES[demoBackoffice.policy] : undefined;
+  const db = demoUniverse ? {
     ...rawDb,
-    currentUser: { ...rawDb.currentUser, name: demoPerspective?.label || rawDb.currentUser.name, role: demoBackoffice.role },
+    currentUser: demoBackoffice
+      ? { ...rawDb.currentUser, name: demoPerspective?.label || rawDb.currentUser.name, role: demoBackoffice.role }
+      : rawDb.currentUser,
     sartalBrandSettings: { ...rawDb.sartalBrandSettings, enabledModules: demoUniverse.modules }
   } : rawDb;
-  const experienceState = demoBackoffice ? { ...state, db } : state;
+  const experienceState = demoUniverse ? { ...state, db } : state;
   const [view, setView] = useState<string>(demoBackoffice?.view || 'pulse');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
@@ -190,13 +194,13 @@ export const App: React.FC = () => {
   if (demoUniverse && demoPerspective && demoPerspective.target.type !== 'backoffice') {
     const target = demoPerspective.target;
     if (target.type === 'employee') {
-      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={state} initialRole={target.role} demoAutoStart /></main></Suspense></DemoExperienceFrame>;
+      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={experienceState} initialRole={target.role} demoAutoStart /></main></Suspense></DemoExperienceFrame>;
     }
     if (target.type === 'client') {
-      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={target.mode} initialHub={target.initialHub} standalone /></main></Suspense></DemoExperienceFrame>;
+      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={experienceState} initialMode={target.mode} initialHub={target.initialHub} standalone /></main></Suspense></DemoExperienceFrame>;
     }
     const demoReservation = db.pmsReservations.find(item => item.status === 'checked_in') || db.pmsReservations.find(item => item.status === 'confirmed') || db.pmsReservations[0];
-    return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={demoReservation?.id} standalone /></main></Suspense></DemoExperienceFrame>;
+    return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={experienceState} initialReservationId={demoReservation?.id} standalone /></main></Suspense></DemoExperienceFrame>;
   }
   if (demoMode && demoMode !== 'portal' && (!demoUniverse || !demoPerspective)) {
     return <Suspense fallback={<AppLoading />}><DemoPortal initialUniverseId={demoUniverse?.id} /></Suspense>;
@@ -246,57 +250,51 @@ export const App: React.FC = () => {
   }
 
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
-  const sidebarLinks = [
-    { id: 'pulse', label: 'Sártal Pulse', mobileLabel: 'Pulse', icon: <Radio size={18} />, roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'auditor'], section: 'Accueil' },
-    { id: 'dashboard', label: 'Tableau de bord', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
-    { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
-    { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
-    { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, roles: ['admin', 'director', 'pos_manager'], section: 'Accueil' },
+  const sidebarLinks: Array<{ id: BackofficeViewId; label: string; mobileLabel?: string; icon: React.ReactNode; section: string }> = [
+    { id: 'pulse', label: 'Sártal Pulse', mobileLabel: 'Pulse', icon: <Radio size={18} />, section: 'Accueil' },
+    { id: 'dashboard', label: 'Tableau de bord', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, section: 'Accueil' },
+    { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, section: 'Accueil' },
+    { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, section: 'Accueil' },
+    { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, section: 'Accueil' },
 
-    { id: 'employees', label: 'Aperçu espace équipes', mobileLabel: 'Équipe', icon: <UsersRound size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager'], section: 'Équipes' },
+    { id: 'employees', label: 'Aperçu espace équipes', mobileLabel: 'Équipe', icon: <UsersRound size={18} />, section: 'Équipes' },
 
-    { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
-    { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Restaurant' },
-    { id: 'connectors', label: 'Caisse POS', icon: <Network size={18} />, roles: ['admin'], section: 'Restaurant' },
-    { id: 'pos-imports', label: 'Reprendre ventes caisse', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Restaurant' },
+    { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
+    { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, section: 'Restaurant' },
+    { id: 'connectors', label: 'Caisse POS', icon: <Network size={18} />, section: 'Restaurant' },
+    { id: 'pos-imports', label: 'Reprendre ventes caisse', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, section: 'Restaurant' },
 
-    { id: 'pms', label: 'Hôtel / PMS', mobileLabel: 'PMS', icon: <BedDouble size={18} />, roles: ['admin', 'director', 'pos_manager', 'auditor'], section: 'Hôtel' },
+    { id: 'pms', label: 'Hôtel / PMS', mobileLabel: 'PMS', icon: <BedDouble size={18} />, section: 'Hôtel' },
 
-    { id: 'delivery', label: 'Parcours livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Livraison' },
+    { id: 'delivery', label: 'Parcours livraison', mobileLabel: 'Livraison', icon: <Truck size={18} />, section: 'Livraison' },
 
-    { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Socle stock' },
-    { id: 'products', label: 'Catalogue & recettes', icon: <Package size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
-    { id: 'pricing', label: 'Prix par canal', icon: <CircleDollarSign size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
-    { id: 'warehouses', label: 'Canaux & dépôts', icon: <Warehouse size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Socle stock' },
-    { id: 'stocks', label: 'Lots de stock', icon: <Layers size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Socle stock' },
+    { id: 'stock-control', label: 'Stock réel', mobileLabel: 'Stock', icon: <ShieldCheck size={18} />, section: 'Socle stock' },
+    { id: 'products', label: 'Catalogue & recettes', icon: <Package size={18} />, section: 'Socle stock' },
+    { id: 'pricing', label: 'Prix par canal', icon: <CircleDollarSign size={18} />, section: 'Socle stock' },
+    { id: 'warehouses', label: 'Canaux & dépôts', icon: <Warehouse size={18} />, section: 'Socle stock' },
+    { id: 'stocks', label: 'Lots de stock', icon: <Layers size={18} />, section: 'Socle stock' },
 
-    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
-    { id: 'purchases', label: 'Achats fournisseurs', icon: <ShoppingCart size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
-    { id: 'receiving', label: 'Réceptions stock', icon: <ClipboardCheck size={18} />, roles: ['admin', 'storekeeper'], section: 'Opérations' },
-    { id: 'transfers', label: 'Transferts dépôts', icon: <ArrowRightLeft size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Opérations' },
-    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, roles: ['admin', 'stock_manager', 'storekeeper'], section: 'Opérations' },
-    { id: 'losses', label: 'Pertes & casses', icon: <Trash2 size={18} />, roles: ['admin', 'stock_manager'], section: 'Opérations' },
-    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, roles: ['admin', 'director', 'stock_manager'], section: 'Opérations' },
+    { id: 'reorder', label: 'À commander', icon: <AlertTriangle size={18} />, section: 'Opérations' },
+    { id: 'purchases', label: 'Achats fournisseurs', icon: <ShoppingCart size={18} />, section: 'Opérations' },
+    { id: 'receiving', label: 'Réceptions stock', icon: <ClipboardCheck size={18} />, section: 'Opérations' },
+    { id: 'transfers', label: 'Transferts dépôts', icon: <ArrowRightLeft size={18} />, section: 'Opérations' },
+    { id: 'inventories', label: 'Inventaires', icon: <ClipboardCheck size={18} />, section: 'Opérations' },
+    { id: 'losses', label: 'Pertes & casses', icon: <Trash2 size={18} />, section: 'Opérations' },
+    { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, section: 'Opérations' },
 
-    { id: 'stock-audit', label: 'Audit des écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
-    { id: 'smart-alerts', label: 'Alertes intelligentes', mobileLabel: 'Alertes', icon: <Bell size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
-    { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, roles: ['admin', 'director', 'stock_manager', 'auditor'], section: 'Contrôle' },
-    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], section: 'Contrôle' },
-    { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, roles: ['admin', 'director', 'auditor'], section: 'Contrôle' },
-    { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Réglages' }
+    { id: 'stock-audit', label: 'Audit des écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, section: 'Contrôle' },
+    { id: 'smart-alerts', label: 'Alertes intelligentes', mobileLabel: 'Alertes', icon: <Bell size={18} />, section: 'Contrôle' },
+    { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, section: 'Contrôle' },
+    { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, section: 'Contrôle' },
+    { id: 'exports', label: 'Rapports', mobileLabel: 'Rapports', icon: <Download size={18} />, section: 'Contrôle' },
+    { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, section: 'Réglages' }
   ];
 
-  const moduleForSection: Record<string, 'stock' | 'restaurant' | 'delivery' | 'pms' | undefined> = {
-    Restaurant: 'restaurant', Hôtel: 'pms', Livraison: 'delivery', 'Socle stock': 'stock', Opérations: 'stock', Contrôle: 'stock'
-  };
-  const hiddenDemoLinks = new Set(['guided-demo', 'business-problems', 'employees']);
-  const demoHasCustomerModule = demoUniverse?.modules.some(module => module !== 'stock');
   const allowedLinks = sidebarLinks.filter(link => (
-    link.roles.includes(db.currentUser.role)
-    && (!moduleForSection[link.section] || db.sartalBrandSettings.enabledModules.includes(moduleForSection[link.section]!))
-    && (!demoBackoffice || !hiddenDemoLinks.has(link.id))
-    && (!demoBackoffice || link.id !== 'client' || demoHasCustomerModule)
+    canAccessBackofficeView(db.currentUser.role, db.sartalBrandSettings.enabledModules, link.id)
+    && (!demoPolicy || demoPolicy.views.includes(link.id))
   ));
+  const canOpenView = (candidate: string) => allowedLinks.some(link => link.id === candidate);
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
     { id: 'Équipes', label: 'Interfaces employés' },
@@ -379,6 +377,7 @@ export const App: React.FC = () => {
   const queuedOfflineActions = db.sartalOfflineActions.filter(item => item.status === 'queued');
 
   const openView = (nextView: string) => {
+    if (!canOpenView(nextView)) return;
     setView(nextView);
     setExpandedSidebarSections(new Set());
     setMobileMenuOpen(false);
@@ -422,33 +421,33 @@ export const App: React.FC = () => {
 
     switch (view) {
       case 'pulse':
-        return <SartalPulse state={experienceState} setView={setView} />;
+        return <SartalPulse state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'dashboard':
-        return <Dashboard state={experienceState} setView={setView} />;
+        return <Dashboard state={experienceState} setView={openView} canAccessView={canOpenView} showRoleSwitcher={!demoBackoffice && db.currentUser.role === 'admin'} />;
       case 'guided-demo':
-        return <GuidedDemo state={experienceState} setView={setView} />;
+        return <GuidedDemo state={experienceState} setView={openView} />;
       case 'business-problems':
-        return <BusinessProblems state={experienceState} setView={setView} />;
+        return <BusinessProblems state={experienceState} setView={openView} />;
       case 'client':
         return <CustomerExperienceCockpit state={experienceState} />;
       case 'employees':
         return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>{db.sartalBrandSettings.staffAppName}</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={experienceState} /></section>;
       case 'answer':
-        return <ManagerAnswer state={experienceState} setView={setView} />;
+        return <ManagerAnswer state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'simulation':
-        return <BehaviorSimulation state={experienceState} setView={setView} />;
+        return <BehaviorSimulation state={experienceState} setView={openView} />;
       case 'delivery':
-        return <DeliveryDemo state={experienceState} setView={setView} />;
+        return <DeliveryDemo state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'pms':
-        return <PMSHotel state={experienceState} setView={setView} />;
+        return <PMSHotel state={experienceState} setView={openView} initialTab={demoPolicy?.initialPmsTab} allowedTabs={demoPolicy?.pmsTabs} canAccessView={canOpenView} />;
       case 'stock-control':
-        return <StockControl state={experienceState} setView={setView} />;
+        return <StockControl state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'mapping-control':
-        return <MappingControl state={experienceState} setView={setView} />;
+        return <MappingControl state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'stock-audit':
-        return <StockAudit state={experienceState} setView={setView} />;
+        return <StockAudit state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'smart-alerts':
-        return <SmartAlerts state={experienceState} setView={setView} />;
+        return <SmartAlerts state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'products':
         return <Products state={experienceState} />;
       case 'pricing':
@@ -470,19 +469,19 @@ export const App: React.FC = () => {
       case 'movements':
         return <Movements state={experienceState} />;
       case 'reorder':
-        return <Reorder state={experienceState} setView={setView} />;
+        return <Reorder state={experienceState} setView={openView} />;
       case 'suppliers':
         return <Suppliers state={experienceState} />;
       case 'connectors':
         return <Connectors state={experienceState} />;
       case 'pos-imports':
-        return <POSImports state={experienceState} setView={setView} />;
+        return <POSImports state={experienceState} setView={openView} />;
       case 'exports':
         return <Exports state={experienceState} />;
       case 'settings':
         return <Settings state={experienceState} />;
       default:
-        return <SartalPulse state={experienceState} setView={setView} />;
+        return <SartalPulse state={experienceState} setView={openView} canAccessView={canOpenView} />;
     }
   };
 

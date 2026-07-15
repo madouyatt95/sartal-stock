@@ -5,11 +5,12 @@ import { StockState } from '../hooks/useStockState';
 interface SartalPulseProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
 
-export const SartalPulse: React.FC<SartalPulseProps> = ({ state, setView }) => {
+export const SartalPulse: React.FC<SartalPulseProps> = ({ state, setView, canAccessView }) => {
   const { db } = state;
   const [siteId, setSiteId] = useState(db.sites[0]?.id || '');
   const brand = db.sartalBrandSettings;
@@ -35,15 +36,15 @@ export const SartalPulse: React.FC<SartalPulseProps> = ({ state, setView }) => {
     db.employeeApprovals.filter(item => item.status === 'pending').forEach(item => items.push({ id: `approval-${item.id}`, tone: 'warning', title: item.label, detail: `${item.requestedByName} · validation attendue`, view: 'employees' }));
     lowStocks.slice(0, 4).forEach(item => items.push({ id: `stock-${item.productId}-${item.warehouseId}`, tone: 'warning', title: db.products.find(product => product.id === item.productId)?.name || 'Stock faible', detail: `${db.warehouses.find(warehouse => warehouse.id === item.warehouseId)?.name} · ${item.quantityAvailable - item.quantityReserved} disponible`, view: 'stock-control' }));
     db.pmsMaintenanceTickets.filter(item => !['resolved', 'verified'].includes(item.status)).forEach(item => items.push({ id: `maintenance-${item.id}`, tone: 'info', title: item.equipment, detail: `Maintenance hôtel · ${item.assignedTo || 'À affecter'}`, view: 'pms' }));
-    return items.filter(item => item.view === 'delivery' ? brand.enabledModules.includes('delivery') : item.view === 'pms' ? brand.enabledModules.includes('pms') : item.view === 'stock-control' ? brand.enabledModules.includes('stock') : item.view === 'client' ? brand.enabledModules.includes('restaurant') || brand.enabledModules.includes('delivery') : true).slice(0, 8);
-  }, [brand.enabledModules, db, lowStocks]);
+    return items.filter(item => (canAccessView?.(item.view) ?? true)).slice(0, 8);
+  }, [canAccessView, db, lowStocks]);
 
   const moduleCards = [
     { module: 'stock', icon: <Warehouse size={22} />, label: 'Stock', value: `${lowStocks.length} alerte(s)`, detail: `${warehouses.length} dépôts reliés`, view: 'stock-control', tone: lowStocks.length ? 'warning' : 'good' },
     { module: 'restaurant', icon: <UtensilsCrossed size={22} />, label: 'Restaurant', value: formatFCFA(revenue), detail: `${sales.length} vente(s) tracée(s)`, view: 'answer', tone: 'restaurant' },
     { module: 'delivery', icon: <Truck size={22} />, label: 'Livraison', value: `${activeDeliveries.length} en cours`, detail: `${db.deliveryOrders.filter(item => item.status === 'failed').length} incident(s)`, view: 'delivery', tone: 'delivery' },
     { module: 'pms', icon: <BedDouble size={22} />, label: 'Hôtel / PMS', value: `${occupiedRooms.length}/${rooms.length} occupées`, detail: `${db.pmsReservations.filter(item => item.arrivalDate === db.pmsSettings.businessDate && item.status === 'confirmed').length} arrivée(s)`, view: 'pms', tone: 'hotel' }
-  ].filter(card => brand.enabledModules.includes(card.module as 'stock' | 'restaurant' | 'delivery' | 'pms'));
+  ].filter(card => brand.enabledModules.includes(card.module as 'stock' | 'restaurant' | 'delivery' | 'pms') && (canAccessView?.(card.view) ?? true));
 
   return <div className="sartal-pulse" style={{ '--pulse-primary': siteProfile?.primaryColor || brand.primaryColor, '--pulse-accent': siteProfile?.accentColor || brand.accentColor } as React.CSSProperties}>
     <header className="pulse-hero">
@@ -69,15 +70,15 @@ export const SartalPulse: React.FC<SartalPulseProps> = ({ state, setView }) => {
       <aside className="pulse-live-flow">
         <header><Radio size={19} /><div><strong>Flux opérationnel</strong><small>Derniers événements tracés</small></div></header>
         {db.movements.filter(item => item.siteId === siteId).slice(0, 6).map(movement => <article key={movement.id}><span className={movement.quantity >= 0 ? 'in' : 'out'}>{movement.quantity >= 0 ? '+' : '−'}</span><div><strong>{db.products.find(item => item.id === movement.productId)?.name}</strong><small>{movement.reason}</small></div><time>{new Date(movement.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time></article>)}
-        <button onClick={() => setView('movements')}>Voir toute la traçabilité <ArrowRight size={15} /></button>
+        {(canAccessView?.('movements') ?? true) && <button onClick={() => setView('movements')}>Voir toute la traçabilité <ArrowRight size={15} /></button>}
       </aside>
     </div>
 
     <section className="pulse-decision-row">
-      {brand.enabledModules.includes('stock') && <button onClick={() => setView('smart-alerts')}><BellRing size={20} /><span><strong>Arbitrer les alertes</strong><small>Priorités stock et opérations</small></span><ArrowRight size={16} /></button>}
-      {(brand.enabledModules.includes('restaurant') || brand.enabledModules.includes('delivery')) && <button onClick={() => setView('client')}><UsersRound size={20} /><span><strong>Tenir les promesses clients</strong><small>Demandes et reprises en cours</small></span><ArrowRight size={16} /></button>}
-      {brand.enabledModules.includes('stock') && <button onClick={() => setView('exports')}><CircleDollarSign size={20} /><span><strong>Lire la performance</strong><small>Ventes, coûts et écarts</small></span><ArrowRight size={16} /></button>}
-      {brand.enabledModules.includes('stock') && <button onClick={() => setView('stock-control')}><PackageCheck size={20} /><span><strong>Sécuriser le stock</strong><small>Disponible réel par dépôt</small></span><ArrowRight size={16} /></button>}
+      {(canAccessView?.('smart-alerts') ?? true) && <button onClick={() => setView('smart-alerts')}><BellRing size={20} /><span><strong>Arbitrer les alertes</strong><small>Priorités stock et opérations</small></span><ArrowRight size={16} /></button>}
+      {(canAccessView?.('client') ?? true) && <button onClick={() => setView('client')}><UsersRound size={20} /><span><strong>Tenir les promesses clients</strong><small>Demandes et reprises en cours</small></span><ArrowRight size={16} /></button>}
+      {(canAccessView?.('exports') ?? true) && <button onClick={() => setView('exports')}><CircleDollarSign size={20} /><span><strong>Lire la performance</strong><small>Ventes, coûts et écarts</small></span><ArrowRight size={16} /></button>}
+      {(canAccessView?.('stock-control') ?? true) && <button onClick={() => setView('stock-control')}><PackageCheck size={20} /><span><strong>Sécuriser le stock</strong><small>Disponible réel par dépôt</small></span><ArrowRight size={16} /></button>}
     </section>
   </div>;
 };

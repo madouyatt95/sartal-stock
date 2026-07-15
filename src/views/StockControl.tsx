@@ -17,9 +17,10 @@ import { PAYMENT_TYPE_LABELS, StockMovement } from '../types';
 interface StockControlProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
-export const StockControl: React.FC<StockControlProps> = ({ state, setView }) => {
+export const StockControl: React.FC<StockControlProps> = ({ state, setView, canAccessView }) => {
   const { db } = state;
   const today = new Date();
   const thirtyDaysLater = new Date();
@@ -121,9 +122,9 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
             Stock disponible par dépôt, alertes, pertes, péremptions et détail des sorties liées aux ventes.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setView('stocks')}>
+        {(canAccessView?.('stocks') ?? true) && <button className="btn btn-primary" onClick={() => setView('stocks')}>
           <Warehouse size={18} /> Voir le détail des lots
-        </button>
+        </button>}
       </div>
 
       <div className="grid-4 stock-kpi-grid">
@@ -165,7 +166,7 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
       </div>
 
       <div className="grid-3">
-        {actionCards.map(action => (
+        {actionCards.filter(action => canAccessView?.(action.view) ?? true).map(action => (
           <button
             key={action.view}
             onClick={() => setView(action.view)}
@@ -214,9 +215,9 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ fontSize: '1.05rem', fontWeight: 800 }}>Alertes prioritaires</h3>
-            <button className="btn btn-secondary" onClick={() => setView('reorder')} style={{ padding: '7px 10px', fontSize: '0.78rem' }}>
+            {(canAccessView?.('reorder') ?? true) && <button className="btn btn-secondary" onClick={() => setView('reorder')} style={{ padding: '7px 10px', fontSize: '0.78rem' }}>
               Réappro
-            </button>
+            </button>}
           </div>
           <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
@@ -433,9 +434,9 @@ export const StockControl: React.FC<StockControlProps> = ({ state, setView }) =>
               Chaque vente est reliée au point de vente, au dépôt concerné et aux quantités sorties.
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setView('connectors')}>
+          {(canAccessView?.('connectors') ?? true) && <button className="btn btn-secondary" onClick={() => setView('connectors')}>
             Tester une vente
-          </button>
+          </button>}
         </div>
         <div className="desktop-table-only" style={{ overflowX: 'auto' }}>
           <table className="custom-table">

@@ -6,13 +6,16 @@ import { RestaurantGuestOrder } from '../types';
 interface ManagerAnswerProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
-export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) => {
+export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, canAccessView }) => {
   const { db, updateRestaurantGuestOrderStatus } = state;
+  const canOperateRestaurant = db.currentUser.role === 'admin' || db.currentUser.role === 'pos_manager';
+  const pmsEnabled = db.sartalBrandSettings.enabledModules.includes('pms');
   const coca = db.products.find(product => product.id === 'prod-coca');
   const demoPOS = db.posList.filter(pos => ['pos-1', 'pos-2', 'pos-3'].includes(pos.id));
-  const openFolios = db.pmsFolios.filter(folio => folio.status === 'open');
+  const openFolios = pmsEnabled ? db.pmsFolios.filter(folio => folio.status === 'open') : [];
 
   const formatFCFA = (value: number) => (
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
@@ -46,13 +49,13 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>
-          <button className="btn btn-secondary" onClick={() => setView('pricing')}>
+          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>}
+          {(canAccessView?.('pricing') ?? true) && <button className="btn btn-secondary" onClick={() => setView('pricing')}>
             Prix par canal
-          </button>
-          <button className="btn btn-primary" onClick={() => setView('simulation')}>
+          </button>}
+          {(canAccessView?.('simulation') ?? true) && <button className="btn btn-primary" onClick={() => setView('simulation')}>
             Lancer le scénario <ArrowRight size={17} />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -72,11 +75,11 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
           <p style={{ color: 'var(--text-secondary)', marginTop: '10px', fontWeight: 700, fontSize: '0.85rem' }}>Stocks séparés</p>
           <h2 style={{ marginTop: '6px' }}>{uniqueWarehouses} dépôts</h2>
         </div>
-        <div className="card">
+        {pmsEnabled && <div className="card">
           <BedDouble size={22} color="var(--purple)" />
           <p style={{ color: 'var(--text-secondary)', marginTop: '10px', fontWeight: 700, fontSize: '0.85rem' }}>PMS hôtel</p>
           <h2 style={{ marginTop: '6px' }}>{openFolios.length} folios ouverts</h2>
-        </div>
+        </div>}
       </div>
 
       <div className="grid-2" style={{ alignItems: 'start' }}>
@@ -143,7 +146,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
             ['Produit', 'Le produit reste unique : pas de doublon Coca par bar ou restaurant.'],
             ['Prix', 'Le tarif vient du point de vente qui réalise la vente.'],
             ['Stock', 'La sortie se fait sur le dépôt associé au POS.'],
-            ['PMS', 'Une consommation peut être envoyée sur le folio chambre.'],
+            ...(pmsEnabled ? [['PMS', 'Une consommation peut être envoyée sur le folio chambre.']] : []),
             ['Audit', 'Chaque vente laisse un mouvement stock traçable.']
           ].map(item => (
             <div key={item[0]} className="proof-row">
@@ -162,7 +165,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
             <h2>Le service en temps réel</h2>
             <p>Les demandes du client deviennent immédiatement des actions pour la salle, la cuisine et le responsable.</p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Suivre l’expérience client <ArrowRight size={16} /></button>
+          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Suivre l’expérience client <ArrowRight size={16} /></button>}
         </header>
         <div className="restaurant-operations-grid">
           <article className="restaurant-operation-panel">
@@ -182,7 +185,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
               {activeOrders.map(order => {
                 const customer = db.sartalCustomers.find(item => item.id === order.customerId);
                 const nextStatus = nextOrderStatus[order.status];
-                return <div className="restaurant-kds-row" key={order.id}><div className="restaurant-kds-head"><div><strong>{order.tableNumber ? `Table ${order.tableNumber}` : order.roomNumber ? `Chambre ${order.roomNumber}` : 'À emporter'}</strong><span>{customer?.fullName}</span></div><b data-status={order.status}>{orderStatusLabels[order.status]}</b></div><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}><strong>{item.quantity}×</strong>{db.products.find(product => product.id === item.productId)?.name || 'Article'}</li>)}</ul>{customer?.allergies && <small className="restaurant-kds-alert"><AlertTriangle size={13} /> Sans {customer.allergies.toLowerCase()}</small>}<footer><span><Clock3 size={13} /> {order.estimatedMinutes} min</span>{nextStatus && <button onClick={() => updateRestaurantGuestOrderStatus(order.id, nextStatus)}>{nextOrderLabels[order.status]} <ArrowRight size={14} /></button>}</footer></div>;
+                return <div className="restaurant-kds-row" key={order.id}><div className="restaurant-kds-head"><div><strong>{order.tableNumber ? `Table ${order.tableNumber}` : order.roomNumber ? `Chambre ${order.roomNumber}` : 'À emporter'}</strong><span>{customer?.fullName}</span></div><b data-status={order.status}>{orderStatusLabels[order.status]}</b></div><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}><strong>{item.quantity}×</strong>{db.products.find(product => product.id === item.productId)?.name || 'Article'}</li>)}</ul>{customer?.allergies && <small className="restaurant-kds-alert"><AlertTriangle size={13} /> Sans {customer.allergies.toLowerCase()}</small>}<footer><span><Clock3 size={13} /> {order.estimatedMinutes} min</span>{canOperateRestaurant && nextStatus && <button onClick={() => updateRestaurantGuestOrderStatus(order.id, nextStatus)}>{nextOrderLabels[order.status]} <ArrowRight size={14} /></button>}</footer></div>;
               })}
               {activeOrders.length === 0 && <p className="restaurant-operation-empty">Aucune commande en attente.</p>}
             </div>
@@ -207,8 +210,8 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView }) 
           Sartal peut d'abord se connecter aux ventes existantes pour relier chaque point de vente à son dépôt, fiabiliser le stock et conserver un catalogue unique. Les autres modules peuvent ensuite être déployés progressivement, sans remplacement brutal des outils actuels.
         </p>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={() => setView('simulation')}>Simuler les ventes</button>
-          <button className="btn btn-secondary" onClick={() => setView('exports')}>Voir les rapports</button>
+          {(canAccessView?.('simulation') ?? true) && <button className="btn btn-primary" onClick={() => setView('simulation')}>Simuler les ventes</button>}
+          {(canAccessView?.('exports') ?? true) && <button className="btn btn-secondary" onClick={() => setView('exports')}>Voir les rapports</button>}
         </div>
       </div>
     </div>

@@ -40,14 +40,20 @@ import { buildPMSUnifiedJourney, PMSJourneyEventType } from '../utils/pmsUnified
 
 interface PMSPanelProps { state: StockState; }
 type PMSWorkspaceTab = 'dashboard' | 'planning' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping' | 'audit' | 'reports' | 'settings';
-interface PMSSignatureWorkspaceProps extends PMSPanelProps { onNavigate: (tab: PMSWorkspaceTab) => void; }
+type PMSWorkspaceRole = 'reception' | 'manager' | 'housekeeping' | 'night';
+interface PMSSignatureWorkspaceProps extends PMSPanelProps {
+  onNavigate: (tab: PMSWorkspaceTab) => void;
+  canNavigate?: (tab: PMSWorkspaceTab) => boolean;
+  initialRole?: PMSWorkspaceRole;
+  allowedRoles?: readonly PMSWorkspaceRole[];
+}
 
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
 const formatDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
 
-export const PMSSignatureWorkspace: React.FC<PMSSignatureWorkspaceProps> = ({ state, onNavigate }) => {
+export const PMSSignatureWorkspace: React.FC<PMSSignatureWorkspaceProps> = ({ state, onNavigate, canNavigate, initialRole = 'reception', allowedRoles }) => {
   const { db } = state;
-  const [role, setRole] = useState<'reception' | 'manager' | 'housekeeping' | 'night'>('reception');
+  const [role, setRole] = useState<PMSWorkspaceRole>(initialRole);
   const today = db.pmsSettings.businessDate;
   const arrivals = db.pmsReservations.filter(item => item.arrivalDate === today && item.status === 'confirmed');
   const departures = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
@@ -102,11 +108,11 @@ export const PMSSignatureWorkspace: React.FC<PMSSignatureWorkspaceProps> = ({ st
     <section className={`pms-signature-workspace role-${role}`}>
       <header className="pms-signature-header">
         <div><span className="pms-eyebrow"><Fingerprint size={15} /> Poste Sártal</span><h2>{current.label}, voici l’essentiel</h2><p>{current.promise}</p></div>
-        <div className="pms-signature-role-switch">{(Object.keys(workspaces) as Array<keyof typeof workspaces>).map(item => <button key={item} className={role === item ? 'active' : ''} onClick={() => setRole(item)}>{workspaces[item].icon}<span>{workspaces[item].label}</span></button>)}</div>
+        {(allowedRoles?.length ?? 4) > 1 && <div className="pms-signature-role-switch">{(Object.keys(workspaces) as PMSWorkspaceRole[]).filter(item => !allowedRoles || allowedRoles.includes(item)).map(item => <button key={item} className={role === item ? 'active' : ''} onClick={() => setRole(item)}>{workspaces[item].icon}<span>{workspaces[item].label}</span></button>)}</div>}
       </header>
       <div className="pms-signature-body">
-        <button className="pms-signature-highlight" onClick={() => onNavigate(current.target)}><span>Priorité maintenant</span><strong>{current.highlight}</strong><small>{current.highlightDetail}</small><b>Agir maintenant <ArrowRight size={16} /></b></button>
-        <div className="pms-signature-actions">{current.actions.map(action => <button key={action.label} className={action.tone} onClick={() => onNavigate(action.tab)}><div><strong>{action.count}{'suffix' in action ? action.suffix : ''}</strong><ChevronRight size={18} /></div><span>{action.label}</span><small>{action.detail}</small></button>)}</div>
+        {(canNavigate?.(current.target) ?? true) && <button className="pms-signature-highlight" onClick={() => onNavigate(current.target)}><span>Priorité maintenant</span><strong>{current.highlight}</strong><small>{current.highlightDetail}</small><b>Agir maintenant <ArrowRight size={16} /></b></button>}
+        <div className="pms-signature-actions">{current.actions.filter(action => canNavigate?.(action.tab) ?? true).map(action => <button key={action.label} className={action.tone} onClick={() => onNavigate(action.tab)}><div><strong>{action.count}{'suffix' in action ? action.suffix : ''}</strong><ChevronRight size={18} /></div><span>{action.label}</span><small>{action.detail}</small></button>)}</div>
       </div>
       <footer><span><Clock3 size={15} /> Journée du {formatDate(today)}</span><span><ShieldCheck size={15} /> Données synchronisées entre les équipes</span><span><BellRing size={15} /> {db.pmsServiceRequests.filter(item => item.status !== 'completed').length} demande(s) active(s)</span></footer>
     </section>

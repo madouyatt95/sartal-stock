@@ -192,6 +192,16 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const role = employee?.role;
   const roleConfig = role ? ROLE_CONFIG[role] : ROLE_CONFIG.waiter;
   const siteBrand = db.sartalBrandSettings.siteProfiles.find(item => item.siteId === employee?.siteId);
+  const enabledModules = db.sartalBrandSettings.enabledModules;
+  const assignedPosId = activeShift?.assignmentId || employee?.posId;
+  const assignedRestaurantOrders = assignedPosId ? db.restaurantGuestOrders.filter(item => item.posId === assignedPosId) : [];
+  const customerContextAllowed = (context: string) => (
+    context === 'restaurant'
+      ? enabledModules.includes('restaurant')
+      : context === 'delivery'
+        ? enabledModules.includes('delivery')
+        : enabledModules.includes('pms')
+  );
 
   useEffect(() => {
     if (!demoAutoStart || !loggedIn || !employee || activeShift) return;
@@ -206,11 +216,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const roleAssignments = useMemo(() => {
     if (!employee) return [];
     if (['waiter', 'cashier', 'kitchen'].includes(employee.role)) {
-      return db.posList.filter(item => ['restaurant', 'room_service'].includes(item.type)).map(item => ({ id: item.id, label: item.name }));
+      return db.posList.filter(item => item.id === employee.posId).map(item => ({ id: item.id, label: item.name }));
     }
     if (['storekeeper', 'picker', 'driver'].includes(employee.role)) {
       return db.warehouses
-        .filter(item => employee.role === 'storekeeper' || item.id === employee.warehouseId || item.id === 'wh-delivery')
+        .filter(item => item.id === employee.warehouseId)
         .map(item => ({ id: item.id, label: item.name }));
     }
     return db.sites.filter(item => item.id === employee.siteId).map(item => ({ id: item.id, label: ['receptionist', 'housekeeper'].includes(employee.role) ? `${item.name} · Hôtel / PMS` : item.name }));
@@ -310,7 +320,8 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     const tasks: StaffTask[] = [];
 
     if (employee.role === 'waiter') {
-      db.sartalServiceRequests.filter(item => item.context === 'restaurant' && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
+      const orderIds = new Set(assignedRestaurantOrders.map(item => item.id));
+      db.sartalServiceRequests.filter(item => item.context === 'restaurant' && (!item.referenceId || orderIds.has(item.referenceId)) && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
         tasks.push({
           id: item.id,
@@ -322,14 +333,14 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
           action: () => execute(() => state.updateSartalServiceRequest(item.id, item.status === 'requested' ? 'accepted' : 'completed', employee.name), item.status === 'requested' ? 'Demande prise en charge.' : 'Demande client terminée.')
         });
       });
-      db.restaurantReservations.filter(item => ['confirmed', 'seated'].includes(item.status)).forEach(item => {
+      db.restaurantReservations.filter(item => item.posId === assignedPosId && ['confirmed', 'seated'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
         tasks.push({ id: item.id, title: `Table ${item.tableNumber || 'à attribuer'} · ${item.guests} pers.`, detail: `${customer?.fullName || 'Client'}${customer?.allergies ? ` · Allergie ${customer.allergies}` : ''}`, meta: `${item.date} à ${item.time}`, tone: customer?.allergies ? 'urgent' : 'waiting', actionLabel: 'Voir la table', action: () => setTab('action') });
       });
     }
 
     if (employee.role === 'cashier') {
-      db.restaurantGuestOrders.filter(item => !['paid', 'cancelled'].includes(item.status)).forEach(item => {
+      assignedRestaurantOrders.filter(item => !['paid', 'cancelled'].includes(item.status)).forEach(item => {
         const paid = item.payments.reduce((sum, payment) => sum + payment.amount, 0);
         tasks.push({ id: item.id, title: `Addition ${item.tableNumber || item.id}`, detail: `${formatFCFA(item.total - paid)} à encaisser`, meta: `${item.payments.length} paiement(s) enregistré(s)`, tone: item.status === 'served' ? 'active' : 'waiting', actionLabel: 'Encaisser', action: () => { setSelectedOrderId(item.id); setPaymentAmount(String(item.total - paid)); setTab('action'); } });
       });
@@ -337,7 +348,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     }
 
     if (employee.role === 'kitchen') {
-      db.restaurantGuestOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status)).forEach(item => {
+      assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
         const nextStatus = item.status === 'preparing' ? 'ready' : 'preparing';
         tasks.push({
@@ -390,11 +401,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     }
 
     if (employee.role === 'customer_experience') {
-      db.sartalServiceRequests.filter(item => !['completed', 'cancelled'].includes(item.status)).forEach(item => {
+      db.sartalServiceRequests.filter(item => customerContextAllowed(item.context) && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
         tasks.push({ id: item.id, title: item.label, detail: `${customer?.fullName || 'Client'} · ${item.context}`, meta: `${new Date(item.promisedAt).getTime() < Date.now() ? 'PROMESSE DÉPASSÉE' : `avant ${formatTime(item.promisedAt)}`}`, tone: new Date(item.promisedAt).getTime() < Date.now() || item.priority === 'urgent' ? 'urgent' : 'active', actionLabel: item.status === 'requested' ? 'Prendre' : 'Résoudre', action: () => execute(() => state.updateSartalServiceRequest(item.id, item.status === 'requested' ? 'accepted' : 'completed', employee.name), 'Engagement client mis à jour.') });
       });
-      db.sartalCustomerFeedback.filter(item => item.recoveryStatus === 'open').forEach(item => tasks.push({ id: item.id, title: `Avis ${item.score}/5`, detail: item.note || 'Retour client à traiter', meta: item.assignedTo || 'À affecter', tone: 'urgent', actionLabel: 'Reprendre', action: () => setTab('action') }));
+      db.sartalCustomerFeedback.filter(item => customerContextAllowed(item.context) && item.recoveryStatus === 'open').forEach(item => tasks.push({ id: item.id, title: `Avis ${item.score}/5`, detail: item.note || 'Retour client à traiter', meta: item.assignedTo || 'À affecter', tone: 'urgent', actionLabel: 'Reprendre', action: () => setTab('action') }));
     }
 
     if (employee.role === 'service_manager') {
@@ -604,7 +615,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   );
 
   const renderWaiterAction = () => {
-    const orders = db.restaurantGuestOrders.filter(item => !['cancelled'].includes(item.status));
+    const orders = assignedRestaurantOrders.filter(item => !['cancelled'].includes(item.status));
     return <section className="staff-action-layout">
       <div className="staff-action-main"><header><LayoutGrid size={20} /><div><h2>Plan de salle</h2><p>Tables, commandes et demandes client au même endroit.</p></div></header><div className="staff-table-board">{orders.map(order => {
         const customer = db.sartalCustomers.find(item => item.id === order.customerId);
@@ -617,11 +628,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   const renderCashierAction = () => {
     const cashSession = db.cashSessions.find(item => item.userId === employee.id && item.status === 'open');
-    const unpaidOrders = db.restaurantGuestOrders.filter(item => !['paid', 'cancelled'].includes(item.status));
+    const unpaidOrders = assignedRestaurantOrders.filter(item => !['paid', 'cancelled'].includes(item.status));
     const selectedOrder = unpaidOrders.find(item => item.id === selectedOrderId) || unpaidOrders[0];
     const paid = selectedOrder?.payments.reduce((sum, item) => sum + item.amount, 0) || 0;
     const remaining = Math.max(0, (selectedOrder?.total || 0) - paid);
-    const paymentTotals = cashSession?.paymentTotals || db.restaurantGuestOrders.flatMap(item => item.payments).reduce<Record<PaymentType, number>>((totals, payment) => ({ ...totals, [payment.method]: totals[payment.method] + payment.amount }), { cash: 0, card: 0, wave: 0, orange_money: 0, room_charge: 0, other: 0 });
+    const paymentTotals = cashSession?.paymentTotals || assignedRestaurantOrders.flatMap(item => item.payments).reduce<Record<PaymentType, number>>((totals, payment) => ({ ...totals, [payment.method]: totals[payment.method] + payment.amount }), { cash: 0, card: 0, wave: 0, orange_money: 0, room_charge: 0, other: 0 });
     return <section className="staff-cashier-layout">
       <div className="staff-cash-session"><header><div><span className={cashSession ? 'open' : 'closed'}><i /> {cashSession ? 'Caisse ouverte' : 'Caisse fermée'}</span><h2>{cashSession ? cashSession.id : 'Ouvrir la caisse'}</h2><p>{cashSession ? `${employee.name} · depuis ${formatTime(cashSession.openedAt)}` : 'Confirmez le fonds initial avant le premier encaissement.'}</p></div><Banknote size={28} /></header>{!cashSession ? <div className="staff-cash-open"><label>Fonds initial (FCFA)<input inputMode="numeric" value={openingFloat} onChange={event => setOpeningFloat(event.target.value.replace(/\D/g, ''))} /></label><button onClick={() => execute(() => state.openCashSession(employee.posId || 'pos-1', Number(openingFloat), { id: employee.id, name: employee.name }), 'Caisse ouverte et fonds initial enregistré.')}><DoorOpen size={18} /> Ouvrir la caisse</button></div> : <><div className="staff-payment-totals">{(['wave', 'orange_money', 'cash', 'card'] as PaymentType[]).map(method => <article key={method}><span>{PAYMENT_LABELS[method]}</span><strong>{formatFCFA(paymentTotals[method])}</strong></article>)}</div><div className="staff-cash-close"><label>Espèces comptées<input inputMode="numeric" value={closingCash} onChange={event => setClosingCash(event.target.value.replace(/\D/g, ''))} /></label><button onClick={() => execute(() => state.closeCashSession(cashSession.id, Number(closingCash), 'Clôture depuis Sártal Équipe', { id: employee.id, name: employee.name }), 'Rapport Z produit et caisse clôturée.')}><LockKeyhole size={17} /> Clôturer X/Z</button></div></>}</div>
       <div className="staff-checkout-panel">
@@ -645,7 +656,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderKitchenAction = () => {
-    const tickets = db.restaurantGuestOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
+    const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
     return <section className="staff-kds"><header><div><span>KDS CUISINE</span><h2>Tickets par urgence</h2><p>Chaque article doit être confirmé avant de déclarer le ticket prêt.</p></div><b><i /> Cuisine en service</b></header><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
       const customer = db.sartalCustomers.find(item => item.id === order.customerId);
       const next = order.status === 'preparing' ? 'ready' : 'preparing';
@@ -759,12 +770,13 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderWaiterGameChanger = () => {
-    const activeOrders = db.restaurantGuestOrders.filter(item => item.posId === employee.posId && !['paid', 'cancelled'].includes(item.status));
+    const activeOrders = assignedRestaurantOrders.filter(item => !['paid', 'cancelled'].includes(item.status));
     const focusOrder = activeOrders.find(item => item.status === 'ready') || activeOrders.find(item => item.status === 'served') || activeOrders[0];
     const focusCustomer = db.sartalCustomers.find(item => item.id === focusOrder?.customerId);
-    const priorityRequest = db.sartalServiceRequests.find(item => item.context === 'restaurant' && !['completed', 'cancelled'].includes(item.status) && (item.priority === 'urgent' || new Date(item.promisedAt).getTime() < Date.now()));
+    const activeOrderIds = new Set(activeOrders.map(item => item.id));
+    const priorityRequest = db.sartalServiceRequests.find(item => item.context === 'restaurant' && (!item.referenceId || activeOrderIds.has(item.referenceId)) && !['completed', 'cancelled'].includes(item.status) && (item.priority === 'urgent' || new Date(item.promisedAt).getTime() < Date.now()));
     const suggestions = db.posPricing
-      .filter(item => item.posId === employee.posId && item.isAvailable && !focusOrder?.items.some(line => line.productId === item.productId))
+      .filter(item => item.posId === assignedPosId && item.isAvailable && !focusOrder?.items.some(line => line.productId === item.productId))
       .map(pricing => {
         const product = db.products.find(item => item.id === pricing.productId);
         const stockInfo = getPOSStock(pricing.productId, pricing.posId);
@@ -789,7 +801,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   const renderCashierGameChanger = () => {
     const cashSession = db.cashSessions.find(item => item.userId === employee.id && item.status === 'open');
-    const posOrders = db.restaurantGuestOrders.filter(item => item.posId === employee.posId);
+    const posOrders = assignedRestaurantOrders;
     const payments = posOrders.flatMap(order => order.payments.map(payment => ({ order, payment })));
     const unlinked = cashSession ? payments.filter(item => item.payment.method !== 'room_charge' && !item.payment.cashSessionId && new Date(item.payment.paidAt).getTime() >= new Date(cashSession.openedAt).getTime()) : [];
     const duplicates = payments.filter((entry, index) => payments.some((other, otherIndex) => otherIndex < index && other.payment.method === entry.payment.method && other.payment.amount === entry.payment.amount && Math.abs(new Date(other.payment.paidAt).getTime() - new Date(entry.payment.paidAt).getTime()) < 60000));
@@ -804,7 +816,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderKitchenGameChanger = () => {
-    const tickets = db.restaurantGuestOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status));
+    const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status));
     const routedItems = tickets.flatMap(order => order.items.map(line => ({ order, line, product: db.products.find(item => item.id === line.productId) })));
     const stationItems = routedItems.filter(item => kdsStation === 'all' || (kdsStation === 'drinks' ? /boisson|mocktail/i.test(item.product?.category || '') : !/boisson|mocktail/i.test(item.product?.category || '')));
     const overdue = tickets.filter(item => elapsedMinutes(item.createdAt) > item.estimatedMinutes).length;
@@ -890,24 +902,24 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   const renderCustomerExperienceGameChanger = () => {
     const customerRisks = db.sartalCustomers.map(customer => {
-      const overdue = db.sartalServiceRequests.filter(item => item.customerId === customer.id && !['completed', 'cancelled'].includes(item.status) && new Date(item.promisedAt).getTime() < Date.now()).length;
-      const feedback = db.sartalCustomerFeedback.filter(item => item.customerId === customer.id && item.recoveryStatus === 'open').length;
-      const deliveryIncidents = db.deliveryOrders.filter(item => item.customerId === customer.id && item.status === 'failed').length;
+      const overdue = db.sartalServiceRequests.filter(item => item.customerId === customer.id && customerContextAllowed(item.context) && !['completed', 'cancelled'].includes(item.status) && new Date(item.promisedAt).getTime() < Date.now()).length;
+      const feedback = db.sartalCustomerFeedback.filter(item => item.customerId === customer.id && customerContextAllowed(item.context) && item.recoveryStatus === 'open').length;
+      const deliveryIncidents = enabledModules.includes('delivery') ? db.deliveryOrders.filter(item => item.customerId === customer.id && item.status === 'failed').length : 0;
       return { customer, score: Math.min(100, overdue * 35 + feedback * 30 + deliveryIncidents * 25 + (customer.loyaltyTier === 'signature' ? 10 : 0)) };
     }).sort((a, b) => b.score - a.score);
     const focus = customerRisks.find(item => item.customer.id === customerFocusId) || customerRisks[0];
     const customer = focus?.customer;
-    const guest = db.pmsGuests.find(item => item.phone === customer?.phone || item.fullName === customer?.fullName);
-    const reservationIds = db.pmsReservations.filter(item => item.guestId === guest?.id).map(item => item.id);
+    const guest = enabledModules.includes('pms') ? db.pmsGuests.find(item => item.phone === customer?.phone || item.fullName === customer?.fullName) : undefined;
+    const reservationIds = enabledModules.includes('pms') ? db.pmsReservations.filter(item => item.guestId === guest?.id).map(item => item.id) : [];
     const timeline: Array<{ id: string; date: string; title: string; detail: string; tone: string }> = [];
     if (customer) {
-      db.restaurantGuestOrders.filter(item => item.customerId === customer.id).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Restaurant · ${item.tableNumber || item.id}`, detail: `${formatFCFA(item.total)} · ${ORDER_STATUS[item.status]}`, tone: 'restaurant' }));
-      db.deliveryOrders.filter(item => item.customerId === customer.id || item.phone === customer.phone).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Livraison · ${item.id}`, detail: `${item.zone || item.address} · ${ORDER_STATUS[item.status]}`, tone: 'delivery' }));
-      db.pmsFolios.filter(item => reservationIds.includes(item.reservationId || '')).forEach(item => timeline.push({ id: item.id, date: item.departureDate, title: `Hôtel · ${item.reservationNumber}`, detail: `${item.guestName} · folio ${item.status}`, tone: 'hotel' }));
-      db.sartalCustomerFeedback.filter(item => item.customerId === customer.id).forEach(item => timeline.push({ id: item.id, date: item.submittedAt, title: `Avis ${item.score}/5`, detail: item.note || 'Sans commentaire', tone: item.score <= 3 ? 'alert' : 'success' }));
+      if (enabledModules.includes('restaurant')) db.restaurantGuestOrders.filter(item => item.customerId === customer.id).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Restaurant · ${item.tableNumber || item.id}`, detail: `${formatFCFA(item.total)} · ${ORDER_STATUS[item.status]}`, tone: 'restaurant' }));
+      if (enabledModules.includes('delivery')) db.deliveryOrders.filter(item => item.customerId === customer.id || item.phone === customer.phone).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Livraison · ${item.id}`, detail: `${item.zone || item.address} · ${ORDER_STATUS[item.status]}`, tone: 'delivery' }));
+      if (enabledModules.includes('pms')) db.pmsFolios.filter(item => reservationIds.includes(item.reservationId || '')).forEach(item => timeline.push({ id: item.id, date: item.departureDate, title: `Hôtel · ${item.reservationNumber}`, detail: `${item.guestName} · folio ${item.status}`, tone: 'hotel' }));
+      db.sartalCustomerFeedback.filter(item => item.customerId === customer.id && customerContextAllowed(item.context)).forEach(item => timeline.push({ id: item.id, date: item.submittedAt, title: `Avis ${item.score}/5`, detail: item.note || 'Sans commentaire', tone: item.score <= 3 ? 'alert' : 'success' }));
     }
     timeline.sort((a, b) => b.date.localeCompare(a.date));
-    const openFeedback = customer && db.sartalCustomerFeedback.find(item => item.customerId === customer.id && item.recoveryStatus === 'open');
+    const openFeedback = customer && db.sartalCustomerFeedback.find(item => item.customerId === customer.id && customerContextAllowed(item.context) && item.recoveryStatus === 'open');
     const playbook = openFeedback && db.sartalRecoveryPlaybooks.find(item => item.active && (item.context === 'all' || item.context === openFeedback.context) && openFeedback.score <= item.maxScore);
     return <section className="staff-game-changer staff-cx-intelligence"><header><UserRoundSearch size={22} /><div><span>CLIENT 360°</span><h2>Voir le risque avant la réclamation</h2></div><b className={focus && focus.score >= 50 ? 'danger' : 'good'}>{focus?.score || 0}% de vigilance</b></header>{customer && <div className="staff-cx-360"><aside><small>Clients à suivre</small>{customerRisks.slice(0, 5).map(item => <button className={item.customer.id === customer.id ? 'active' : ''} key={item.customer.id} onClick={() => setCustomerFocusId(item.customer.id)}><span><strong>{item.customer.fullName}</strong><small>{item.customer.loyaltyTier} · {item.customer.visits} visite(s)</small></span><b>{item.score}%</b></button>)}</aside><article><header><span><strong>{customer.fullName}</strong><small>{customer.preferredChannel || 'canal à confirmer'} · {customer.preferredLanguage}</small></span><a href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"><MessageCircle size={16} /> Contacter</a></header><p>{customer.preferences || 'Aucune préférence'}{customer.allergies ? ` · Allergie ${customer.allergies}` : ''}</p><div className="staff-customer-timeline">{timeline.slice(0, 6).map(item => <div className={item.tone} key={item.id}><i /><span><strong>{item.title}</strong><small>{item.detail}</small></span><time>{new Date(item.date).toLocaleDateString('fr-FR')}</time></div>)}</div></article><section><small>Protocole recommandé</small>{openFeedback && playbook ? <><strong>{playbook.name}</strong><p>{playbook.solution}</p><span>{playbook.compensationPoints} point(s) · {playbook.managerApproval ? 'validation manager' : 'application immédiate'}</span><button onClick={() => execute(() => state.applySartalRecoveryPlaybook(openFeedback.id, playbook.id), `${playbook.name} appliqué et dossier client mis à jour.`)}><HeartHandshake size={16} /> Appliquer le protocole</button></> : <><CheckCircle2 size={26} /><strong>Aucune reprise urgente</strong><p>Le parcours reste surveillé automatiquement.</p></>}</section></div>}</section>;
   };

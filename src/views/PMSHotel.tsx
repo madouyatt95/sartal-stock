@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
   BedDouble,
@@ -70,9 +70,11 @@ interface PMSHotelProps {
   state: StockState;
   setView: (view: string) => void;
   initialTab?: PMSTab;
+  allowedTabs?: readonly PMSTab[];
+  canAccessView?: (view: string) => boolean;
 }
 
-type PMSTab = 'dashboard' | 'planning' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping' | 'audit' | 'reports' | 'settings';
+export type PMSTab = 'dashboard' | 'planning' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping' | 'audit' | 'reports' | 'settings';
 
 const formatFCFA = (value: number) => (
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
@@ -113,7 +115,7 @@ const taskLabels = {
 
 const getNights = (arrival: string, departure: string) => Math.max(1, Math.ceil((new Date(departure).getTime() - new Date(arrival).getTime()) / 86400000));
 
-export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab = 'dashboard' }) => {
+export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab = 'dashboard', allowedTabs, canAccessView }) => {
   const {
     db,
     togglePMSExport,
@@ -165,6 +167,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const departuresToday = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
   const dirtyRooms = db.pmsRooms.filter(room => room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'in_progress');
   const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
+  const pmsWorkspaceRole = db.currentUser.role === 'auditor' ? 'night' : db.currentUser.role === 'director' ? 'manager' : 'reception';
+  const pmsWorkspaceRoles = db.currentUser.role === 'admin' ? ['reception', 'manager', 'housekeeping', 'night'] as const : [pmsWorkspaceRole] as const;
 
   const folioTotals = (folioId: string) => {
     const folio = db.pmsFolios.find(item => item.id === folioId);
@@ -222,7 +226,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     ? getNights(reservationForm.arrivalDate, reservationForm.departureDate)
     : 0;
 
-  const tabs: Array<{ id: PMSTab; label: string; icon: React.ReactNode }> = [
+  const allTabs: Array<{ id: PMSTab; label: string; icon: React.ReactNode }> = [
     { id: 'dashboard', label: 'Réception', icon: <LayoutDashboard size={17} /> },
     { id: 'planning', label: 'Planning', icon: <CalendarDays size={17} /> },
     { id: 'reservations', label: 'Réservations', icon: <ClipboardCheck size={17} /> },
@@ -234,13 +238,20 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     { id: 'reports', label: 'Rapports', icon: <FileSpreadsheet size={17} /> },
     { id: 'settings', label: 'Réglages', icon: <Settings size={17} /> }
   ];
+  const tabs = allTabs.filter(tab => !allowedTabs || allowedTabs.includes(tab.id));
   const primaryMobileTabs: PMSTab[] = ['dashboard', 'planning', 'rooms', 'folios'];
   const secondaryMobileTabs = tabs.filter(tab => !primaryMobileTabs.includes(tab.id));
+  const canOpenTab = (tab: PMSTab) => tabs.some(item => item.id === tab);
   const openTab = (tab: PMSTab) => {
+    if (!canOpenTab(tab)) return;
     setActiveTab(tab);
     setSearchQuery('');
     setMobileMoreOpen(false);
   };
+
+  useEffect(() => {
+    if (allowedTabs && !allowedTabs.includes(activeTab) && allowedTabs[0]) setActiveTab(allowedTabs[0]);
+  }, [activeTab, allowedTabs]);
 
   const openCreateReservation = () => {
     const departure = new Date(`${today}T12:00:00`);
@@ -335,7 +346,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         createPMSReservation(reservationForm);
       }
       setReservationModalOpen(false);
-      setActiveTab('reservations');
+      openTab('reservations');
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Impossible d’enregistrer cette réservation');
     }
@@ -428,20 +439,20 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderDashboard = () => (
     <>
-      <PMSSignatureWorkspace state={state} onNavigate={openTab} />
+      <PMSSignatureWorkspace state={state} onNavigate={openTab} canNavigate={canOpenTab} initialRole={pmsWorkspaceRole} allowedRoles={pmsWorkspaceRoles} />
       {renderKpis()}
       <PMSFrontDeskCommand state={state} />
       <PMSUnifiedJourneyPanel state={state} />
       <PMSServiceDesk state={state} />
       <section className="card pms-section-card">
-        <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div><button className="btn btn-secondary" onClick={() => setActiveTab('rooms')}>Voir les chambres</button></div>
+        <div className="pms-section-header"><div><h2>Situation des chambres</h2><p>Disponibilité et état d’entretien.</p></div>{canOpenTab('rooms') && <button className="btn btn-secondary" onClick={() => openTab('rooms')}>Voir les chambres</button>}</div>
         <div className="pms-room-summary">
           {[
             { label: 'Occupées', value: occupiedRooms.length, filter: 'occupied' },
             { label: 'Libres et prêtes', value: db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus)).length, filter: 'available' },
             { label: 'À nettoyer', value: dirtyRooms.length, filter: 'dirty' },
             { label: 'Maintenance', value: db.pmsRooms.filter(room => room.status === 'maintenance').length, filter: 'maintenance' }
-          ].map(item => <button key={item.label} onClick={() => { setRoomFilter(item.filter); setActiveTab('rooms'); }}><span>{item.label}</span><strong>{item.value}</strong></button>)}
+          ].map(item => <button key={item.label} disabled={!canOpenTab('rooms')} onClick={() => { setRoomFilter(item.filter); openTab('rooms'); }}><span>{item.label}</span><strong>{item.value}</strong></button>)}
         </div>
       </section>
 
@@ -449,11 +460,11 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
         <div className="pms-section-header"><div><h2>Parcours opérationnel</h2><p>Les actions principales restent accessibles sans changer de module.</p></div></div>
         <div className="grid-4 pms-shortcuts">
           {[
-            { icon: <Plus size={20} />, label: 'Nouvelle réservation', action: openCreateReservation },
-            { icon: <CalendarDays size={20} />, label: 'Voir le planning', action: () => setActiveTab('planning') },
-            { icon: <CreditCard size={20} />, label: 'Imputer une vente POS', action: () => setView('connectors') },
-            { icon: <MoonStar size={20} />, label: 'Préparer la clôture', action: () => setActiveTab('audit') }
-          ].map(item => <button key={item.label} onClick={item.action}>{item.icon}<span>{item.label}</span><ArrowRight size={17} /></button>)}
+            { icon: <Plus size={20} />, label: 'Nouvelle réservation', action: openCreateReservation, allowed: canOpenTab('reservations') },
+            { icon: <CalendarDays size={20} />, label: 'Voir le planning', action: () => openTab('planning'), allowed: canOpenTab('planning') },
+            { icon: <CreditCard size={20} />, label: 'Imputer une vente POS', action: () => setView('connectors'), allowed: canAccessView?.('connectors') ?? true },
+            { icon: <MoonStar size={20} />, label: 'Préparer la clôture', action: () => openTab('audit'), allowed: canOpenTab('audit') }
+          ].filter(item => item.allowed).map(item => <button key={item.label} onClick={item.action}>{item.icon}<span>{item.label}</span><ArrowRight size={17} /></button>)}
         </div>
       </section>
       <PMSDayScenario state={state} />
@@ -486,7 +497,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
               <div className="pms-reservation-details"><span>{room ? 'Chambre' : 'Catégorie'} <strong>{room?.roomNumber || reservation.requestedRoomType || 'À attribuer'}</strong></span><span>{reservation.adults} adulte(s) · {reservation.children} enfant(s)</span><span><strong>{formatFCFA(reservation.nightlyRate)}</strong> / nuit</span><span>Acompte <strong>{formatFCFA(reservation.depositAmount)}</strong></span></div>
               <div className="mobile-card-actions pms-reservation-actions">
                 <button className="btn btn-secondary" onClick={() => openEditReservation(reservation)}><Pencil size={16} /> Modifier</button>
-                {reservation.status === 'confirmed' && <>{reservation.roomId ? <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><LogIn size={16} /> Accueillir</button> : <button className="btn btn-primary" onClick={() => setActiveTab('dashboard')}><BedDouble size={16} /> Attribuer</button>}<button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'no_show')}>Non présenté</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'cancelled')}>Annuler</button></>}
+                {reservation.status === 'confirmed' && <>{canOpenTab('dashboard') && (reservation.roomId ? <button className="btn btn-primary" onClick={() => openTab('dashboard')}><LogIn size={16} /> Accueillir</button> : <button className="btn btn-primary" onClick={() => openTab('dashboard')}><BedDouble size={16} /> Attribuer</button>)}<button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'no_show')}>Non présenté</button><button className="btn btn-secondary" onClick={() => changeReservationStatus(reservation.id, 'cancelled')}>Annuler</button></>}
                 {reservation.status === 'checked_in' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'checked_out')}><LogOut size={16} /> Check-out</button>}
                 {reservation.status === 'waitlisted' && <button className="btn btn-primary" onClick={() => changeReservationStatus(reservation.id, 'confirmed')}>Confirmer si disponible</button>}
                 {!['checked_in', 'checked_out'].includes(reservation.status) && <button className="btn btn-danger-soft" onClick={() => setDeletingReservationId(reservation.id)}><Trash2 size={15} /> Supprimer</button>}
@@ -507,7 +518,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
       <div className="card pms-filter-bar">
         <div><Filter size={18} /><strong>État des chambres</strong></div>
         <select className="form-control" value={roomFilter} onChange={event => setRoomFilter(event.target.value)}><option value="all">Toutes les chambres</option><option value="available">Libres et prêtes</option><option value="occupied">Occupées</option><option value="dirty">À nettoyer</option><option value="maintenance">Maintenance</option></select>
-        <button className="btn btn-primary" onClick={() => { setConfigFocus('pmsRooms'); setActiveTab('settings'); }}><Plus size={16} /> Ajouter ou configurer</button>
+        {canOpenTab('settings') && <button className="btn btn-primary" onClick={() => { setConfigFocus('pmsRooms'); openTab('settings'); }}><Plus size={16} /> Ajouter ou configurer</button>}
         <div className="pms-room-legend" aria-label="Légende des états de chambre">
           {Object.entries(roomVisualMeta).map(([status, meta]) => <span key={status} className={meta.className}><i />{meta.label}</span>)}
         </div>
@@ -526,9 +537,9 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
               {guest && <div className="pms-room-guest"><Users size={15} /><span>{guest.fullName}</span></div>}
               {room.maintenanceNote && <p className="pms-maintenance-note">{room.maintenanceNote}</p>}
               <div className="mobile-card-actions">
-                <button className="btn btn-secondary" onClick={() => { setConfigFocus('pmsRooms'); setActiveTab('settings'); }}><Pencil size={15} /> Modifier</button>
+                {canOpenTab('settings') && <button className="btn btn-secondary" onClick={() => { setConfigFocus('pmsRooms'); openTab('settings'); }}><Pencil size={15} /> Modifier</button>}
                 {room.status !== 'occupied' && <button className="btn btn-secondary" onClick={() => updatePMSRoom(room.id, { status: room.status === 'maintenance' ? 'vacant' : 'maintenance', maintenanceNote: room.status === 'maintenance' ? '' : 'Contrôle technique demandé.' })}><Wrench size={15} /> {room.status === 'maintenance' ? 'Remettre en vente' : 'Maintenance'}</button>}
-                {room.housekeepingStatus === 'dirty' && <button className="btn btn-primary" onClick={() => { setActiveTab('housekeeping'); }}>Nettoyer</button>}
+                {room.housekeepingStatus === 'dirty' && canOpenTab('housekeeping') && <button className="btn btn-primary" onClick={() => openTab('housekeeping')}>Nettoyer</button>}
               </div>
             </article>
           );
@@ -540,7 +551,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderGuests = () => (
     <>
-      <section className="card pms-section-card pms-management-callout"><div><Users size={20} /><span><strong>Répertoire clients configurable</strong><small>Créer une fiche, corriger les coordonnées, les préférences ou la fidélité.</small></span></div><button className="btn btn-primary" onClick={() => { setConfigFocus('pmsGuests'); setActiveTab('settings'); }}><Pencil size={16} /> Gérer les clients</button></section>
+      {canOpenTab('settings') && <section className="card pms-section-card pms-management-callout"><div><Users size={20} /><span><strong>Répertoire clients configurable</strong><small>Créer une fiche, corriger les coordonnées, les préférences ou la fidélité.</small></span></div><button className="btn btn-primary" onClick={() => { setConfigFocus('pmsGuests'); openTab('settings'); }}><Pencil size={16} /> Gérer les clients</button></section>}
       <PMSGuestExperiencePortal state={state} />
       <PMSGuestCommandCenter state={state} />
       <PMSGuestRelations state={state} />
@@ -602,10 +613,10 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
 
   const renderAudit = () => {
     const blockers = [
-      { label: 'Consommations POS à envoyer', count: pendingCharges.length, action: () => setActiveTab('folios') },
-      { label: 'Départs du jour non clôturés', count: departuresToday.length, action: () => setActiveTab('reservations') },
-      { label: 'Arrivées sans chambre', count: db.pmsReservations.filter(item => !item.roomId && item.status === 'confirmed' && item.arrivalDate <= today).length, action: () => setActiveTab('dashboard') },
-      { label: 'Chambres occupées incohérentes', count: db.pmsRooms.filter(room => room.status === 'occupied' && ['dirty', 'in_progress'].includes(room.housekeepingStatus)).length, action: () => setActiveTab('housekeeping') }
+      { label: 'Consommations POS à envoyer', count: pendingCharges.length, action: () => openTab('folios') },
+      { label: 'Départs du jour non clôturés', count: departuresToday.length, action: () => openTab('reservations') },
+      { label: 'Arrivées sans chambre', count: db.pmsReservations.filter(item => !item.roomId && item.status === 'confirmed' && item.arrivalDate <= today).length, action: () => openTab('dashboard') },
+      { label: 'Chambres occupées incohérentes', count: db.pmsRooms.filter(room => room.status === 'occupied' && ['dirty', 'in_progress'].includes(room.housekeepingStatus)).length, action: () => openTab('housekeeping') }
     ];
     const blockerCount = blockers.reduce((sum, item) => sum + item.count, 0);
     const closeDay = () => {
@@ -630,7 +641,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const renderReports = () => {
     const sources = (Object.keys(sourceLabels) as PMSReservation['source'][]).map(source => ({ source, count: db.pmsReservations.filter(item => item.source === source).length }));
     const maxSource = Math.max(1, ...sources.map(item => item.count));
-    return <><PMSRevenueIntelligence state={state} /><div className="grid-4 pms-kpi-grid"><div className="card pms-kpi"><Hotel size={20} /><span>Taux d’occupation</span><strong>{occupancyRate}%</strong><small>{occupiedRooms.length} chambres occupées</small></div><div className="card pms-kpi"><ReceiptText size={20} /><span>Prix moyen</span><strong>{formatFCFA(averageRate)}</strong><small>Par chambre occupée</small></div><div className="card pms-kpi"><CreditCard size={20} /><span>Chiffre folios</span><strong>{formatFCFA(totalRevenue)}</strong><small>Hébergement et services</small></div><div className="card pms-kpi"><RefreshCcw size={20} /><span>Ventes POS chambre</span><strong>{formatFCFA(chargeRows.filter(row => row.charge.category === 'restaurant').reduce((sum, row) => sum + row.charge.amount, 0))}</strong><small>Restaurant vers PMS</small></div></div><div className="grid-2"><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Origine des réservations</h2><p>Répartition des canaux de vente.</p></div></div><div className="pms-bars">{sources.map(item => <div key={item.source}><span>{sourceLabels[item.source]}</span><div><i style={{ width: `${(item.count / maxSource) * 100}%` }} /></div><strong>{item.count}</strong></div>)}</div></section><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Exports de gestion</h2><p>Données directement exploitables pour le contrôle.</p></div></div><div className="pms-export-actions"><button className="btn btn-secondary" onClick={exportFolios}><FileSpreadsheet size={17} /> Folios et soldes</button><button className="btn btn-secondary" onClick={() => setView('exports')}><ReceiptText size={17} /> Rapports stock et POS</button><button className="btn btn-secondary" onClick={() => setActiveTab('audit')}><MoonStar size={17} /> Rapports de clôture</button></div></section></div><PMSMultiSitePanel state={state} /></>;
+    return <><PMSRevenueIntelligence state={state} /><div className="grid-4 pms-kpi-grid"><div className="card pms-kpi"><Hotel size={20} /><span>Taux d’occupation</span><strong>{occupancyRate}%</strong><small>{occupiedRooms.length} chambres occupées</small></div><div className="card pms-kpi"><ReceiptText size={20} /><span>Prix moyen</span><strong>{formatFCFA(averageRate)}</strong><small>Par chambre occupée</small></div><div className="card pms-kpi"><CreditCard size={20} /><span>Chiffre folios</span><strong>{formatFCFA(totalRevenue)}</strong><small>Hébergement et services</small></div><div className="card pms-kpi"><RefreshCcw size={20} /><span>Ventes POS chambre</span><strong>{formatFCFA(chargeRows.filter(row => row.charge.category === 'restaurant').reduce((sum, row) => sum + row.charge.amount, 0))}</strong><small>Restaurant vers PMS</small></div></div><div className="grid-2"><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Origine des réservations</h2><p>Répartition des canaux de vente.</p></div></div><div className="pms-bars">{sources.map(item => <div key={item.source}><span>{sourceLabels[item.source]}</span><div><i style={{ width: `${(item.count / maxSource) * 100}%` }} /></div><strong>{item.count}</strong></div>)}</div></section><section className="card pms-section-card"><div className="pms-section-header"><div><h2>Exports de gestion</h2><p>Données directement exploitables pour le contrôle.</p></div></div><div className="pms-export-actions"><button className="btn btn-secondary" onClick={exportFolios}><FileSpreadsheet size={17} /> Folios et soldes</button>{(canAccessView?.('exports') ?? true) && <button className="btn btn-secondary" onClick={() => setView('exports')}><ReceiptText size={17} /> Rapports stock et POS</button>}{canOpenTab('audit') && <button className="btn btn-secondary" onClick={() => openTab('audit')}><MoonStar size={17} /> Rapports de clôture</button>}</div></section></div><PMSMultiSitePanel state={state} /></>;
   };
 
   const renderSettings = () => (
@@ -666,14 +677,14 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     <div className="manager-mobile-page pms-page">
       <div className="demo-page-header pms-page-header">
         <div><span className="pms-eyebrow"><Hotel size={16} /> {db.pmsSettings.hotelName}</span><h1>Hôtel / PMS</h1><p>Réservations, réception, chambres, folios, entretien et clôture dans un parcours unique.</p></div>
-        <div><button className="btn btn-secondary" onClick={() => setView('connectors')}><CreditCard size={17} /> Ouvrir la caisse POS</button><button className="btn btn-primary" onClick={openCreateReservation}><Plus size={17} /> Nouvelle réservation</button></div>
+        <div>{(canAccessView?.('connectors') ?? true) && <button className="btn btn-secondary" onClick={() => setView('connectors')}><CreditCard size={17} /> Ouvrir la caisse POS</button>}{canOpenTab('reservations') && <button className="btn btn-primary" onClick={openCreateReservation}><Plus size={17} /> Nouvelle réservation</button>}</div>
       </div>
 
-      <PMSGlobalSearch state={state} onNavigate={tab => openTab(tab)} />
+      <PMSGlobalSearch state={state} onNavigate={tab => openTab(tab)} canNavigate={canOpenTab} />
 
       <nav className="pms-tabs" aria-label="Navigation du module Hôtel">
         {tabs.map(tab => <button key={tab.id} className={`${activeTab === tab.id ? 'active' : ''} ${primaryMobileTabs.includes(tab.id) ? 'pms-tab-primary' : 'pms-tab-secondary'}`} onClick={() => openTab(tab.id)}>{tab.icon}<span>{tab.label}</span></button>)}
-        <button className={`pms-mobile-more-trigger ${secondaryMobileTabs.some(tab => tab.id === activeTab) ? 'active' : ''}`} onClick={() => setMobileMoreOpen(true)}><MoreHorizontal size={18} /><span>Plus</span></button>
+        {secondaryMobileTabs.length > 0 && <button className={`pms-mobile-more-trigger ${secondaryMobileTabs.some(tab => tab.id === activeTab) ? 'active' : ''}`} onClick={() => setMobileMoreOpen(true)}><MoreHorizontal size={18} /><span>Plus</span></button>}
       </nav>
 
       <main className="pms-tab-content">

@@ -33,9 +33,10 @@ const formatDate = (value: string) => new Date(`${value}T12:00:00`).toLocaleDate
 
 interface SearchProps extends PMSPanelProps {
   onNavigate: (tab: 'dashboard' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping') => void;
+  canNavigate?: (tab: 'dashboard' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping') => boolean;
 }
 
-export const PMSGlobalSearch: React.FC<SearchProps> = ({ state, onNavigate }) => {
+export const PMSGlobalSearch: React.FC<SearchProps> = ({ state, onNavigate, canNavigate }) => {
   const { db } = state;
   const [query, setQuery] = useState('');
   const normalized = query.trim().toLowerCase();
@@ -46,8 +47,8 @@ export const PMSGlobalSearch: React.FC<SearchProps> = ({ state, onNavigate }) =>
     const rooms = db.pmsRooms.filter(room => `${room.roomNumber} ${room.roomType} ${room.floor}`.toLowerCase().includes(normalized)).map(room => ({ id: `room-${room.id}`, title: `Chambre ${room.roomNumber}`, detail: `${room.roomType} · ${room.floor}`, tab: 'rooms' as const, icon: <BedDouble size={17} /> }));
     const folios = db.pmsFolios.filter(folio => `${folio.guestName} ${folio.reservationNumber}`.toLowerCase().includes(normalized)).map(folio => ({ id: `folio-${folio.id}`, title: `Folio ${folio.reservationNumber}`, detail: folio.guestName, tab: 'folios' as const, icon: <CircleDollarSign size={17} /> }));
     const requests = db.pmsServiceRequests.filter(request => `${request.label} ${request.assignedTo}`.toLowerCase().includes(normalized)).map(request => ({ id: `request-${request.id}`, title: request.label, detail: `${request.assignedTo} · ${request.status}`, tab: 'dashboard' as const, icon: <BellRing size={17} /> }));
-    return [...guests, ...reservations, ...rooms, ...folios, ...requests].slice(0, 8);
-  }, [db, normalized]);
+    return [...guests, ...reservations, ...rooms, ...folios, ...requests].filter(result => canNavigate?.(result.tab) ?? true).slice(0, 8);
+  }, [canNavigate, db, normalized]);
 
   return (
     <div className="pms-global-search">

@@ -15,6 +15,7 @@ import { StockState } from '../hooks/useStockState';
 interface StockAuditProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
 interface AuditRow {
@@ -36,7 +37,7 @@ const forcedCountGaps: Record<string, number> = {
   'prod-jus-bouye-wh-nightclub': -2
 };
 
-export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
+export const StockAudit: React.FC<StockAuditProps> = ({ state, setView, canAccessView }) => {
   const { db } = state;
 
   const formatFCFA = (val: number) => {
@@ -131,12 +132,12 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('pos-imports')}>
+          {(canAccessView?.('pos-imports') ?? true) && <button className="btn btn-secondary" onClick={() => setView('pos-imports')}>
             Importer ventes POS
-          </button>
-          <button className="btn btn-primary" onClick={() => setView('stock-control')}>
+          </button>}
+          {(canAccessView?.('stock-control') ?? true) && <button className="btn btn-primary" onClick={() => setView('stock-control')}>
             Voir contrôle stock
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -198,9 +199,9 @@ export const StockAudit: React.FC<StockAuditProps> = ({ state, setView }) => {
               Comparaison du stock attendu avec le comptage réel, valorisation des écarts et identification des causes probables.
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setView('inventories')}>
+          {(canAccessView?.('inventories') ?? true) && <button className="btn btn-secondary" onClick={() => setView('inventories')}>
             <ClipboardCheck size={16} /> Lancer inventaire
-          </button>
+          </button>}
         </div>
 
         <div className="desktop-table-only" style={{ overflowX: 'auto' }}>

@@ -24,6 +24,7 @@ import { DeliveryOrderStatus, PAYMENT_TYPE_LABELS } from '../types';
 interface DeliveryDemoProps {
   state: StockState;
   setView: (view: string) => void;
+  canAccessView?: (view: string) => boolean;
 }
 
 const STATUS_LABELS: Record<DeliveryOrderStatus, string> = {
@@ -75,7 +76,7 @@ const BASKET_TYPES = [
   { name: 'Urgence hôtel', detail: 'Dépannage chambre ou room service', fee: 'Prioritaire' }
 ];
 
-export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) => {
+export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView, canAccessView }) => {
   const {
     db,
     reserveDeliveryOrder,
@@ -89,6 +90,9 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
     cancelDeliveryOrder,
     resetAllData
   } = state;
+  const canManageStockWorkflow = ['admin', 'stock_manager', 'storekeeper'].includes(db.currentUser.role);
+  const canManageDeliveryWorkflow = db.currentUser.role === 'admin';
+  const canResetDemoData = db.currentUser.role === 'admin';
   const deliveryChannel = db.posList.find(pos => pos.id === 'pos-5') || db.posList.find(pos => pos.type === 'online_grocery');
   const deliveryWarehouse = db.warehouses.find(warehouse => warehouse.id === deliveryChannel?.defaultWarehouseId) || db.warehouses.find(warehouse => warehouse.id === 'wh-delivery');
   const orders = db.deliveryOrders.filter(order => order.channelId === deliveryChannel?.id);
@@ -198,9 +202,9 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           <p style={{ color: 'var(--text-secondary)' }}>
             Les exemples livraison ne sont pas encore disponibles. Réinitialisez les exemples pour les recharger.
           </p>
-          <button className="btn btn-primary" onClick={resetAllData}>
+          {canResetDemoData && <button className="btn btn-primary" onClick={resetAllData}>
             Recharger les exemples
-          </button>
+          </button>}
         </div>
       </div>
     );
@@ -224,13 +228,13 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>
-          <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
+          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>}
+          {(canAccessView?.('stock-control') ?? true) && <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
             Stock réel
-          </button>
-          <button className="btn btn-primary" onClick={() => setView('exports')}>
+          </button>}
+          {(canAccessView?.('exports') ?? true) && <button className="btn btn-primary" onClick={() => setView('exports')}>
             Rapports
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -366,7 +370,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
 
           <section className={`delivery-proof-panel ${selectedOrder.proofStatus === 'photo_confirmed' ? 'complete' : ''}`}>
             <header><div><ShieldCheck size={20} /><span><strong>Preuve de remise</strong><small>La sortie finale exige le code client, une signature, une photo et la position.</small></span></div><b>{selectedOrder.proofStatus === 'photo_confirmed' ? 'Complète' : 'À recueillir'}</b></header>
-            {selectedOrder.proofStatus === 'photo_confirmed' ? <div className="delivery-proof-summary"><CheckCircle size={20} /><span><strong>{selectedOrder.proofSignature}</strong><small>{selectedOrder.proofPhotoLabel} · {selectedOrder.proofLatitude?.toFixed(4)}, {selectedOrder.proofLongitude?.toFixed(4)} · {selectedOrder.proofCompletedAt ? new Date(selectedOrder.proofCompletedAt).toLocaleString('fr-FR') : ''}</small></span></div> : <div className="delivery-proof-form"><label>Code client<input className="form-control" inputMode="numeric" placeholder="4 chiffres" value={proofDraft?.code || ''} onChange={event => updateProofDraft({ code: event.target.value })} /></label><label>Nom / signature<input className="form-control" value={proofDraft?.signature || ''} onChange={event => updateProofDraft({ signature: event.target.value })} /></label><label><Camera size={14} /> Photo de remise<input className="form-control" value={proofDraft?.photoLabel || ''} onChange={event => updateProofDraft({ photoLabel: event.target.value })} /></label><div className="delivery-proof-coordinates"><label>Latitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.latitude || 0} onChange={event => updateProofDraft({ latitude: Number(event.target.value) })} /></label><label>Longitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.longitude || 0} onChange={event => updateProofDraft({ longitude: Number(event.target.value) })} /></label></div><small>Code client de démonstration : <strong>{selectedOrder.verificationCode}</strong></small><button className="btn btn-secondary" disabled={selectedOrder.status !== 'out_for_delivery'} onClick={validateProof}><ShieldCheck size={16} /> Certifier la remise</button></div>}
+            {selectedOrder.proofStatus === 'photo_confirmed' ? <div className="delivery-proof-summary"><CheckCircle size={20} /><span><strong>{selectedOrder.proofSignature}</strong><small>{selectedOrder.proofPhotoLabel} · {selectedOrder.proofLatitude?.toFixed(4)}, {selectedOrder.proofLongitude?.toFixed(4)} · {selectedOrder.proofCompletedAt ? new Date(selectedOrder.proofCompletedAt).toLocaleString('fr-FR') : ''}</small></span></div> : canManageDeliveryWorkflow ? <div className="delivery-proof-form"><label>Code client<input className="form-control" inputMode="numeric" placeholder="4 chiffres" value={proofDraft?.code || ''} onChange={event => updateProofDraft({ code: event.target.value })} /></label><label>Nom / signature<input className="form-control" value={proofDraft?.signature || ''} onChange={event => updateProofDraft({ signature: event.target.value })} /></label><label><Camera size={14} /> Photo de remise<input className="form-control" value={proofDraft?.photoLabel || ''} onChange={event => updateProofDraft({ photoLabel: event.target.value })} /></label><div className="delivery-proof-coordinates"><label>Latitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.latitude || 0} onChange={event => updateProofDraft({ latitude: Number(event.target.value) })} /></label><label>Longitude<input className="form-control" type="number" step="0.0001" value={proofDraft?.longitude || 0} onChange={event => updateProofDraft({ longitude: Number(event.target.value) })} /></label></div><small>Code client de démonstration : <strong>{selectedOrder.verificationCode}</strong></small><button className="btn btn-secondary" disabled={selectedOrder.status !== 'out_for_delivery'} onClick={validateProof}><ShieldCheck size={16} /> Certifier la remise</button></div> : <div className="delivery-proof-summary"><Truck size={20} /><span><strong>Preuve attendue du livreur</strong><small>Le code, la signature, la photo et la position sont saisis depuis le poste Livreur.</small></span></div>}
           </section>
 
           {message && (
@@ -375,7 +379,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             </div>
           )}
 
-          <div className="delivery-actions">
+          {(canManageStockWorkflow || canManageDeliveryWorkflow) ? <div className="delivery-actions">
+            {canManageStockWorkflow && <>
             <button
               className="btn btn-primary"
               disabled={selectedOrder.status !== 'confirmed'}
@@ -397,6 +402,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             >
               Marquer prête
             </button>
+            </>}
+            {canManageDeliveryWorkflow && <>
             <button
               className="btn btn-primary"
               disabled={selectedOrder.status !== 'ready'}
@@ -432,7 +439,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
             >
               Annuler
             </button>
-          </div>
+            </>}
+          </div> : <div className="alert alert-info">Vue de suivi : les actions de préparation et de remise restent réservées aux postes opérationnels.</div>}
         </div>
 
         <div className="card" style={{ display: 'grid', gap: '14px' }}>
@@ -456,9 +464,9 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView }) =>
               <span>{item[1]}</span>
             </div>
           ))}
-          <button className="btn btn-secondary" onClick={resetAllData}>
+          {canResetDemoData && <button className="btn btn-secondary" onClick={resetAllData}>
             <RefreshCcw size={16} /> Réinitialiser les exemples
-          </button>
+          </button>}
         </div>
       </div>
 

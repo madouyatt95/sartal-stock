@@ -60,11 +60,19 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     submitSartalCustomerFeedback, requestSartalService, inviteRestaurantGuest,
     payRestaurantGuestShare, toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus
   } = state;
+  const brandSettings = db.sartalBrandSettings;
+  const restaurantEnabled = brandSettings.enabledModules.includes('restaurant');
+  const deliveryEnabled = brandSettings.enabledModules.includes('delivery');
+  const availableInitialMode: ClientMode = initialMode === 'restaurant' && restaurantEnabled
+    ? 'restaurant'
+    : initialMode === 'delivery' && deliveryEnabled
+      ? 'delivery'
+      : restaurantEnabled ? 'restaurant' : 'delivery';
   const [space, setSpace] = useState<'hub' | 'service'>(initialHub || !standalone ? 'hub' : 'service');
-  const [mode, setMode] = useState<ClientMode>(initialMode);
+  const [mode, setMode] = useState<ClientMode>(availableInitialMode);
   const [restaurantTab, setRestaurantTab] = useState<RestaurantTab>('welcome');
   const [deliveryTab, setDeliveryTab] = useState<DeliveryTab>('shop');
-  const [customerId, setCustomerId] = useState(initialCustomerId || (initialMode === 'restaurant' ? 'customer-aminata' : 'customer-awa'));
+  const [customerId, setCustomerId] = useState(initialCustomerId || (availableInitialMode === 'restaurant' ? 'customer-aminata' : 'customer-awa'));
   const [restaurantCart, setRestaurantCart] = useState<Record<string, number>>({});
   const [deliveryCart, setDeliveryCart] = useState<Record<string, number>>({});
   const [substitutionPolicies, setSubstitutionPolicies] = useState<Record<string, 'replace' | 'contact' | 'refund' | 'cancel_order'>>({});
@@ -85,7 +93,6 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const [reservationForm, setReservationForm] = useState({ date: tomorrow, time: '20:00', guests: 2, occasion: 'meal' as const, notes: '' });
 
   const customer = db.sartalCustomers.find(item => item.id === customerId);
-  const brandSettings = db.sartalBrandSettings;
   const restaurant = db.posList.find(item => item.type === 'restaurant');
   const deliveryChannel = db.posList.find(item => item.type === 'online_grocery');
   const deliveryWarehouse = db.warehouses.find(item => item.id === deliveryChannel?.defaultWarehouseId);
@@ -170,6 +177,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const currentTab = mode === 'restaurant' ? restaurantTab : deliveryTab;
 
   const switchMode = (nextMode: ClientMode) => {
+    if (nextMode === 'restaurant' ? !restaurantEnabled : !deliveryEnabled) return;
     setMode(nextMode);
     setSpace('service');
     setCustomerId(nextMode === 'restaurant' ? 'customer-aminata' : 'customer-awa');
@@ -402,7 +410,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     >
       <header className="sartal-client-header">
         <div><span>{brandSettings.clientAppName.toUpperCase()}</span><strong>{mode === 'restaurant' ? restaurant.name : 'Épicerie & livraison'}</strong></div>
-        <div className="client-mode-switch"><button className={space === 'hub' ? 'active' : ''} onClick={() => setSpace('hub')}><UserRound size={17} /> Mon Sártal</button><button className={space === 'service' && mode === 'restaurant' ? 'active' : ''} onClick={() => switchMode('restaurant')}><UtensilsCrossed size={17} /> À table</button><button className={space === 'service' && mode === 'delivery' ? 'active' : ''} onClick={() => switchMode('delivery')}><ShoppingBag size={17} /> Livraison</button></div>
+        <div className="client-mode-switch"><button className={space === 'hub' ? 'active' : ''} onClick={() => setSpace('hub')}><UserRound size={17} /> Mon Sártal</button>{restaurantEnabled && <button className={space === 'service' && mode === 'restaurant' ? 'active' : ''} onClick={() => switchMode('restaurant')}><UtensilsCrossed size={17} /> À table</button>}{deliveryEnabled && <button className={space === 'service' && mode === 'delivery' ? 'active' : ''} onClick={() => switchMode('delivery')}><ShoppingBag size={17} /> Livraison</button>}</div>
         {!standalone && <div className="client-preview-controls"><select className="form-control" value={customer.id} onChange={event => changeCustomer(event.target.value)}>{db.sartalCustomers.map(item => <option value={item.id} key={item.id}>{item.fullName}</option>)}</select><button className="btn btn-primary" onClick={() => window.open(`${window.location.origin}${window.location.pathname}?client=${mode}`, '_blank', 'noopener,noreferrer')}>Ouvrir comme client <ArrowRight size={16} /></button></div>}
       </header>
       {space === 'hub' ? <main className="sartal-client-body hub-body"><SartalClientHub key={customer.id} state={state} customerId={customer.id} onOpenRestaurant={() => switchMode('restaurant')} onOpenDelivery={() => switchMode('delivery')} onMessage={setMessage} /></main> : <>
