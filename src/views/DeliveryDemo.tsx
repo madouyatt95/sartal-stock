@@ -228,7 +228,7 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView, canA
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>}
+          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Suivi clients en direct</button>}
           {(canAccessView?.('stock-control') ?? true) && <button className="btn btn-secondary" onClick={() => setView('stock-control')}>
             Stock réel
           </button>}

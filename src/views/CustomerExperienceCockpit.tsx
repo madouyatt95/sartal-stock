@@ -39,7 +39,7 @@ export const CustomerExperienceCockpit: React.FC<CustomerExperienceCockpitProps>
 
   return <div className="customer-experience-workspace">
     <section className="cx-cockpit">
-      <header><div><span><Sparkles size={15} /> PILOTAGE CLIENTS · ÉQUIPE INTERNE</span><h1>Voir, comprendre, agir</h1><p>Chaque attente client devient une action attribuée, chronométrée et visible jusqu’à sa résolution.</p></div><div className="cx-header-actions"><div className="cx-live-indicator"><i /> Service en direct</div>{lateRequests.length > 0 && <button onClick={() => escalateOverdueSartalRequests()}><BellRing size={15} /> Escalader {lateRequests.length}</button>}</div></header>
+      <header><div><span><Sparkles size={15} /> SUIVI CLIENTS EN DIRECT · ÉQUIPE INTERNE</span><h1>Voir, comprendre, agir</h1><p>Chaque attente client devient une action attribuée, chronométrée et visible jusqu’à sa résolution.</p></div><div className="cx-header-actions"><div className="cx-live-indicator"><i /> Service en direct</div>{lateRequests.length > 0 && <button onClick={() => escalateOverdueSartalRequests()}><BellRing size={15} /> Escalader {lateRequests.length}</button>}</div></header>
       <div className="cx-metrics">
         <article><Users size={20} /><span>Clients servis maintenant</span><strong>{activeCustomerIds.size}</strong><small>Restaurant, hôtel et livraison</small></article>
         <article><MessageCircle size={20} /><span>Demandes actives</span><strong>{openRequests.length}</strong><small>{lateRequests.length ? `${lateRequests.length} délai(s) dépassé(s)` : 'Tous les délais sont tenus'}</small></article>
@@ -80,7 +80,7 @@ export const CustomerExperienceCockpit: React.FC<CustomerExperienceCockpitProps>
         <section><header><UserCheck size={19} /><div><strong>Parcours à tenir</strong><span>Le prochain engagement de chaque service</span></div></header><div>{liveJourneys.slice(0, 6).map(item => <article key={item.id}><div><strong>{item.title}</strong><small>{db.sartalCustomers.find(customer => customer.id === item.customerId)?.fullName} · {item.assignedTo}</small></div><time>{new Date(item.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time><button onClick={() => updateSartalJourneyItemStatus(item.id, item.status === 'upcoming' ? 'in_progress' : 'completed')}>{item.status === 'upcoming' ? 'Démarrer' : 'Terminer'}</button></article>)}</div></section>
       </div>
     </section>
-    <section className="cx-client-preview"><header><div><span>APERÇU DU PORTAIL PUBLIC</span><h2>Ce que le client voit réellement</h2></div><small><AlertTriangle size={14} /> Données de démonstration interactives</small></header><SartalClient state={state} /></section>
+    <section className="cx-client-preview"><header><div><span>APERÇU INTERNE DU PORTAIL PUBLIC</span><h2>Ce que le client voit réellement</h2></div><small><AlertTriangle size={14} /> Le test public s’ouvre séparément et recommence par l’identification</small></header><SartalClient state={state} /></section>
   </div>;
 };
 

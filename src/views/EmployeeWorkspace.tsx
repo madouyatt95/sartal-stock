@@ -1215,19 +1215,19 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   if (demoAutoStart && !activeShift) return <div className="employee-workspace"><section className="staff-demo-opening"><img src="./brand-mark.svg" alt="" /><strong>Préparation du poste {roleConfig.label}</strong><small>Chargement des tâches et de l’affectation…</small></section></div>;
   if (!activeShift) return <div className="employee-workspace">{renderShiftStart()}{notice && <div className="staff-toast">{notice}</div>}</div>;
 
-  const tabs: Array<{ id: StaffTab; label: string; icon: LucideIcon }> = [
-    { id: 'today', label: preferences.language === 'wo' ? 'Tey' : "Aujourd'hui", icon: Home },
-    { id: 'tasks', label: preferences.language === 'wo' ? 'Sama liggéey' : 'Mes tâches', icon: ClipboardCheck },
-    { id: 'action', label: roleConfig.actionLabel, icon: roleConfig.icon },
-    { id: 'messages', label: preferences.language === 'wo' ? 'Ekip' : 'Équipe', icon: UsersRound },
-    { id: 'more', label: preferences.language === 'wo' ? 'Man' : 'Moi', icon: UserRoundSearch }
+  const tabs: Array<{ id: StaffTab; label: string; mobileLabel: string; icon: LucideIcon }> = [
+    { id: 'today', label: preferences.language === 'wo' ? 'Tey' : "Aujourd'hui", mobileLabel: preferences.language === 'wo' ? 'Tey' : 'Accueil', icon: Home },
+    { id: 'tasks', label: preferences.language === 'wo' ? 'Sama liggéey' : 'Mes tâches', mobileLabel: preferences.language === 'wo' ? 'Liggéey' : 'Tâches', icon: ClipboardCheck },
+    { id: 'action', label: roleConfig.actionLabel, mobileLabel: roleConfig.actionLabel, icon: roleConfig.icon },
+    { id: 'messages', label: preferences.language === 'wo' ? 'Ekip' : 'Équipe', mobileLabel: preferences.language === 'wo' ? 'Ekip' : 'Équipe', icon: UsersRound },
+    { id: 'more', label: preferences.language === 'wo' ? 'Man' : 'Moi', mobileLabel: preferences.language === 'wo' ? 'Man' : 'Moi', icon: UserRoundSearch }
   ];
 
   return <section className={`employee-workspace staff-app ${preferences.highContrast ? 'staff-high-contrast' : ''} ${preferences.lowBandwidth ? 'staff-low-bandwidth' : ''}`} style={{ '--staff-role': roleConfig.color, '--staff-brand': siteBrand?.primaryColor || db.sartalBrandSettings.primaryColor } as React.CSSProperties}>
     <header className="staff-app-header"><div className="staff-app-brand"><img src="./brand-mark.svg" alt="" /><span><strong>{db.sartalBrandSettings.staffAppName.toUpperCase()}</strong><small>{activeShift.assignmentLabel}</small></span></div><div className="staff-app-context"><span><i /> En service</span><strong>{roleConfig.team}</strong></div><button className="staff-header-profile" onClick={() => setTab('more')}><span>{employee.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{employee.name}</strong><small>{roleConfig.label}</small></div><ChevronRight size={16} /></button></header>
     <nav className="staff-desktop-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><Icon size={18} /><span>{item.label}</span>{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</button>; })}</nav>
     <main className="staff-app-content">{tab === 'today' && renderToday()}{tab === 'tasks' && renderTasks()}{tab === 'action' && renderRoleAction()}{tab === 'messages' && renderMessages()}{tab === 'more' && renderMore()}</main>
-    <nav className="staff-mobile-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><span><Icon size={item.id === 'action' ? 22 : 19} />{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</span><small>{item.label}</small></button>; })}</nav>
+    <nav className="staff-mobile-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><span><Icon size={item.id === 'action' ? 22 : 19} />{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</span><small>{item.mobileLabel}</small></button>; })}</nav>
     {notice && <div className="staff-toast">{notice}</div>}
   </section>;
 };

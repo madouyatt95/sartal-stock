@@ -49,7 +49,7 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, ca
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Pilotage clients</button>}
+          {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Suivi clients en direct</button>}
           {(canAccessView?.('pricing') ?? true) && <button className="btn btn-secondary" onClick={() => setView('pricing')}>
             Prix par canal
           </button>}

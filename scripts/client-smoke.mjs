@@ -53,7 +53,7 @@ try {
   const profileSource = readFileSync(new URL('../src/views/SartalClientProfileCenter.tsx', import.meta.url), 'utf8');
   ['Mon expérience restaurant', 'Mes habitudes de livraison', 'Mes adresses de livraison', 'Confidentialité et appareils'].forEach(marker => assert(profileSource.includes(marker), `Centre de préférences incomplet : ${marker}`));
   const cockpitHtml = renderToStaticMarkup(React.createElement(CustomerExperienceCockpit, { state }));
-  ['PILOTAGE CLIENTS · ÉQUIPE INTERNE', 'Brief avant service', 'Parcours en cours', 'Demandes à tenir', 'Ne laisser personne déçu', 'Occasions spéciales', 'Liste d’attente intelligente'].forEach(marker => assert(cockpitHtml.includes(marker), `Cockpit expérience client incomplet : ${marker}`));
+  ['SUIVI CLIENTS EN DIRECT · ÉQUIPE INTERNE', 'Brief avant service', 'Parcours en cours', 'Demandes à tenir', 'Ne laisser personne déçu', 'Occasions spéciales', 'Liste d’attente intelligente', 'Le test public s’ouvre séparément'].forEach(marker => assert(cockpitHtml.includes(marker), `Cockpit expérience client incomplet : ${marker}`));
   const guidedHtml = renderToStaticMarkup(React.createElement(GuidedDemo, { state, setView: () => {} }));
   ['Choisissez une histoire client', 'Séjour + dîner', 'Panier de famille', 'Table entre proches'].forEach(marker => assert(guidedHtml.includes(marker), `Présentation commerciale incomplète : ${marker}`));
   const settingsHtml = renderToStaticMarkup(React.createElement(Settings, { state }));
@@ -65,6 +65,7 @@ try {
   assert(appSource.includes('if (!accessCustomer)'), 'un jeton orphelin ne doit jamais ouvrir le profil d’un autre client');
   assert((appSource.match(/requireAccess/g) || []).length >= 2, 'Les accès publics client et séjour doivent exiger une vérification');
   const clientSource = readFileSync(new URL('../src/views/SartalClient.tsx', import.meta.url), 'utf8');
+  assert(clientSource.includes('Tester l’accès public') && clientSource.includes('?client=${mode}'), 'La séparation entre aperçu interne et accès public doit rester explicite');
   assert(!clientSource.includes('|| db.sartalCustomers[0]'), 'un profil absent ne doit jamais retomber sur le premier client');
   ['PANIER PARTAGÉ', 'Choisir un créneau réel', 'Modifier ma commande', 'VOTRE CHOIX EST ATTENDU', 'Livraison+', 'Adresse requise'].forEach(marker => assert(clientSource.includes(marker), `Expérience livraison incomplète : ${marker}`));
   ['Mon panier en direct', 'Partager l’addition librement', 'Régler cette part', 'inviteShareAmount', 'appendRestaurantGuestOrderItems'].forEach(marker => assert(clientSource.includes(marker), `Expérience restaurant en direct incomplète : ${marker}`));

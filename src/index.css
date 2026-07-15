@@ -12047,3 +12047,107 @@ button, input, select, textarea {
   .pms-guest-tabs button,
   .sartal-hub-tabs button { line-height: 1.2; }
 }
+
+/* Comfortable typography is the default; compact operational text remains secondary. */
+.staff-app .staff-app-content p,
+.team-management-page p,
+.customer-experience-workspace p,
+.manager-mobile-page p,
+.sartal-client .sartal-client-body p,
+.client-access-gateway p,
+.pms-guest-experience p,
+.pms-guest-access-gateway p,
+.public-booking-shell p,
+.sartal-access-center p {
+  font-size: 0.9rem !important;
+  line-height: 1.55;
+}
+
+.staff-app .staff-app-content small,
+.staff-app-header small,
+.team-management-page small,
+.customer-experience-workspace small,
+.manager-mobile-page small,
+.sartal-client small,
+.client-access-gateway small,
+.pms-guest-experience small,
+.pms-guest-access-gateway small,
+.public-booking-shell small,
+.sartal-access-center small {
+  font-size: 0.78rem !important;
+  line-height: 1.45;
+}
+
+.staff-app .staff-app-content button,
+.team-management-page button,
+.customer-experience-workspace button,
+.manager-mobile-page button,
+.sartal-client button,
+.client-access-gateway button,
+.pms-guest-experience button,
+.pms-guest-access-gateway button,
+.public-booking-shell button,
+.sartal-access-center button {
+  font-size: 0.875rem !important;
+  line-height: 1.3;
+}
+
+.staff-app :is(input, select, textarea),
+.team-management-page :is(input, select, textarea),
+.customer-experience-workspace :is(input, select, textarea),
+.manager-mobile-page :is(input, select, textarea),
+.sartal-client :is(input, select, textarea),
+.client-access-gateway :is(input, select, textarea),
+.pms-guest-experience :is(input, select, textarea),
+.pms-guest-access-gateway :is(input, select, textarea),
+.public-booking-shell :is(input, select, textarea),
+.sartal-access-center :is(input, select, textarea) {
+  font-size: 1rem !important;
+}
+
+.sidebar-section-toggle {
+  min-height: 48px;
+  font-size: 0.9rem;
+}
+
+.sidebar-link {
+  min-height: 50px;
+  font-size: 1rem;
+}
+
+.staff-desktop-nav button,
+.staff-life-nav button,
+.staff-workspace-switch button,
+.staff-segmented button,
+.team-tabs button,
+.pms-tabs button,
+.pms-guest-tabs button,
+.sartal-client-tabs button,
+.sartal-hub-tabs button {
+  font-size: 0.9rem !important;
+  line-height: 1.25;
+}
+
+.mobile-bottom-nav button,
+.staff-mobile-nav button small {
+  font-size: 0.875rem !important;
+  line-height: 1.2;
+}
+
+.demo-experience-bar > button { font-size: 0.82rem; }
+.demo-experience-bar small { font-size: 0.72rem; }
+.demo-experience-bar strong { font-size: 0.9rem; }
+.demo-experience-bar > b { font-size: 0.7rem; }
+
+@media (max-width: 768px) {
+  .sidebar-section-toggle { min-height: 50px; font-size: 0.92rem; }
+  .sidebar-link { min-height: 52px; font-size: 1rem; }
+  .staff-life-nav button,
+  .staff-workspace-switch button,
+  .staff-segmented button,
+  .team-tabs button,
+  .pms-tabs button,
+  .pms-guest-tabs button,
+  .sartal-client-tabs button,
+  .sartal-hub-tabs button { font-size: 0.875rem !important; }
+}

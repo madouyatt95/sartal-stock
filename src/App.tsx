@@ -285,7 +285,7 @@ export const App: React.FC = () => {
     { id: 'dashboard', label: 'Tableau de bord', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, section: 'Accueil' },
     { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, section: 'Accueil' },
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, section: 'Accueil' },
-    { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, section: 'Accueil' },
+    { id: 'client', label: 'Suivi clients en direct', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, section: 'Accueil' },
 
     { id: 'employees', label: 'Équipes & affectations', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
 
