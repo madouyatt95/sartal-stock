@@ -17,6 +17,7 @@ import {
   Clock3,
   CreditCard,
   DoorOpen,
+  GraduationCap,
   HandCoins,
   HeartHandshake,
   Home,
@@ -183,6 +184,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [closingCash, setClosingCash] = useState('50000');
   const [paymentMethod, setPaymentMethod] = useState<PaymentType>('wave');
   const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentTip, setPaymentTip] = useState('0');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [paymentAllocationMode, setPaymentAllocationMode] = useState<'free' | 'seat' | 'item'>('free');
+  const [paymentSeatNumbers, setPaymentSeatNumbers] = useState<Set<number>>(() => new Set());
+  const [paymentItemIds, setPaymentItemIds] = useState<Set<string>>(() => new Set());
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [scanQuery, setScanQuery] = useState('COCA33');
   const [lossQuantity, setLossQuantity] = useState('1');
@@ -205,8 +211,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
   const [deliveryCode, setDeliveryCode] = useState('');
   const [deliverySignature, setDeliverySignature] = useState('');
-  const [kdsStation, setKdsStation] = useState<'all' | 'kitchen' | 'drinks'>('all');
-  const [kdsItemProgress, setKdsItemProgress] = useState<Set<string>>(() => new Set());
+  const [kdsStation, setKdsStation] = useState<'all' | 'kitchen' | 'drinks' | 'pass'>('all');
   const [housekeepingChecks, setHousekeepingChecks] = useState<Record<string, string[]>>({});
   const [minibarProductId, setMinibarProductId] = useState('prod-eau-50');
   const [pickedLineIds, setPickedLineIds] = useState<Set<string>>(() => new Set());
@@ -223,6 +228,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [careerGoal, setCareerGoal] = useState('');
   const [recognitionTargetId, setRecognitionTargetId] = useState('');
   const [recognitionMessage, setRecognitionMessage] = useState('');
+  const [trainingOpen, setTrainingOpen] = useState(false);
   const demoShiftOpeningRef = useRef('');
 
   const employee = db.employeeProfiles.find(item => item.id === selectedEmployeeId);
@@ -768,15 +774,23 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
           <div className="staff-order-selector">{unpaidOrders.map(order => <button className={selectedOrder.id === order.id ? 'active' : ''} key={order.id} onClick={() => {
             setSelectedOrderId(order.id);
             setPaymentAmount(String(order.total - order.payments.reduce((sum, payment) => sum + payment.amount, 0)));
+            setPaymentAllocationMode('free');
+            setPaymentSeatNumbers(new Set());
+            setPaymentItemIds(new Set());
+            setPaymentTip('0');
+            setPaymentReference('');
             if (!order.folioId && paymentMethod === 'room_charge') setPaymentMethod('wave');
           }}><span>Table {order.tableNumber || order.id}</span><strong>{formatFCFA(order.total - order.payments.reduce((sum, payment) => sum + payment.amount, 0))}</strong></button>)}</div>
           <section className="staff-checkout-summary"><span>Reste à payer</span><strong>{formatFCFA(remaining)}</strong><small>{selectedOrder.payments.length ? `${selectedOrder.payments.length} règlement(s) déjà reçu(s)` : 'Aucun paiement reçu'}</small></section>
+          <section className="staff-payment-allocation"><header><div><strong>Qui règle quoi ?</strong><small>Montant libre, par convive ou par article</small></div><div><button className={paymentAllocationMode === 'free' ? 'active' : ''} onClick={() => { setPaymentAllocationMode('free'); setPaymentSeatNumbers(new Set()); setPaymentItemIds(new Set()); setPaymentAmount(String(remaining)); }}>Libre</button><button className={paymentAllocationMode === 'seat' ? 'active' : ''} onClick={() => { setPaymentAllocationMode('seat'); setPaymentItemIds(new Set()); setPaymentAmount(''); }}>Convives</button><button className={paymentAllocationMode === 'item' ? 'active' : ''} onClick={() => { setPaymentAllocationMode('item'); setPaymentSeatNumbers(new Set()); setPaymentAmount(''); }}>Articles</button></div></header>{paymentAllocationMode === 'seat' && <div className="staff-payment-seat-list">{Array.from(new Set(selectedOrder.items.map(item => item.seatNumber).filter((value): value is number => Boolean(value)))).map(seat => { const paidSeat = selectedOrder.payments.some(payment => payment.seatNumbers?.includes(seat)); const seatTotal = selectedOrder.items.filter(item => item.seatNumber === seat && item.status !== 'voided').reduce((sum, item) => sum + item.quantity * item.salePrice, 0); return <button disabled={paidSeat} className={paymentSeatNumbers.has(seat) ? 'active' : ''} key={seat} onClick={() => { const next = new Set(paymentSeatNumbers); if (next.has(seat)) next.delete(seat); else next.add(seat); setPaymentSeatNumbers(next); setPaymentAmount(String(Math.min(remaining, selectedOrder.items.filter(item => item.seatNumber && next.has(item.seatNumber) && item.status !== 'voided').reduce((sum, item) => sum + item.quantity * item.salePrice, 0)))); }}><span>Convive {seat}</span><strong>{paidSeat ? 'Réglé' : formatFCFA(seatTotal)}</strong></button>; })}</div>}{paymentAllocationMode === 'item' && <div className="staff-payment-item-list">{selectedOrder.items.filter(item => item.status !== 'voided').map(line => { const paidLine = selectedOrder.payments.some(payment => line.id && payment.itemIds?.includes(line.id)); const product = db.products.find(item => item.id === line.productId); return <button disabled={paidLine || !line.id} className={line.id && paymentItemIds.has(line.id) ? 'active' : ''} key={line.id || line.productId} onClick={() => { const next = new Set(paymentItemIds); if (next.has(line.id!)) next.delete(line.id!); else next.add(line.id!); setPaymentItemIds(next); setPaymentAmount(String(Math.min(remaining, selectedOrder.items.filter(item => item.id && next.has(item.id) && item.status !== 'voided').reduce((sum, item) => sum + item.quantity * item.salePrice, 0)))); }}><span>{line.quantity}× {product?.name}</span><strong>{paidLine ? 'Réglé' : formatFCFA(line.quantity * line.salePrice)}</strong></button>; })}</div>}</section>
           <div className="staff-checkout-form">
             <label>Montant<input inputMode="numeric" value={paymentAmount || String(remaining)} onChange={event => setPaymentAmount(event.target.value.replace(/\D/g, ''))} /></label>
             <label>Moyen de paiement<select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value as PaymentType)}>{Object.entries(PAYMENT_LABELS).filter(([value]) => value !== 'room_charge' || Boolean(selectedOrder.folioId)).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <button disabled={!cashSession} onClick={() => execute(() => state.addRestaurantGuestOrderPayment(selectedOrder.id, Number(paymentAmount || remaining), paymentMethod, employee.name, cashSession?.id), `Paiement ${PAYMENT_LABELS[paymentMethod]} enregistré et rattaché à la caisse.`)}><HandCoins size={18} /> Valider {formatFCFA(Number(paymentAmount || remaining))}</button>
+            <label>Pourboire<input inputMode="numeric" value={paymentTip} onChange={event => setPaymentTip(event.target.value.replace(/\D/g, ''))} /></label>
+            {['wave', 'orange_money', 'card'].includes(paymentMethod) && <label>Référence terminal<input value={paymentReference} onChange={event => setPaymentReference(event.target.value)} placeholder="N° transaction" /></label>}
+            <button disabled={!cashSession || Number(paymentAmount || remaining) <= 0 || (paymentAllocationMode === 'seat' && paymentSeatNumbers.size === 0) || (paymentAllocationMode === 'item' && paymentItemIds.size === 0)} onClick={() => execute(() => { state.addRestaurantGuestOrderPayment(selectedOrder.id, Number(paymentAmount || remaining), paymentMethod, employee.name, cashSession?.id, { seatNumbers: [...paymentSeatNumbers], itemIds: [...paymentItemIds], tipAmount: Number(paymentTip) || 0, reference: paymentReference, source: 'terminal' }); setPaymentSeatNumbers(new Set()); setPaymentItemIds(new Set()); setPaymentTip('0'); setPaymentReference(''); setPaymentAmount(''); }, `Paiement ${PAYMENT_LABELS[paymentMethod]} enregistré et rattaché à la caisse.`)}><HandCoins size={18} /> Valider {formatFCFA(Number(paymentAmount || remaining))}</button>
           </div>
-          <button className="staff-approval-request" onClick={() => execute(() => state.requestEmployeeApproval({ type: 'discount', referenceId: selectedOrder.id, requestedBy: employee.id, requestedByName: employee.name, label: `Remise table ${selectedOrder.tableNumber || selectedOrder.id}`, reason: 'Geste commercial demandé par le client.', amount: Math.round(selectedOrder.total * 0.1) }), 'Demande de remise envoyée au manager.')}><ShieldCheck size={16} /> Demander une remise de 10 %</button>
+          <div className="staff-checkout-sensitive"><button className="staff-approval-request" onClick={() => execute(() => state.requestEmployeeApproval({ type: 'discount', referenceId: selectedOrder.id, requestedBy: employee.id, requestedByName: employee.name, label: `Remise table ${selectedOrder.tableNumber || selectedOrder.id}`, reason: 'Geste commercial demandé par le client.', amount: Math.round(selectedOrder.total * 0.1), metadata: { orderId: selectedOrder.id } }), 'Demande de remise envoyée au manager.')}><ShieldCheck size={16} /> Remise 10 %</button><button className="staff-approval-request" onClick={() => execute(() => state.requestEmployeeApproval({ type: 'complimentary', referenceId: selectedOrder.id, requestedBy: employee.id, requestedByName: employee.name, label: `Offert table ${selectedOrder.tableNumber || selectedOrder.id}`, reason: 'Attention commerciale soumise à validation.', amount: Math.min(2000, selectedOrder.total), metadata: { orderId: selectedOrder.id } }), 'Demande d’offert envoyée au manager.')}><ShieldCheck size={16} /> Offert 2 000</button></div>
         </> : <div className="staff-list-empty"><CheckCircle2 size={30} /><strong>Aucune addition à encaisser</strong></div>}
       </div>
     </section>;
@@ -784,18 +798,23 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   const renderKitchenAction = () => {
     const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
-    return <section className="staff-kds"><header><div><span>KDS CUISINE</span><h2>Tickets par urgence</h2><p>Chaque article doit être confirmé avant de déclarer le ticket prêt.</p></div><b><i /> Cuisine en service</b></header><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
+    const stationLabels = { all: 'Tous', kitchen: 'Cuisine', drinks: 'Boissons', pass: 'Passe' } as const;
+    return <section className="staff-kds"><header><div><span>KDS PERSISTANT</span><h2>Production article par article</h2><p>Les statuts sont partagés en direct avec la salle, le passe et la caisse.</p></div><b><i /> Cuisine en service</b></header><div className="staff-station-tabs">{(Object.entries(stationLabels) as Array<[typeof kdsStation, string]>).map(([value, label]) => <button className={kdsStation === value ? 'active' : ''} key={value} onClick={() => setKdsStation(value)}>{label}</button>)}</div><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
       const customer = db.sartalCustomers.find(item => item.id === order.customerId);
-      const next = order.status === 'preparing' ? 'ready' : 'preparing';
       const visibleItems = order.items.filter(item => {
-        const category = db.products.find(product => product.id === item.productId)?.category || '';
-        return kdsStation === 'all' || (kdsStation === 'drinks' ? /boisson|mocktail/i.test(category) : !/boisson|mocktail/i.test(category));
+        if (!['sent', 'preparing', 'ready'].includes(item.status || 'held')) return false;
+        if (kdsStation === 'pass') return item.status === 'ready';
+        if (kdsStation === 'all') return true;
+        if (kdsStation === 'drinks') return item.station === 'drinks';
+        return item.station === 'kitchen' || item.station === 'dessert';
       });
       if (visibleItems.length === 0) return null;
-      const allItemsChecked = visibleItems.length > 0 && visibleItems.every(item => kdsItemProgress.has(`${order.id}-${item.productId}`));
       const outageItem = visibleItems[0];
       const outageProduct = db.products.find(product => product.id === outageItem.productId);
-      return <article className={`${order.status} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}><header><strong>{order.tableNumber || 'À emporter'}</strong><time>{elapsedMinutes(order.createdAt)} min</time></header>{customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}<div className="staff-kds-items">{visibleItems.map(item => { const key = `${order.id}-${item.productId}`; return <button className={kdsItemProgress.has(key) ? 'checked' : ''} key={item.productId} onClick={() => toggleProgress(setKdsItemProgress, key)}><b>{item.quantity}×</b><span><strong>{db.products.find(product => product.id === item.productId)?.name || item.productId}</strong>{item.note && <small>{item.note}</small>}</span><i>{kdsItemProgress.has(key) ? <Check size={15} /> : <Clock3 size={15} />}</i></button>; })}</div><footer><span>{ORDER_STATUS[order.status]}</span>{order.status !== 'ready' && <button disabled={next === 'ready' && !allItemsChecked} onClick={() => execute(() => state.updateRestaurantGuestOrderStatus(order.id, next), next === 'ready' ? `Ticket ${order.tableNumber} prêt.` : `Ticket ${order.tableNumber} démarré.`)}>{next === 'ready' ? <><CheckCircle2 size={16} /> {allItemsChecked ? 'Plat prêt' : 'Cocher les articles'}</> : <><ChefHat size={16} /> Démarrer</>}</button>}<button className="staff-kds-issue" onClick={() => execute(() => state.setPOSProductAvailability(outageItem.productId, order.posId, false, `${employee.name} · Cuisine`), `${outageProduct?.name || 'Article'} retiré immédiatement du canal de vente et salle prévenue.`)}><AlertCircle size={15} /> Rupture {outageProduct?.name}</button></footer></article>;
+      const recipe = db.recipes.find(item => item.productId === outageItem.productId);
+      const outageIngredientId = recipe?.ingredients[0]?.productId || outageItem.productId;
+      const outageIngredient = db.products.find(item => item.id === outageIngredientId);
+      return <article className={`${visibleItems.some(item => item.status === 'ready') ? 'ready' : visibleItems.some(item => item.status === 'preparing') ? 'preparing' : 'confirmed'} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}><header><strong>{order.tableNumber || 'À emporter'}</strong><time>{elapsedMinutes(order.createdAt)} min</time></header>{customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}<div className="staff-kds-items">{visibleItems.map(item => { const product = db.products.find(product => product.id === item.productId); const nextStatus = item.status === 'sent' ? 'preparing' : item.status === 'preparing' ? 'ready' : undefined; const action = kdsStation === 'pass' && item.status === 'ready' ? 'pass' : nextStatus; return <button className={`${item.status || 'sent'} ${item.passedAt ? 'checked' : ''}`} key={item.id || `${order.id}-${item.productId}`} disabled={!action} onClick={() => action === 'pass' ? execute(() => state.confirmRestaurantPassItem(order.id, item.id!, employee.name), `${product?.name} contrôlé au passe et signalé à la salle.`) : action && execute(() => state.updateRestaurantOrderItemStatus(order.id, item.id!, action, employee.name), action === 'ready' ? `${product?.name} prêt pour le passe.` : `${product?.name} démarré.`)}><b>{item.quantity}×</b><span><strong>{product?.name || item.productId}</strong><small>Convive {item.seatNumber || 'table'} · {item.course || 'main'}{item.note ? ` · ${item.note}` : ''}</small></span><i>{item.passedAt ? <Check size={15} /> : item.status === 'ready' ? <CheckCircle2 size={15} /> : item.status === 'preparing' ? <ChefHat size={15} /> : <Clock3 size={15} />}</i></button>; })}</div><footer><span>{kdsStation === 'pass' ? 'Contrôle et appel salle' : `${visibleItems.filter(item => item.status === 'ready').length}/${visibleItems.length} prêt(s)`}</span><button className="staff-kds-issue" onClick={() => execute(() => state.setRestaurantIngredientAvailability(outageIngredientId, order.posId, false, `${employee.name} · Cuisine`), `${outageIngredient?.name || outageProduct?.name || 'Ingrédient'} déclaré indisponible et recettes liées masquées.`)}><AlertCircle size={15} /> Rupture {outageIngredient?.name}</button></footer></article>;
     })}</div></section>;
   };
 
@@ -925,8 +944,17 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderManagerAction = () => {
-    const approvals = db.employeeApprovals.filter(item => item.status === 'pending');
-    return <section className="staff-manager-action"><div className="staff-approval-queue"><header><ShieldCheck size={21} /><div><h2>Validations sensibles</h2><p>Remises, offerts, annulations, écarts et substitutions.</p></div><b>{approvals.length}</b></header>{approvals.map(approval => <article key={approval.id}><span className={approval.type}><ShieldCheck size={18} /></span><div><strong>{approval.label}</strong><p>{approval.reason}</p><small>{approval.requestedByName} · {approval.referenceId} · {formatTime(approval.createdAt)}</small></div>{approval.amount && <b>{formatFCFA(approval.amount)}</b>}<footer><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'rejected', 'Refus manager depuis le cockpit.'), 'Demande refusée et auteur prévenu.')}><XCircle size={16} /> Refuser</button><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'approved', 'Validé pendant le service.'), 'Demande validée et tracée.')}><CheckCircle2 size={16} /> Valider</button></footer></article>)}{approvals.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={30} /><strong>Aucune validation en attente</strong></div>}</div><aside className="staff-live-operations"><h3>Opérations en direct</h3>{db.employeeProfiles.map(profile => { const shift = db.employeeShifts.find(item => item.employeeId === profile.id && item.status === 'open'); const config = ROLE_CONFIG[profile.role]; const Icon = config.icon; return <div key={profile.id}><span style={{ background: config.color }}><Icon size={15} /></span><div><strong>{config.team}</strong><small>{profile.name}</small></div><b className={shift ? 'online' : ''}>{shift ? 'En service' : 'Hors service'}</b></div>; })}<button onClick={() => setTab('messages')}><Send size={16} /> Envoyer une consigne</button></aside></section>;
+    const siteTeam = db.employeeProfiles.filter(profile => profile.siteId === employee.siteId);
+    const siteEmployeeIds = new Set(siteTeam.map(profile => profile.id));
+    const managerPOSId = db.posList.find(pos => pos.id === assignedPosId)?.id || employee.posId;
+    const approvals = db.employeeApprovals.filter(item => {
+      if (item.status !== 'pending') return false;
+      const orderId = String(item.metadata?.orderId || item.referenceId);
+      const order = db.restaurantGuestOrders.find(candidate => candidate.id === orderId);
+      const orderPOS = order && db.posList.find(pos => pos.id === order.posId);
+      return orderPOS ? (managerPOSId ? orderPOS.id === managerPOSId : orderPOS.siteId === employee.siteId) : siteEmployeeIds.has(item.requestedBy);
+    });
+    return <section className="staff-manager-action"><div className="staff-approval-queue"><header><ShieldCheck size={21} /><div><h2>Validations sensibles</h2><p>Remises, offerts, annulations, écarts et substitutions.</p></div><b>{approvals.length}</b></header>{approvals.map(approval => <article key={approval.id}><span className={approval.type}><ShieldCheck size={18} /></span><div><strong>{approval.label}</strong><p>{approval.reason}</p><small>{approval.requestedByName} · {approval.referenceId} · {formatTime(approval.createdAt)}</small></div>{approval.amount && <b>{formatFCFA(approval.amount)}</b>}<footer><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'rejected', 'Refus manager depuis le cockpit.'), 'Demande refusée et auteur prévenu.')}><XCircle size={16} /> Refuser</button><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'approved', 'Validé pendant le service.'), 'Demande validée et tracée.')}><CheckCircle2 size={16} /> Valider</button></footer></article>)}{approvals.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={30} /><strong>Aucune validation en attente</strong></div>}</div><aside className="staff-live-operations"><h3>Opérations en direct</h3>{siteTeam.map(profile => { const shift = db.employeeShifts.find(item => item.employeeId === profile.id && item.status === 'open'); const config = ROLE_CONFIG[profile.role]; const Icon = config.icon; return <div key={profile.id}><span style={{ background: config.color }}><Icon size={15} /></span><div><strong>{config.team}</strong><small>{profile.name}</small></div><b className={shift ? 'online' : ''}>{shift ? 'En service' : 'Hors service'}</b></div>; })}<button onClick={() => setTab('messages')}><Send size={16} /> Envoyer une consigne</button></aside></section>;
   };
 
   const renderWaiterGameChanger = () => {
@@ -978,11 +1006,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const renderKitchenGameChanger = () => {
     const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status));
     const routedItems = tickets.flatMap(order => order.items.map(line => ({ order, line, product: db.products.find(item => item.id === line.productId) })));
-    const stationItems = routedItems.filter(item => kdsStation === 'all' || (kdsStation === 'drinks' ? /boisson|mocktail/i.test(item.product?.category || '') : !/boisson|mocktail/i.test(item.product?.category || '')));
+    const stationItems = routedItems.filter(item => ['sent', 'preparing', 'ready'].includes(item.line.status || 'held') && (kdsStation === 'all' || (kdsStation === 'pass' ? item.line.status === 'ready' : kdsStation === 'drinks' ? item.line.station === 'drinks' : item.line.station === 'kitchen' || item.line.station === 'dessert')));
     const overdue = tickets.filter(item => elapsedMinutes(item.createdAt) > item.estimatedMinutes).length;
     const workloadMinutes = Math.max(5, Math.ceil(stationItems.reduce((sum, item) => sum + item.line.quantity, 0) / 3) * 5);
     const directShortages = stationItems.filter(item => item.product?.isStockable && getPOSStock(item.line.productId, item.order.posId).available < item.line.quantity);
-    return <section className="staff-game-changer staff-kitchen-intelligence"><header><CircleGauge size={22} /><div><span>PILOTAGE KDS</span><h2>Charge et routage en temps réel</h2></div><b className={overdue ? 'danger' : 'good'}>{overdue} ticket(s) en retard</b></header><div className="staff-station-tabs"><button className={kdsStation === 'all' ? 'active' : ''} onClick={() => setKdsStation('all')}>Tous · {routedItems.length}</button><button className={kdsStation === 'kitchen' ? 'active' : ''} onClick={() => setKdsStation('kitchen')}>Cuisine</button><button className={kdsStation === 'drinks' ? 'active' : ''} onClick={() => setKdsStation('drinks')}>Boissons</button></div><div className="staff-intelligence-metrics"><article><small>Charge estimée</small><strong>{workloadMinutes} min</strong><p>{stationItems.reduce((sum, item) => sum + item.line.quantity, 0)} préparation(s) à produire</p></article><article><small>Articles cochés</small><strong>{stationItems.filter(item => kdsItemProgress.has(`${item.order.id}-${item.line.productId}`)).length}/{stationItems.length}</strong><p>Validation article par article</p></article><article><small>Stock direct à confirmer</small><strong>{directShortages.length}</strong><p>{directShortages[0]?.product?.name || 'Aucune rupture directe détectée'}</p></article></div></section>;
+    return <section className="staff-game-changer staff-kitchen-intelligence"><header><CircleGauge size={22} /><div><span>PILOTAGE KDS</span><h2>Charge et routage en temps réel</h2></div><b className={overdue ? 'danger' : 'good'}>{overdue} ticket(s) en retard</b></header><div className="staff-station-tabs"><button className={kdsStation === 'all' ? 'active' : ''} onClick={() => setKdsStation('all')}>Tous · {routedItems.length}</button><button className={kdsStation === 'kitchen' ? 'active' : ''} onClick={() => setKdsStation('kitchen')}>Cuisine</button><button className={kdsStation === 'drinks' ? 'active' : ''} onClick={() => setKdsStation('drinks')}>Boissons</button><button className={kdsStation === 'pass' ? 'active' : ''} onClick={() => setKdsStation('pass')}>Passe</button></div><div className="staff-intelligence-metrics"><article><small>Charge estimée</small><strong>{workloadMinutes} min</strong><p>{stationItems.reduce((sum, item) => sum + item.line.quantity, 0)} préparation(s) à produire</p></article><article><small>Avancement persistant</small><strong>{stationItems.filter(item => item.line.status === 'ready' || item.line.passedAt).length}/{stationItems.length}</strong><p>Visible depuis tous les postes</p></article><article><small>Stock direct à confirmer</small><strong>{directShortages.length}</strong><p>{directShortages[0]?.product?.name || 'Aucune rupture directe détectée'}</p></article></div></section>;
   };
 
   const renderReceptionGameChanger = () => {
@@ -1085,21 +1113,45 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderManagerGameChanger = () => {
+    const restaurantPosId = db.posList.find(item => item.id === assignedPosId && item.type === 'restaurant')?.id
+      || employee.posId
+      || db.posList.find(item => item.type === 'restaurant' && item.siteId === employee.siteId)?.id;
+    const restaurantOrders = db.restaurantGuestOrders.filter(item => !restaurantPosId || item.posId === restaurantPosId);
+    const restaurantWaitlist = db.restaurantWaitlist.filter(item => !restaurantPosId || item.posId === restaurantPosId);
+    const siteWarehouses = db.warehouses.filter(item => item.siteId === employee.siteId);
+    const warehouseIds = new Set(restaurantPosId
+      ? [
+        db.posList.find(item => item.id === restaurantPosId)?.defaultWarehouseId,
+        ...db.posPricing.filter(item => item.posId === restaurantPosId).map(item => item.defaultWarehouseId)
+      ].filter((id): id is string => Boolean(id))
+      : siteWarehouses.map(item => item.id));
+    const siteEmployeeIds = new Set(db.employeeProfiles.filter(item => item.siteId === employee.siteId).map(item => item.id));
+    const approvals = db.employeeApprovals.filter(item => {
+      if (item.status !== 'pending' || !siteEmployeeIds.has(item.requestedBy)) return false;
+      const orderId = String(item.metadata?.orderId || item.referenceId);
+      const order = db.restaurantGuestOrders.find(candidate => candidate.id === orderId);
+      return !order || !restaurantPosId || order.posId === restaurantPosId;
+    });
+    const deliveryOrders = enabledModules.includes('delivery') ? db.deliveryOrders.filter(item => siteWarehouses.some(warehouse => warehouse.id === item.warehouseId)) : [];
     const bottlenecks = [
-      { id: 'kitchen', label: 'Tickets cuisine en retard', count: db.restaurantGuestOrders.filter(item => ['confirmed', 'preparing'].includes(item.status) && elapsedMinutes(item.createdAt) > item.estimatedMinutes).length, owner: 'Cuisine' },
-      { id: 'rooms', label: 'Chambres à nettoyer', count: db.pmsRooms.filter(item => item.housekeepingStatus === 'dirty').length, owner: 'Étages' },
-      { id: 'stock', label: 'Ruptures critiques', count: db.stocks.filter(item => item.quantityAvailable - item.quantityReserved <= 0).length, owner: 'Stock' },
-      { id: 'delivery', label: 'Livraisons en incident', count: db.deliveryOrders.filter(item => item.status === 'failed').length, owner: 'Livraison' },
-      { id: 'approvals', label: 'Validations sensibles', count: db.employeeApprovals.filter(item => item.status === 'pending').length, owner: 'Manager' }
+      { id: 'ready', label: 'Articles prêts au passe', count: restaurantOrders.flatMap(item => item.items).filter(item => item.status === 'ready' && !item.passedAt).length, owner: 'Passe' },
+      { id: 'waitlist', label: 'Clients en liste d’attente', count: restaurantWaitlist.filter(item => ['waiting', 'notified'].includes(item.status)).length, owner: 'Accueil restaurant' },
+      { id: 'held', label: 'Services encore retenus', count: restaurantOrders.flatMap(item => item.items).filter(item => item.status === 'held').length, owner: 'Salle' },
+      { id: 'kitchen', label: 'Tickets cuisine en retard', count: restaurantOrders.filter(item => ['confirmed', 'preparing'].includes(item.status) && elapsedMinutes(item.createdAt) > item.estimatedMinutes).length, owner: 'Cuisine' },
+      { id: 'rooms', label: 'Chambres à nettoyer', count: enabledModules.includes('pms') ? db.pmsRooms.filter(item => item.housekeepingStatus === 'dirty').length : 0, owner: 'Étages' },
+      { id: 'stock', label: 'Ruptures critiques', count: db.stocks.filter(item => warehouseIds.has(item.warehouseId) && item.quantityAvailable - item.quantityReserved <= 0).length, owner: 'Stock' },
+      { id: 'delivery', label: 'Livraisons en incident', count: deliveryOrders.filter(item => item.status === 'failed').length, owner: 'Livraison' },
+      { id: 'approvals', label: 'Validations sensibles', count: approvals.length, owner: 'Manager' }
     ].sort((a, b) => b.count - a.count);
     const totalPressure = bottlenecks.reduce((sum, item) => sum + item.count, 0);
-    const activeRoles = new Set(db.employeeShifts.filter(item => item.status === 'open').map(shift => db.employeeProfiles.find(profile => profile.id === shift.employeeId)?.role));
+    const activeRoles = new Set(db.employeeShifts.filter(item => item.status === 'open' && siteEmployeeIds.has(item.employeeId)).map(shift => db.employeeProfiles.find(profile => profile.id === shift.employeeId)?.role));
     const staffing = [
       { role: 'kitchen' as EmployeeRole, need: bottlenecks.find(item => item.id === 'kitchen')!.count },
       { role: 'housekeeper' as EmployeeRole, need: bottlenecks.find(item => item.id === 'rooms')!.count },
-      { role: 'driver' as EmployeeRole, need: db.deliveryOrders.filter(item => item.status === 'ready').length }
+      { role: 'driver' as EmployeeRole, need: deliveryOrders.filter(item => item.status === 'ready').length }
     ].filter(item => item.need > 0 && !activeRoles.has(item.role));
-    return <section className="staff-game-changer staff-manager-intelligence"><header><CircleGauge size={22} /><div><span>TOUR DE CONTRÔLE</span><h2>Les goulets d’étranglement, maintenant</h2></div><b className={totalPressure > 5 ? 'danger' : totalPressure ? 'warning' : 'good'}>{totalPressure} point(s) de pression</b></header><div className="staff-manager-command"><article>{bottlenecks.map((item, index) => <div className={item.count ? 'alert' : 'good'} key={item.id}><i>{index + 1}</i><span><strong>{item.label}</strong><small>Responsable · {item.owner}</small></span><b>{item.count}</b></div>)}</article><section><small>Recommandation d’affectation</small>{staffing.length ? staffing.map(item => <p key={item.role}><AlertCircle size={15} /> Ouvrir ou réaffecter un poste {ROLE_CONFIG[item.role].team} pour absorber {item.need} priorité(s).</p>) : <p><CheckCircle2 size={15} /> Les postes critiques disposent d’une présence active.</p>}<button onClick={() => execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Manager`, audience: 'all', content: `Point service : ${bottlenecks.filter(item => item.count).map(item => `${item.label} (${item.count})`).join(', ') || 'aucun blocage critique'}. Merci de confirmer la prise en charge.`, priority: totalPressure > 5 ? 'urgent' : 'normal' }), 'Brief opérationnel envoyé à toutes les équipes.')}><Send size={16} /> Diffuser le point service</button></section><aside><small>Prévision des 30 prochaines minutes</small><strong>{totalPressure > 8 ? 'Saturation probable' : totalPressure > 3 ? 'Tension maîtrisable' : 'Flux normal'}</strong><p>{totalPressure > 8 ? 'Réaffecter une personne et geler les validations non urgentes.' : totalPressure > 3 ? 'Traiter cuisine, chambres et livraisons dans cet ordre.' : 'Maintenir les affectations et surveiller les promesses client.'}</p><button onClick={() => setTab('tasks')}><ArrowRight size={16} /> Ouvrir les priorités</button></aside></div></section>;
+    const openOutage = db.restaurantServiceIncidents.find(item => item.posId === restaurantPosId && item.type === 'ingredient_outage' && item.status === 'open');
+    return <section className="staff-game-changer staff-manager-intelligence"><header><CircleGauge size={22} /><div><span>CHEF D’ORCHESTRE DU SERVICE</span><h2>Décider avant que le client attende</h2></div><b className={totalPressure > 5 ? 'danger' : totalPressure ? 'warning' : 'good'}>{totalPressure} point(s) de pression</b></header><div className="staff-manager-command"><article>{bottlenecks.map((item, index) => <div className={item.count ? 'alert' : 'good'} key={item.id}><i>{index + 1}</i><span><strong>{item.label}</strong><small>Responsable · {item.owner}</small></span><b>{item.count}</b></div>)}</article><section><small>Actions de conduite du service</small>{staffing.length ? staffing.map(item => <p key={item.role}><AlertCircle size={15} /> Ouvrir ou réaffecter un poste {ROLE_CONFIG[item.role].team} pour absorber {item.need} priorité(s).</p>) : <p><CheckCircle2 size={15} /> Les postes critiques disposent d’une présence active.</p>}<button onClick={() => execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Manager`, audience: 'all', content: `Point service : ${bottlenecks.filter(item => item.count).map(item => `${item.label} (${item.count})`).join(', ') || 'aucun blocage critique'}. Merci de confirmer la prise en charge.`, priority: totalPressure > 5 ? 'urgent' : 'normal' }), 'Brief opérationnel envoyé à toutes les équipes.')}><Send size={16} /> Diffuser le point service</button>{restaurantPosId && <button onClick={() => execute(() => state.rebalanceRestaurantServiceSections(restaurantPosId, employee.name), 'Secteurs de salle rééquilibrés et visibles sur le plan.')}><UsersRound size={16} /> Rééquilibrer les secteurs</button>}</section><aside><small>Prévision des 30 prochaines minutes</small><strong>{totalPressure > 8 ? 'Saturation probable' : totalPressure > 3 ? 'Tension maîtrisable' : 'Flux normal'}</strong><p>{totalPressure > 8 ? 'Réaffecter une personne et geler les validations non urgentes.' : totalPressure > 3 ? 'Traiter le passe, la salle et les promesses client dans cet ordre.' : 'Maintenir les affectations et surveiller les promesses client.'}</p>{openOutage?.ingredientProductId && restaurantPosId && <button onClick={() => execute(() => state.setRestaurantIngredientAvailability(openOutage.ingredientProductId!, restaurantPosId, true, employee.name), 'Disponibilités précédentes restaurées après contrôle cuisine.')}><CheckCircle2 size={16} /> Rétablir {db.products.find(item => item.id === openOutage.ingredientProductId)?.name}</button>}<button onClick={() => setTab('tasks')}><ArrowRight size={16} /> Ouvrir les priorités</button></aside></div></section>;
   };
 
   const renderManagerPeopleCare = () => {
@@ -1123,6 +1175,20 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
         <aside className="staff-recognition-compose"><Sparkles size={21} /><h3>Faire vivre la reconnaissance</h3><p>Remercier un geste concret, sans classement ni compétition.</p><label>Collaborateur<select value={recognitionTarget} onChange={event => setRecognitionTargetId(event.target.value)}>{team.map(profile => <option key={profile.id} value={profile.id}>{profile.name} · {ROLE_CONFIG[profile.role].team}</option>)}</select></label><label>Message<textarea value={recognitionMessage} onChange={event => setRecognitionMessage(event.target.value)} placeholder="Ex. Merci pour la passation claire et l’aide apportée à l’équipe." /></label><button disabled={!recognitionTarget || !recognitionMessage.trim()} onClick={() => execute(() => { state.addEmployeeRecognition(recognitionTarget, employee.id, recognitionMessage); setRecognitionMessage(''); }, 'Remerciement envoyé dans l’espace personnel du collaborateur.')}><HeartHandshake size={16} /> Envoyer le remerciement</button></aside>
       </div>
     </section>;
+  };
+
+  const renderRestaurantTraining = () => {
+    if (!['waiter', 'cashier', 'kitchen', 'service_manager'].includes(employee.role)) return null;
+    const posId = assignedPosId || employee.posId || db.posList.find(item => item.type === 'restaurant')?.id;
+    if (!posId) return null;
+    const run = db.restaurantTrainingRuns.find(item => item.employeeId === employee.id && item.posId === posId && item.status === 'in_progress');
+    const scenarios = [
+      { id: 'allergy' as const, label: 'Allergie', detail: 'Sécuriser une commande sensible' },
+      { id: 'rush' as const, label: 'Coup de feu', detail: 'Rééquilibrer salle et cuisine' },
+      { id: 'split_payment' as const, label: 'Addition partagée', detail: 'Régler par convive et article' },
+      { id: 'outage' as const, label: 'Rupture', detail: 'Masquer puis rétablir le menu' }
+    ];
+    return <section className={`staff-training-mode ${trainingOpen ? 'open' : ''}`}><button className="staff-training-toggle" onClick={() => setTrainingOpen(value => !value)}><GraduationCap size={20} /><span><strong>Mode entraînement</strong><small>Exercices guidés sans impact sur le stock, les ventes ni la caisse</small></span><b>{run ? `${run.score}%` : 'Hors production'}</b></button>{trainingOpen && <div className="staff-training-content">{run ? <><header><div><span>EXERCICE EN COURS</span><h3>{run.label}</h3></div><b>{run.currentStep}/{run.steps.length}</b></header><ol>{run.steps.map((step, index) => <li className={step.status} key={step.id}><i>{step.status === 'completed' ? <Check size={14} /> : index + 1}</i><span>{step.label}</span></li>)}</ol><button className="staff-training-primary" onClick={() => execute(() => state.advanceRestaurantTrainingRun(run.id, employee.name), run.currentStep + 1 >= run.steps.length ? 'Exercice terminé. Aucun stock ni paiement réel n’a été modifié.' : 'Étape validée. Continuez le scénario.')}><CheckCircle2 size={17} /> Valider l’étape actuelle</button></> : <><header><div><span>SIMULATEUR MÉTIER</span><h3>Choisir une situation réelle</h3></div></header><div className="staff-training-scenarios">{scenarios.map(scenario => <button key={scenario.id} onClick={() => execute(() => state.startRestaurantTrainingScenario(employee.id, posId, scenario.id), `${scenario.label} démarré en environnement isolé.`)}><GraduationCap size={18} /><span><strong>{scenario.label}</strong><small>{scenario.detail}</small></span></button>)}</div></>}</div>}</section>;
   };
 
   const renderRoleGameChanger = () => {
@@ -1154,7 +1220,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
       case 'customer_experience': workspace = renderCustomerExperienceAction(); break;
       case 'service_manager': workspace = renderManagerAction(); break;
     }
-    return <div className="staff-role-workspace">{renderRoleGameChanger()}{employee.role === 'service_manager' && renderManagerPeopleCare()}{workspace}</div>;
+    return <div className="staff-role-workspace">{renderRoleGameChanger()}{renderRestaurantTraining()}{employee.role === 'service_manager' && renderManagerPeopleCare()}{workspace}</div>;
   };
 
   const renderMessages = () => (

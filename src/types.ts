@@ -417,8 +417,10 @@ export interface RestaurantTableReservation {
   time: string;
   guests: number;
   occasion: 'meal' | 'birthday' | 'business' | 'family';
-  status: 'confirmed' | 'seated' | 'completed' | 'cancelled';
+  status: 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
   tableNumber?: string;
+  durationMinutes?: number;
+  estimatedReleaseAt?: string;
   notes?: string;
   createdAt: string;
 }
@@ -509,18 +511,48 @@ export interface RestaurantFloorPlanVersion {
 export interface RestaurantFloorAuditEntry {
   id: string;
   posId: string;
-  action: 'table_updated' | 'table_deleted' | 'draft_saved' | 'draft_deleted' | 'published' | 'restored' | 'guest_seated' | 'reservation_seated' | 'order_opened' | 'table_transferred' | 'waiter_assigned' | 'qr_created' | 'bill_requested';
+  action: 'table_updated' | 'table_deleted' | 'draft_saved' | 'draft_deleted' | 'published' | 'restored' | 'guest_seated' | 'reservation_assigned' | 'reservation_seated' | 'order_opened' | 'order_sent' | 'course_fired' | 'item_updated' | 'table_transferred' | 'waiter_assigned' | 'section_updated' | 'qr_created' | 'bill_requested' | 'payment_recorded' | 'adjustment_applied' | 'outage_updated' | 'training_completed';
   summary: string;
   actor: string;
   createdAt: string;
   metadata?: Record<string, string | number | boolean>;
 }
 
+export type RestaurantServiceCourse = 'drinks' | 'starter' | 'main' | 'dessert';
+export type RestaurantPreparationStation = 'kitchen' | 'drinks' | 'dessert' | 'pass';
+export type RestaurantOrderItemStatus = 'held' | 'sent' | 'preparing' | 'ready' | 'served' | 'voided';
+
+export interface RestaurantServiceEvent {
+  id: string;
+  type: 'order_opened' | 'items_added' | 'items_sent' | 'course_fired' | 'item_preparing' | 'item_ready' | 'item_served' | 'payment' | 'discount' | 'complimentary' | 'void';
+  label: string;
+  actor: string;
+  createdAt: string;
+  itemIds?: string[];
+  course?: RestaurantServiceCourse;
+  amount?: number;
+}
+
 export interface RestaurantGuestOrderItem {
+  id?: string;
   productId: string;
   quantity: number;
   salePrice: number;
   note?: string;
+  seatNumber?: number;
+  guestName?: string;
+  course?: RestaurantServiceCourse;
+  modifiers?: string[];
+  station?: RestaurantPreparationStation;
+  status?: RestaurantOrderItemStatus;
+  addedAt?: string;
+  sentAt?: string;
+  preparingAt?: string;
+  readyAt?: string;
+  passedAt?: string;
+  servedAt?: string;
+  voidedAt?: string;
+  voidReason?: string;
 }
 
 export interface RestaurantGuestOrderPayment {
@@ -530,6 +562,11 @@ export interface RestaurantGuestOrderPayment {
   paidAt: string;
   payerName?: string;
   cashSessionId?: string;
+  seatNumbers?: number[];
+  itemIds?: string[];
+  tipAmount?: number;
+  reference?: string;
+  source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio';
 }
 
 export interface RestaurantGuestOrder {
@@ -548,12 +585,67 @@ export interface RestaurantGuestOrder {
   items: RestaurantGuestOrderItem[];
   payments: RestaurantGuestOrderPayment[];
   total: number;
+  grossTotal?: number;
+  discountTotal?: number;
+  complimentaryTotal?: number;
+  tipTotal?: number;
+  currentCourse?: RestaurantServiceCourse;
+  servicePace?: 'relaxed' | 'standard' | 'quick';
+  trainingMode?: boolean;
+  serviceEvents?: RestaurantServiceEvent[];
   estimatedMinutes: number;
   createdAt: string;
   updatedAt: string;
   kitchenStartedAt?: string;
   readyAt?: string;
   servedAt?: string;
+}
+
+export interface RestaurantServiceSection {
+  id: string;
+  posId: string;
+  name: string;
+  floor: string;
+  zone: string;
+  tableIds: string[];
+  employeeId?: string;
+  color: string;
+  status: 'active' | 'paused';
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface RestaurantServiceIncident {
+  id: string;
+  posId: string;
+  type: 'ingredient_outage' | 'service_delay' | 'equipment' | 'guest_recovery';
+  label: string;
+  severity: 'info' | 'warning' | 'critical';
+  status: 'open' | 'resolved';
+  orderId?: string;
+  itemId?: string;
+  ingredientProductId?: string;
+  affectedProductIds?: string[];
+  previousAvailability?: Record<string, boolean>;
+  assignedTo?: string;
+  createdAt: string;
+  createdBy: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export interface RestaurantTrainingRun {
+  id: string;
+  posId: string;
+  employeeId: string;
+  scenario: 'allergy' | 'rush' | 'split_payment' | 'outage';
+  label: string;
+  status: 'in_progress' | 'completed';
+  currentStep: number;
+  score: number;
+  steps: Array<{ id: string; label: string; status: 'pending' | 'completed' }>;
+  startedAt: string;
+  completedAt?: string;
 }
 
 export interface SartalCustomerMessage {
@@ -1412,6 +1504,7 @@ export interface EmployeeApproval {
   label: string;
   reason: string;
   amount?: number;
+  metadata?: Record<string, string | number | boolean>;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
   decidedAt?: string;

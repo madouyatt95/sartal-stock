@@ -55,6 +55,9 @@ import {
   RestaurantFloorPlanVersion,
   RestaurantTableReservation,
   RestaurantGuestOrder,
+  RestaurantServiceIncident,
+  RestaurantServiceSection,
+  RestaurantTrainingRun,
   SartalCustomerMessage,
   SartalCustomerFeedback,
   SartalClientAccess,
@@ -115,6 +118,9 @@ export interface DatabaseState {
   restaurantFloorAudit: RestaurantFloorAuditEntry[];
   restaurantReservations: RestaurantTableReservation[];
   restaurantGuestOrders: RestaurantGuestOrder[];
+  restaurantServiceSections: RestaurantServiceSection[];
+  restaurantServiceIncidents: RestaurantServiceIncident[];
+  restaurantTrainingRuns: RestaurantTrainingRun[];
   sartalCustomerMessages: SartalCustomerMessage[];
   sartalCustomerFeedback: SartalCustomerFeedback[];
   sartalClientAccess: SartalClientAccess[];
@@ -1200,9 +1206,15 @@ const initialDB = (): DatabaseState => {
     publishedAt: new Date().toISOString()
   }];
   const restaurantFloorAudit: RestaurantFloorAuditEntry[] = [{ id: 'floor-audit-initial', posId: 'pos-1', action: 'published', summary: 'Plan initial publié', actor: 'Sártal', createdAt: new Date().toISOString() }];
+  const restaurantServiceSections: RestaurantServiceSection[] = [
+    { id: 'section-terrace-main', posId: 'pos-1', name: 'Salle principale', floor: 'RDC', zone: 'Salle principale', tableIds: restaurantDiningTables.filter(table => table.floor === 'RDC' && table.zone === 'Salle principale').map(table => table.id), employeeId: 'emp-waiter', color: '#55d6b3', status: 'active', updatedAt: new Date().toISOString(), updatedBy: 'Sártal' },
+    { id: 'section-terrace-patio', posId: 'pos-1', name: 'Terrasse', floor: 'RDC', zone: 'Terrasse', tableIds: restaurantDiningTables.filter(table => table.floor === 'RDC' && table.zone === 'Terrasse').map(table => table.id), employeeId: 'emp-waiter-2', color: '#f2bd4c', status: 'active', updatedAt: new Date().toISOString(), updatedBy: 'Sártal' }
+  ];
+  const restaurantServiceIncidents: RestaurantServiceIncident[] = [];
+  const restaurantTrainingRuns: RestaurantTrainingRun[] = [];
 
   const restaurantGuestOrders: RestaurantGuestOrder[] = [
-    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', intendedPaymentMethod: 'wave', status: 'served', paymentStatus: 'pending', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
+    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', intendedPaymentMethod: 'wave', status: 'served', paymentStatus: 'pending', items: [{ id: 'REST-CLIENT-204-LINE-1', productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500, seatNumber: 1, guestName: 'Aminata', course: 'main', station: 'kitchen', status: 'served', modifiers: ['Sans arachides'], addedAt: `${today}T19:55:00.000Z`, sentAt: `${today}T19:56:00.000Z`, servedAt: `${today}T20:32:00.000Z` }, { id: 'REST-CLIENT-204-LINE-2', productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000, seatNumber: 2, course: 'main', station: 'kitchen', status: 'served', modifiers: [], addedAt: `${today}T19:55:00.000Z`, sentAt: `${today}T19:56:00.000Z`, servedAt: `${today}T20:32:00.000Z` }, { id: 'REST-CLIENT-204-LINE-3', productId: 'prod-eau-50', quantity: 2, salePrice: 1000, course: 'drinks', station: 'drinks', status: 'served', modifiers: ['Très fraîche'], addedAt: `${today}T19:55:00.000Z`, sentAt: `${today}T19:55:30.000Z`, servedAt: `${today}T20:01:00.000Z` }], payments: [], total: 19500, grossTotal: 19500, discountTotal: 0, complimentaryTotal: 0, tipTotal: 0, currentCourse: 'main', servicePace: 'relaxed', trainingMode: false, serviceEvents: [{ id: 'REST-CLIENT-204-EVENT-1', type: 'order_opened', label: 'Commande T12 ouverte', actor: 'Moussa Sarr', createdAt: `${today}T19:55:00.000Z` }, { id: 'REST-CLIENT-204-EVENT-2', type: 'items_sent', label: 'Boissons et plats envoyés', actor: 'Moussa Sarr', createdAt: `${today}T19:56:00.000Z`, itemIds: ['REST-CLIENT-204-LINE-1', 'REST-CLIENT-204-LINE-2', 'REST-CLIENT-204-LINE-3'] }], estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
   ];
 
   const sartalCustomerMessages: SartalCustomerMessage[] = [
@@ -1617,6 +1629,9 @@ const initialDB = (): DatabaseState => {
     restaurantFloorAudit,
     restaurantReservations,
     restaurantGuestOrders,
+    restaurantServiceSections,
+    restaurantServiceIncidents,
+    restaurantTrainingRuns,
     sartalCustomerMessages,
     sartalCustomerFeedback,
     sartalClientAccess,
@@ -2335,6 +2350,29 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     ? state.restaurantFloorPlanVersions
     : [{ id: 'floor-version-migrated', posId: 'pos-1', label: 'Plan importé', status: 'published' as const, tables: restaurantDiningTables.map(table => ({ ...table })), elements: restaurantFloorElements.map(element => ({ ...element })), settings: { ...restaurantFloorPlanSettings[0], backgrounds: [...restaurantFloorPlanSettings[0].backgrounds] }, createdAt: new Date().toISOString(), createdBy: 'Migration Sártal', publishedAt: new Date().toISOString() }];
   const restaurantFloorAudit = Array.isArray(state.restaurantFloorAudit) ? state.restaurantFloorAudit : [];
+  const sourceRestaurantGuestOrders = state.restaurantGuestOrders || [
+    { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in' as const, status: 'served' as const, items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  ];
+  const restaurantGuestOrders: RestaurantGuestOrder[] = sourceRestaurantGuestOrders.map(order => {
+    const itemStatus = order.status === 'placed' ? 'held' as const : order.status === 'confirmed' ? 'sent' as const : order.status === 'preparing' ? 'preparing' as const : order.status === 'ready' ? 'ready' as const : ['served', 'paid'].includes(order.status) ? 'served' as const : 'voided' as const;
+    const items = order.items.map((item, index) => {
+      const product = state.products?.find(entry => entry.id === item.productId);
+      const descriptor = `${product?.category || ''} ${product?.name || ''}`;
+      const station = /boisson|jus|eau|café|cafe|thé|the|mocktail/i.test(descriptor) ? 'drinks' as const : /dessert|pâtisserie|patisserie|glace|fruit/i.test(descriptor) ? 'dessert' as const : 'kitchen' as const;
+      const course = station === 'drinks' ? 'drinks' as const : station === 'dessert' ? 'dessert' as const : /entrée|entree|salade|soupe/i.test(descriptor) ? 'starter' as const : 'main' as const;
+      return { ...item, id: item.id || `${order.id}-LINE-${index + 1}`, course: item.course || course, station: item.station || station, status: item.status || itemStatus, modifiers: item.modifiers || [], addedAt: item.addedAt || order.createdAt };
+    });
+    return { ...order, items, grossTotal: order.grossTotal ?? order.total, discountTotal: order.discountTotal || 0, complimentaryTotal: order.complimentaryTotal || 0, tipTotal: order.tipTotal || 0, currentCourse: order.currentCourse || 'drinks', servicePace: order.servicePace || 'standard', trainingMode: order.trainingMode || false, serviceEvents: order.serviceEvents || [{ id: `${order.id}-EVENT-OPEN`, type: 'order_opened', label: `Commande ${order.tableNumber || order.id} ouverte`, actor: 'Migration Sártal', createdAt: order.createdAt }] };
+  });
+  const restaurantServiceSections: RestaurantServiceSection[] = Array.isArray(state.restaurantServiceSections) && state.restaurantServiceSections.length
+    ? state.restaurantServiceSections
+    : Array.from(new Set(restaurantDiningTables.map(table => `${table.floor}::${table.zone}`))).map((scope, index) => {
+      const [floor, zone] = scope.split('::');
+      const waiter = employeeProfiles.filter(profile => profile.role === 'waiter' && profile.posId === 'pos-1')[index % Math.max(1, employeeProfiles.filter(profile => profile.role === 'waiter' && profile.posId === 'pos-1').length)];
+      return { id: `section-migrated-${index + 1}`, posId: 'pos-1', name: zone, floor, zone, tableIds: restaurantDiningTables.filter(table => table.floor === floor && table.zone === zone).map(table => table.id), employeeId: waiter?.id, color: ['#55d6b3', '#f2bd4c', '#6db2ff'][index % 3], status: 'active' as const, updatedAt: new Date().toISOString(), updatedBy: 'Migration Sártal' };
+    });
+  const restaurantServiceIncidents = Array.isArray(state.restaurantServiceIncidents) ? state.restaurantServiceIncidents : [];
+  const restaurantTrainingRuns = Array.isArray(state.restaurantTrainingRuns) ? state.restaurantTrainingRuns : [];
 
   const migratedState: DatabaseState = {
     ...state,
@@ -2367,9 +2405,10 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     restaurantReservations: state.restaurantReservations || [
       { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
     ],
-    restaurantGuestOrders: state.restaurantGuestOrders || [
-      { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', status: 'served', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-    ],
+    restaurantGuestOrders,
+    restaurantServiceSections,
+    restaurantServiceIncidents,
+    restaurantTrainingRuns,
     sartalCustomerMessages: state.sartalCustomerMessages || [
       { id: 'client-message-restaurant-1', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', sender: 'team', senderName: 'Moussa · La Terrasse', content: 'Bienvenue Aminata. Votre table est prête et la cuisine a bien reçu vos préférences.', sentAt: new Date().toISOString(), status: 'read' },
       { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: new Date().toISOString(), status: 'read' }
