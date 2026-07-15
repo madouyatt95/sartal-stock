@@ -427,6 +427,28 @@ export const useStockState = () => {
     refresh();
   };
 
+  const setPOSProductAvailability = (productId: string, posId: string, isAvailable: boolean, actorName?: string) => {
+    const newDb = getDB();
+    const pricing = newDb.posPricing.find(item => item.productId === productId && item.posId === posId);
+    const product = newDb.products.find(item => item.id === productId);
+    const pos = newDb.posList.find(item => item.id === posId);
+    if (!pricing || !product || !pos) throw new Error('Article ou canal de vente introuvable');
+    pricing.isAvailable = isAvailable;
+    newDb.employeeMessages.unshift({
+      id: `availability-${Date.now()}`,
+      siteId: pos.siteId,
+      senderId: newDb.currentUser.id,
+      senderName: actorName || newDb.currentUser.name,
+      audience: 'waiter',
+      content: `${product.name} est ${isAvailable ? 'de nouveau disponible' : 'en rupture'} sur ${pos.name}. Le catalogue de vente a été mis à jour.`,
+      priority: isAvailable ? 'normal' : 'urgent',
+      sentAt: new Date().toISOString(),
+      readByEmployeeIds: []
+    });
+    saveDB(newDb);
+    refresh();
+  };
+
   const addRecipe = (productId: string, name: string, ingredients: Array<{ productId: string; quantity: number; unit: string }>) => {
     const newDb = getDB();
     const recipeId = `rec-${Date.now()}`;
@@ -2561,6 +2583,7 @@ export const useStockState = () => {
     updateProduct,
     deleteProduct,
     updateProductPricing,
+    setPOSProductAvailability,
     addRecipe,
     addPOS,
     updatePOS,

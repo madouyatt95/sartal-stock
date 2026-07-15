@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChefHat,
   ChevronRight,
+  CircleGauge,
   ClipboardCheck,
   Clock3,
   CreditCard,
@@ -24,6 +25,7 @@ import {
   LogIn,
   LogOut,
   MapPin,
+  MapPinned,
   MessageCircle,
   MoreHorizontal,
   Navigation,
@@ -31,16 +33,21 @@ import {
   PackageSearch,
   Phone,
   ReceiptText,
+  Route,
+  ScanBarcode,
   ScanLine,
   Search,
   Send,
   ShieldCheck,
   Sparkles,
   Truck,
+  TrendingUp,
+  UserRoundSearch,
   UsersRound,
   UtensilsCrossed,
   WalletCards,
   Warehouse,
+  WandSparkles,
   WifiOff,
   XCircle,
   type LucideIcon
@@ -123,6 +130,19 @@ const formatFCFA = (amount: number) => `${new Intl.NumberFormat('fr-FR').format(
 const formatTime = (date: string) => new Date(date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const elapsedMinutes = (date: string) => Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 60000));
 
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<{ 0: { transcript: string } }>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  start: () => void;
+  onresult: (event: SpeechRecognitionEventLike) => void;
+  onerror: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
 export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) => {
   const { db } = state;
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(db.employeeProfiles[0]?.id || '');
@@ -152,9 +172,16 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   const [transferQuantity, setTransferQuantity] = useState('1');
   const [inventoryCount, setInventoryCount] = useState('');
   const [movementSearch, setMovementSearch] = useState('');
+  const [stockDocumentLabel, setStockDocumentLabel] = useState('');
   const [selectedDeliveryId, setSelectedDeliveryId] = useState('');
   const [deliveryCode, setDeliveryCode] = useState('');
   const [deliverySignature, setDeliverySignature] = useState('');
+  const [kdsStation, setKdsStation] = useState<'all' | 'kitchen' | 'drinks'>('all');
+  const [kdsItemProgress, setKdsItemProgress] = useState<Set<string>>(() => new Set());
+  const [housekeepingChecks, setHousekeepingChecks] = useState<Record<string, string[]>>({});
+  const [minibarProductId, setMinibarProductId] = useState('prod-eau-50');
+  const [pickedLineIds, setPickedLineIds] = useState<Set<string>>(() => new Set());
+  const [customerFocusId, setCustomerFocusId] = useState('');
   const [handover, setHandover] = useState({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
   const employee = db.employeeProfiles.find(item => item.id === selectedEmployeeId);
@@ -208,6 +235,54 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
       setNotice(error instanceof Error ? error.message : 'Action impossible');
       window.setTimeout(() => setNotice(''), 4200);
     }
+  };
+
+  const toggleProgress = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) => {
+    setter(current => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleHousekeepingCheck = (taskId: string, check: string) => {
+    setHousekeepingChecks(current => {
+      const values = new Set(current[taskId] || []);
+      if (values.has(check)) values.delete(check);
+      else values.add(check);
+      return { ...current, [taskId]: [...values] };
+    });
+  };
+
+  const startVoiceInventoryCount = () => {
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setNotice('La dictée vocale n’est pas disponible sur ce navigateur.');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'fr-FR';
+    recognition.onresult = event => {
+      const spoken = event.results[0]?.[0]?.transcript || '';
+      const normalized = spoken.replace(',', '.').match(/\d+(?:\.\d+)?/g)?.[0] || '';
+      if (normalized) setInventoryCount(normalized);
+      setNotice(normalized ? `Comptage vocal reconnu : ${normalized}` : 'Nombre non reconnu. Réessayez calmement.');
+    };
+    recognition.onerror = () => setNotice('La dictée vocale a été interrompue.');
+    recognition.start();
+  };
+
+  const getPOSStock = (productId: string, posId: string) => {
+    const pricing = db.posPricing.find(item => item.productId === productId && item.posId === posId && item.isAvailable);
+    const pos = db.posList.find(item => item.id === posId);
+    const warehouseId = pricing?.defaultWarehouseId || pos?.defaultWarehouseId;
+    const stock = db.stocks.find(item => item.productId === productId && item.warehouseId === warehouseId);
+    return { pricing, stock, available: stock ? stock.quantityAvailable - stock.quantityReserved : 0, warehouseId };
   };
 
   const openReceptionWorkspace = (workspace: ReceptionWorkspace, reservationId = '') => {
@@ -563,10 +638,18 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
 
   const renderKitchenAction = () => {
     const tickets = db.restaurantGuestOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
-    return <section className="staff-kds"><header><div><span>KDS CUISINE</span><h2>Tickets par urgence</h2><p>Les allergies restent visibles à chaque étape.</p></div><b><i /> Cuisine en service</b></header><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
+    return <section className="staff-kds"><header><div><span>KDS CUISINE</span><h2>Tickets par urgence</h2><p>Chaque article doit être confirmé avant de déclarer le ticket prêt.</p></div><b><i /> Cuisine en service</b></header><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
       const customer = db.sartalCustomers.find(item => item.id === order.customerId);
       const next = order.status === 'preparing' ? 'ready' : 'preparing';
-      return <article className={`${order.status} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}><header><strong>{order.tableNumber || 'À emporter'}</strong><time>{elapsedMinutes(order.createdAt)} min</time></header>{customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}<div className="staff-kds-items">{order.items.map(item => <div key={item.productId}><b>{item.quantity}×</b><span><strong>{db.products.find(product => product.id === item.productId)?.name || item.productId}</strong>{item.note && <small>{item.note}</small>}</span></div>)}</div><footer><span>{ORDER_STATUS[order.status]}</span>{order.status !== 'ready' && <button onClick={() => execute(() => state.updateRestaurantGuestOrderStatus(order.id, next), next === 'ready' ? `Ticket ${order.tableNumber} prêt.` : `Ticket ${order.tableNumber} démarré.`)}>{next === 'ready' ? <><CheckCircle2 size={16} /> Plat prêt</> : <><ChefHat size={16} /> Démarrer</>}</button>}<button className="staff-kds-issue" onClick={() => execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Cuisine`, audience: 'waiter', content: `Rupture à confirmer sur le ticket ${order.tableNumber || order.id}. Merci de prévenir le client.`, priority: 'urgent' }), 'La salle a été prévenue de la rupture.')}><AlertCircle size={15} /> Rupture</button></footer></article>;
+      const visibleItems = order.items.filter(item => {
+        const category = db.products.find(product => product.id === item.productId)?.category || '';
+        return kdsStation === 'all' || (kdsStation === 'drinks' ? /boisson|mocktail/i.test(category) : !/boisson|mocktail/i.test(category));
+      });
+      if (visibleItems.length === 0) return null;
+      const allItemsChecked = visibleItems.length > 0 && visibleItems.every(item => kdsItemProgress.has(`${order.id}-${item.productId}`));
+      const outageItem = visibleItems[0];
+      const outageProduct = db.products.find(product => product.id === outageItem.productId);
+      return <article className={`${order.status} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}><header><strong>{order.tableNumber || 'À emporter'}</strong><time>{elapsedMinutes(order.createdAt)} min</time></header>{customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}<div className="staff-kds-items">{visibleItems.map(item => { const key = `${order.id}-${item.productId}`; return <button className={kdsItemProgress.has(key) ? 'checked' : ''} key={item.productId} onClick={() => toggleProgress(setKdsItemProgress, key)}><b>{item.quantity}×</b><span><strong>{db.products.find(product => product.id === item.productId)?.name || item.productId}</strong>{item.note && <small>{item.note}</small>}</span><i>{kdsItemProgress.has(key) ? <Check size={15} /> : <Clock3 size={15} />}</i></button>; })}</div><footer><span>{ORDER_STATUS[order.status]}</span>{order.status !== 'ready' && <button disabled={next === 'ready' && !allItemsChecked} onClick={() => execute(() => state.updateRestaurantGuestOrderStatus(order.id, next), next === 'ready' ? `Ticket ${order.tableNumber} prêt.` : `Ticket ${order.tableNumber} démarré.`)}>{next === 'ready' ? <><CheckCircle2 size={16} /> {allItemsChecked ? 'Plat prêt' : 'Cocher les articles'}</> : <><ChefHat size={16} /> Démarrer</>}</button>}<button className="staff-kds-issue" onClick={() => execute(() => state.setPOSProductAvailability(outageItem.productId, order.posId, false, `${employee.name} · Cuisine`), `${outageProduct?.name || 'Article'} retiré immédiatement du canal de vente et salle prévenue.`)}><AlertCircle size={15} /> Rupture {outageProduct?.name}</button></footer></article>;
     })}</div></section>;
   };
 
@@ -596,14 +679,18 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   };
 
   const renderHousekeeperAction = () => (
-    <section className="staff-housekeeping"><header><div><span>ÉTAGES</span><h2>Chambres par priorité</h2><p>Nettoyage, linge, minibar, photos et contrôle gouvernante.</p></div><div className="staff-room-legend-inline"><span><i className="dirty" /> À faire</span><span><i className="in_progress" /> En cours</span><span><i className="clean" /> Propre</span><span><i className="inspected" /> Contrôlée</span></div></header><div className="staff-room-task-grid">{db.pmsHousekeepingTasks.map(task => {
+    <section className="staff-housekeeping"><header><div><span>ÉTAGES</span><h2>Chambres par priorité</h2><p>Nettoyage, linge, minibar, salle de bain et preuve photo.</p></div><div className="staff-room-legend-inline"><span><i className="dirty" /> À faire</span><span><i className="in_progress" /> En cours</span><span><i className="clean" /> Propre</span><span><i className="inspected" /> Contrôlée</span></div></header><div className="staff-room-task-grid">{db.pmsHousekeepingTasks.slice().sort((a, b) => Number(b.priority === 'urgent') - Number(a.priority === 'urgent') || (db.pmsRooms.find(item => item.id === a.roomId)?.roomNumber || '').localeCompare(db.pmsRooms.find(item => item.id === b.roomId)?.roomNumber || '')).map(task => {
       const room = db.pmsRooms.find(item => item.id === task.roomId);
       const nextStatus = task.status === 'pending' ? 'in_progress' : task.status === 'in_progress' ? 'completed' : task.status === 'completed' ? 'inspected' : 'inspected';
+      const checks = housekeepingChecks[task.id] || [];
+      const requiredChecks = ['linge', 'minibar', 'salle-de-bain', 'photo'];
+      const checklistComplete = requiredChecks.every(check => checks.includes(check));
       return <article className={`${task.status} ${task.priority}`} key={task.id}>
         <header><div><strong>{room?.roomNumber}</strong><span>{room?.floor}</span></div><b>{task.priority === 'urgent' ? 'PRIORITAIRE' : ORDER_STATUS[task.status]}</b></header>
         <h3>{room?.roomType}</h3><p>{task.note || 'Entretien standard'}</p>
         <div className="staff-room-checks"><span className={task.linenStatus === 'complete' ? 'ok' : 'alert'}>Linge : {task.linenStatus || 'à vérifier'}</span><span className={task.minibarStatus === 'checked' ? 'ok' : 'alert'}>Minibar : {task.minibarStatus || 'à vérifier'}</span><span><Camera size={13} /> {task.photoCount || 0} photo(s)</span></div>
-        <footer>{task.status !== 'inspected' && <button onClick={() => execute(() => state.updatePMSHousekeepingTask(task.id, nextStatus, employee.name), `Chambre ${room?.roomNumber} : ${ORDER_STATUS[nextStatus].toLowerCase()}.`)}>{nextStatus === 'in_progress' ? 'Démarrer' : nextStatus === 'completed' ? 'Terminer' : 'Valider'}</button>}<button className="staff-photo-action" onClick={() => execute(() => state.updatePMSHousekeepingDetails(task.id, { photoCount: (task.photoCount || 0) + 1 }, employee.name), `Photo ajoutée à la chambre ${room?.roomNumber}.`)}><Camera size={15} /> Photo</button></footer>
+        {task.status !== 'pending' && <div className="staff-room-checklist">{requiredChecks.map(check => <button className={checks.includes(check) ? 'checked' : ''} key={check} onClick={() => toggleHousekeepingCheck(task.id, check)}>{checks.includes(check) ? <Check size={13} /> : <i />}{check === 'salle-de-bain' ? 'Salle de bain' : check.charAt(0).toUpperCase() + check.slice(1)}</button>)}</div>}
+        <footer>{task.status !== 'inspected' && <button disabled={nextStatus === 'completed' && !checklistComplete} onClick={() => execute(() => state.updatePMSHousekeepingTask(task.id, nextStatus, employee.name), `Chambre ${room?.roomNumber} : ${ORDER_STATUS[nextStatus].toLowerCase()}.`)}>{nextStatus === 'in_progress' ? 'Démarrer' : nextStatus === 'completed' ? checklistComplete ? 'Terminer' : `${checks.length}/4 contrôles` : 'Valider'}</button>}<button className="staff-photo-action" onClick={() => execute(() => { state.updatePMSHousekeepingDetails(task.id, { photoCount: (task.photoCount || 0) + 1 }, employee.name); if (!checks.includes('photo')) toggleHousekeepingCheck(task.id, 'photo'); }, `Photo ajoutée à la chambre ${room?.roomNumber}.`)}><Camera size={15} /> Photo</button></footer>
       </article>;
     })}</div></section>
   );
@@ -641,8 +728,9 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   };
 
   const renderPickerAction = () => {
-    const orders = db.deliveryOrders.filter(item => ['confirmed', 'reserved', 'preparing', 'ready'].includes(item.status));
-    return <section className="staff-picking"><header><div><span>PRÉPARATION</span><h2>Parcours de picking</h2><p>La liste reste courte, contrôlée et triée par promesse.</p></div><b>{orders.length} commande(s)</b></header><div className="staff-picking-list">{orders.map(order => <article key={order.id} className={order.status}><header><div><span>{order.id}</span><h3>{order.customerName}</h3><small>{order.zone || order.address} · {order.paymentStatus === 'paid' ? 'Payée' : 'À encaisser'}</small></div><b>{ORDER_STATUS[order.status]}</b></header><div className="staff-picking-items">{order.items.map(line => { const product = db.products.find(item => item.id === line.productId); const stock = db.stocks.find(item => item.productId === line.productId && item.warehouseId === order.warehouseId); return <div key={line.productId}><span className={stock && stock.quantityAvailable - stock.quantityReserved >= line.quantity ? 'ok' : 'alert'}>{stock && stock.quantityAvailable - stock.quantityReserved >= line.quantity ? <Check size={15} /> : <AlertCircle size={15} />}</span><strong>{line.quantity}× {product?.name || line.productId}</strong><small>{line.substitutionPolicy === 'replace' ? 'Substitution autorisée' : line.substitutionPolicy === 'refund' ? 'Rembourser si absent' : 'Contacter le client si absent'}</small></div>; })}</div><footer><span><MapPin size={15} /> {order.landmark || 'Repère à confirmer'}</span>{order.status === 'confirmed' && <button onClick={() => runDeliveryStep(order.id, 'reserve')}>Réserver le stock</button>}{order.status === 'reserved' && <button onClick={() => runDeliveryStep(order.id, 'prepare')}>Démarrer le picking</button>}{order.status === 'preparing' && <button onClick={() => runDeliveryStep(order.id, 'ready')}>Contrôler et fermer</button>}{order.status === 'ready' && <button onClick={() => runDeliveryStep(order.id, 'dispatch')}>Remettre au livreur</button>}</footer></article>)}</div></section>;
+    const zoneRank: Record<string, number> = { 'Point E / Fann': 1, 'Mermoz / Sacré-Coeur': 2, 'Ouakam / Almadies': 3 };
+    const orders = db.deliveryOrders.filter(item => ['confirmed', 'reserved', 'preparing', 'ready'].includes(item.status)).sort((a, b) => (zoneRank[a.zone || ''] || 9) - (zoneRank[b.zone || ''] || 9) || a.createdAt.localeCompare(b.createdAt));
+    return <section className="staff-picking"><header><div><span>PRÉPARATION</span><h2>Parcours de picking</h2><p>Chaque ligne est scannée avant le contrôle final du panier.</p></div><b>{orders.length} commande(s)</b></header><div className="staff-picking-list">{orders.map(order => { const lineKeys = order.items.map(line => `${order.id}-${line.productId}`); const allScanned = lineKeys.every(key => pickedLineIds.has(key)); return <article key={order.id} className={order.status}><header><div><span>{order.id}</span><h3>{order.customerName}</h3><small>{order.zone || order.address} · {order.paymentStatus === 'paid' ? 'Payée' : 'À encaisser'}</small></div><b>{ORDER_STATUS[order.status]}</b></header><div className="staff-picking-items">{order.items.map(line => { const key = `${order.id}-${line.productId}`; const product = db.products.find(item => item.id === line.productId); const stock = db.stocks.find(item => item.productId === line.productId && item.warehouseId === order.warehouseId); const stockOk = Boolean(stock && stock.quantityAvailable - stock.quantityReserved >= line.quantity); return <button className={pickedLineIds.has(key) ? 'checked' : ''} key={line.productId} onClick={() => toggleProgress(setPickedLineIds, key)}><span className={stockOk ? 'ok' : 'alert'}>{pickedLineIds.has(key) ? <Check size={15} /> : stockOk ? <ScanBarcode size={15} /> : <AlertCircle size={15} />}</span><strong>{line.quantity}× {product?.name || line.productId}</strong><small>{pickedLineIds.has(key) ? 'Article scanné et quantité confirmée' : line.substitutionPolicy === 'replace' ? 'Substitution autorisée' : line.substitutionPolicy === 'refund' ? 'Rembourser si absent' : 'Scanner pour confirmer'}</small></button>; })}</div><footer><span><MapPin size={15} /> {order.landmark || 'Repère à confirmer'}</span>{order.status === 'confirmed' && <button onClick={() => runDeliveryStep(order.id, 'reserve')}>Réserver le stock</button>}{order.status === 'reserved' && <button onClick={() => runDeliveryStep(order.id, 'prepare')}>Démarrer le picking</button>}{order.status === 'preparing' && <button disabled={!allScanned} onClick={() => runDeliveryStep(order.id, 'ready')}>{allScanned ? 'Contrôler et fermer' : `${lineKeys.filter(key => pickedLineIds.has(key)).length}/${lineKeys.length} scanné(s)`}</button>}{order.status === 'ready' && <button onClick={() => runDeliveryStep(order.id, 'dispatch')}>Remettre au livreur</button>}</footer></article>; })}</div></section>;
   };
 
   const renderDriverAction = () => {
@@ -662,19 +750,208 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
     return <section className="staff-manager-action"><div className="staff-approval-queue"><header><ShieldCheck size={21} /><div><h2>Validations sensibles</h2><p>Remises, offerts, annulations, écarts et substitutions.</p></div><b>{approvals.length}</b></header>{approvals.map(approval => <article key={approval.id}><span className={approval.type}><ShieldCheck size={18} /></span><div><strong>{approval.label}</strong><p>{approval.reason}</p><small>{approval.requestedByName} · {approval.referenceId} · {formatTime(approval.createdAt)}</small></div>{approval.amount && <b>{formatFCFA(approval.amount)}</b>}<footer><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'rejected', 'Refus manager depuis le cockpit.'), 'Demande refusée et auteur prévenu.')}><XCircle size={16} /> Refuser</button><button onClick={() => execute(() => state.decideEmployeeApproval(approval.id, employee.id, 'approved', 'Validé pendant le service.'), 'Demande validée et tracée.')}><CheckCircle2 size={16} /> Valider</button></footer></article>)}{approvals.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={30} /><strong>Aucune validation en attente</strong></div>}</div><aside className="staff-live-operations"><h3>Opérations en direct</h3>{db.employeeProfiles.map(profile => { const shift = db.employeeShifts.find(item => item.employeeId === profile.id && item.status === 'open'); const config = ROLE_CONFIG[profile.role]; const Icon = config.icon; return <div key={profile.id}><span style={{ background: config.color }}><Icon size={15} /></span><div><strong>{config.team}</strong><small>{profile.name}</small></div><b className={shift ? 'online' : ''}>{shift ? 'En service' : 'Hors service'}</b></div>; })}<button onClick={() => setTab('messages')}><Send size={16} /> Envoyer une consigne</button></aside></section>;
   };
 
-  const renderRoleAction = () => {
-    switch (employee.role) {
-      case 'waiter': return renderWaiterAction();
-      case 'cashier': return renderCashierAction();
-      case 'kitchen': return renderKitchenAction();
-      case 'receptionist': return renderReceptionAction();
-      case 'housekeeper': return renderHousekeeperAction();
-      case 'storekeeper': return renderStorekeeperAction();
-      case 'picker': return renderPickerAction();
-      case 'driver': return renderDriverAction();
-      case 'customer_experience': return renderCustomerExperienceAction();
-      case 'service_manager': return renderManagerAction();
+  const renderWaiterGameChanger = () => {
+    const activeOrders = db.restaurantGuestOrders.filter(item => item.posId === employee.posId && !['paid', 'cancelled'].includes(item.status));
+    const focusOrder = activeOrders.find(item => item.status === 'ready') || activeOrders.find(item => item.status === 'served') || activeOrders[0];
+    const focusCustomer = db.sartalCustomers.find(item => item.id === focusOrder?.customerId);
+    const priorityRequest = db.sartalServiceRequests.find(item => item.context === 'restaurant' && !['completed', 'cancelled'].includes(item.status) && (item.priority === 'urgent' || new Date(item.promisedAt).getTime() < Date.now()));
+    const suggestions = db.posPricing
+      .filter(item => item.posId === employee.posId && item.isAvailable && !focusOrder?.items.some(line => line.productId === item.productId))
+      .map(pricing => {
+        const product = db.products.find(item => item.id === pricing.productId);
+        const stockInfo = getPOSStock(pricing.productId, pricing.posId);
+        return { pricing, product, available: stockInfo.available, margin: pricing.salePrice - (stockInfo.stock?.averageCost || 0) };
+      })
+      .filter(item => item.product?.isActive && item.available > 0 && !focusCustomer?.allergies?.toLowerCase().includes(item.product!.name.toLowerCase()))
+      .sort((a, b) => b.margin - a.margin)
+      .slice(0, 3);
+    const statusIndex = focusOrder ? ['confirmed', 'preparing', 'ready', 'served'].indexOf(focusOrder.status) : -1;
+    const runNextAction = () => {
+      if (priorityRequest) {
+        execute(() => state.updateSartalServiceRequest(priorityRequest.id, priorityRequest.status === 'requested' ? 'accepted' : 'completed', employee.name), 'Priorité client traitée.');
+      } else if (focusOrder?.status === 'ready') {
+        execute(() => state.updateRestaurantGuestOrderStatus(focusOrder.id, 'served'), `Table ${focusOrder.tableNumber} servie et chronologie mise à jour.`);
+      } else if (focusOrder?.status === 'served') {
+        execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Salle`, audience: 'cashier', content: `Addition table ${focusOrder.tableNumber || focusOrder.id} prête à encaisser.`, priority: 'normal' }), 'La caisse a reçu la demande d’addition.');
+      }
+    };
+    const actionLabel = priorityRequest ? `Traiter · ${priorityRequest.label}` : focusOrder?.status === 'ready' ? `Servir la table ${focusOrder.tableNumber}` : focusOrder?.status === 'served' ? 'Prévenir la caisse' : 'Service sous contrôle';
+    return <section className="staff-game-changer staff-waiter-intelligence"><header><WandSparkles size={22} /><div><span>ASSISTANT DE SALLE</span><h2>La prochaine meilleure action</h2></div><b>{activeOrders.length} table(s) suivie(s)</b></header><div className="staff-intelligence-grid"><article className="staff-next-action"><small>À faire maintenant</small><strong>{actionLabel}</strong><p>{priorityRequest ? `Promesse ${formatTime(priorityRequest.promisedAt)} · ${priorityRequest.assignedTo}` : focusOrder ? `${focusCustomer?.fullName || 'Client'} · ${elapsedMinutes(focusOrder.createdAt)} min depuis la commande` : 'Aucune table ne nécessite une intervention.'}</p>{(priorityRequest || ['ready', 'served'].includes(focusOrder?.status || '')) && <button onClick={runNextAction}><ArrowRight size={16} /> Exécuter</button>}</article><article className="staff-service-timeline"><small>Chronologie {focusOrder?.tableNumber ? `table ${focusOrder.tableNumber}` : ''}</small><div>{['Commande', 'Cuisine', 'Prêt', 'Servi'].map((label, index) => <span className={index <= statusIndex ? 'done' : index === statusIndex + 1 ? 'current' : ''} key={label}><i>{index < statusIndex ? <Check size={12} /> : index + 1}</i>{label}</span>)}</div></article><article className="staff-smart-suggestions"><small>Suggestions disponibles et rentables</small>{suggestions.map(item => <div key={item.product!.id}><span><strong>{item.product!.name}</strong><small>{item.available} disponible(s) · marge estimée {formatFCFA(item.margin)}</small></span><b>{formatFCFA(item.pricing.salePrice)}</b></div>)}{suggestions.length === 0 && <p>Aucune suggestion compatible avec le stock actuel.</p>}</article></div></section>;
+  };
+
+  const renderCashierGameChanger = () => {
+    const cashSession = db.cashSessions.find(item => item.userId === employee.id && item.status === 'open');
+    const posOrders = db.restaurantGuestOrders.filter(item => item.posId === employee.posId);
+    const payments = posOrders.flatMap(order => order.payments.map(payment => ({ order, payment })));
+    const unlinked = cashSession ? payments.filter(item => item.payment.method !== 'room_charge' && !item.payment.cashSessionId && new Date(item.payment.paidAt).getTime() >= new Date(cashSession.openedAt).getTime()) : [];
+    const duplicates = payments.filter((entry, index) => payments.some((other, otherIndex) => otherIndex < index && other.payment.method === entry.payment.method && other.payment.amount === entry.payment.amount && Math.abs(new Date(other.payment.paidAt).getTime() - new Date(entry.payment.paidAt).getTime()) < 60000));
+    const mobileWithoutPayer = payments.filter(item => ['wave', 'orange_money'].includes(item.payment.method) && !item.payment.payerName);
+    const expectedCash = (cashSession?.openingFloat || 0) + (cashSession?.paymentTotals.cash || 0);
+    const auditIssues = unlinked.length + duplicates.length + mobileWithoutPayer.length + (cashSession ? 0 : 1);
+    const score = Math.max(0, 100 - auditIssues * 18);
+    const selectedOrder = posOrders.find(item => item.id === selectedOrderId) || posOrders.find(item => !['paid', 'cancelled'].includes(item.status));
+    const splitGuests = selectedOrder ? db.restaurantGuestInvites.filter(item => item.orderId === selectedOrder.id) : [];
+    const folioOpen = Boolean(selectedOrder?.folioId && db.pmsFolios.some(item => item.id === selectedOrder.folioId && item.status === 'open'));
+    return <section className="staff-game-changer staff-cash-audit"><header><CircleGauge size={22} /><div><span>CONTRÔLE EN CONTINU</span><h2>Rapprochement automatique</h2></div><strong className={score >= 90 ? 'good' : score >= 70 ? 'warning' : 'danger'}>{score}% fiable</strong></header><div className="staff-intelligence-metrics"><article><small>Espèces attendues</small><strong>{formatFCFA(expectedCash)}</strong><button disabled={!cashSession} onClick={() => { setClosingCash(String(expectedCash)); setNotice('Montant attendu repris dans le comptage de clôture.'); }}>Reprendre le montant</button></article><article><small>Paiements non rattachés</small><strong>{unlinked.length}</strong><p>{unlinked.length ? 'À contrôler avant le rapport Z' : 'Tous les paiements sont reliés à la caisse'}</p></article><article><small>Doublons potentiels</small><strong>{duplicates.length}</strong><p>{duplicates.length ? 'Même moyen, montant et minute' : 'Aucun doublon détecté'}</p></article><article><small>Imputation chambre</small><strong>{folioOpen ? 'Autorisée' : 'Verrouillée'}</strong><p>{selectedOrder?.roomNumber ? `Chambre ${selectedOrder.roomNumber}` : 'Aucun folio actif sélectionné'}</p></article></div>{selectedOrder && <div className="staff-split-visual"><span><strong>Addition {selectedOrder.tableNumber || selectedOrder.id}</strong><small>{formatFCFA(selectedOrder.total)} · {selectedOrder.payments.length} paiement(s)</small></span><div>{splitGuests.map(guest => <i key={guest.id} style={{ flexGrow: guest.shareAmount || 1 }} title={`${guest.fullName} · ${formatFCFA(guest.shareAmount || 0)}`}>{guest.fullName.split(' ')[0]}</i>)}{splitGuests.length === 0 && <i style={{ flexGrow: 1 }}>Paiement unique ou libre</i>}</div></div>}</section>;
+  };
+
+  const renderKitchenGameChanger = () => {
+    const tickets = db.restaurantGuestOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status));
+    const routedItems = tickets.flatMap(order => order.items.map(line => ({ order, line, product: db.products.find(item => item.id === line.productId) })));
+    const stationItems = routedItems.filter(item => kdsStation === 'all' || (kdsStation === 'drinks' ? /boisson|mocktail/i.test(item.product?.category || '') : !/boisson|mocktail/i.test(item.product?.category || '')));
+    const overdue = tickets.filter(item => elapsedMinutes(item.createdAt) > item.estimatedMinutes).length;
+    const workloadMinutes = Math.max(5, Math.ceil(stationItems.reduce((sum, item) => sum + item.line.quantity, 0) / 3) * 5);
+    const directShortages = stationItems.filter(item => item.product?.isStockable && getPOSStock(item.line.productId, item.order.posId).available < item.line.quantity);
+    return <section className="staff-game-changer staff-kitchen-intelligence"><header><CircleGauge size={22} /><div><span>PILOTAGE KDS</span><h2>Charge et routage en temps réel</h2></div><b className={overdue ? 'danger' : 'good'}>{overdue} ticket(s) en retard</b></header><div className="staff-station-tabs"><button className={kdsStation === 'all' ? 'active' : ''} onClick={() => setKdsStation('all')}>Tous · {routedItems.length}</button><button className={kdsStation === 'kitchen' ? 'active' : ''} onClick={() => setKdsStation('kitchen')}>Cuisine</button><button className={kdsStation === 'drinks' ? 'active' : ''} onClick={() => setKdsStation('drinks')}>Boissons</button></div><div className="staff-intelligence-metrics"><article><small>Charge estimée</small><strong>{workloadMinutes} min</strong><p>{stationItems.reduce((sum, item) => sum + item.line.quantity, 0)} préparation(s) à produire</p></article><article><small>Articles cochés</small><strong>{stationItems.filter(item => kdsItemProgress.has(`${item.order.id}-${item.line.productId}`)).length}/{stationItems.length}</strong><p>Validation article par article</p></article><article><small>Stock direct à confirmer</small><strong>{directShortages.length}</strong><p>{directShortages[0]?.product?.name || 'Aucune rupture directe détectée'}</p></article></div></section>;
+  };
+
+  const renderReceptionGameChanger = () => {
+    const arrivals = db.pmsReservations.filter(item => item.status === 'confirmed');
+    const reservation = arrivals.find(item => item.id === selectedReservationId) || arrivals[0];
+    const guest = db.pmsGuests.find(item => item.id === reservation?.guestId);
+    const notifications = db.pmsNotifications.filter(item => item.reservationId === reservation?.id);
+    const roomScores = reservation ? db.pmsRooms
+      .filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus) && room.capacity >= reservation.adults + reservation.children)
+      .map(room => ({ room, score: 55 + (room.housekeepingStatus === 'inspected' ? 20 : 10) + (reservation.requestedRoomType && room.roomType.toLowerCase().includes(reservation.requestedRoomType.toLowerCase().replace('chambre ', '')) ? 20 : 0) + (Math.abs(room.nightlyRate - reservation.nightlyRate) <= 5000 ? 5 : 0) }))
+      .sort((a, b) => b.score - a.score).slice(0, 3) : [];
+    const folio = db.pmsFolios.find(item => item.reservationId === reservation?.id);
+    const balance = folio ? folio.charges.reduce((sum, item) => sum + item.amount, 0) - folio.payments.reduce((sum, item) => sum + item.amount, 0) : Math.max(0, (reservation?.nightlyRate || 0) - (reservation?.depositAmount || 0));
+    return <section className="staff-game-changer staff-reception-intelligence"><header><WandSparkles size={22} /><div><span>ARRIVÉE SANS FRICTION</span><h2>Client, chambre et folio réunis</h2></div><b>{arrivals.length} arrivée(s)</b></header>{reservation ? <div className="staff-reception-assistant"><article><small>Client</small><strong>{guest?.fullName}</strong><p>{guest?.preferences || 'Aucune préférence enregistrée'}{guest?.allergies ? ` · Allergie ${guest.allergies}` : ''}</p><div><span>Pré-check-in {guest?.preCheckInStatus === 'completed' ? 'terminé' : 'à envoyer'}</span><span>Solde {formatFCFA(Math.max(0, balance))}</span></div><button disabled={notifications.some(item => item.type === 'arrival_reminder' && item.status !== 'failed')} onClick={() => execute(() => state.schedulePMSNotification(reservation.id, 'arrival_reminder', 'whatsapp'), 'Pré-check-in et rappel d’arrivée programmés sur WhatsApp.')}><Send size={16} /> Envoyer le pré-check-in</button></article><section><small>Chambres recommandées</small>{roomScores.map(({ room, score }, index) => <button key={room.id} onClick={() => execute(() => state.assignPMSRoom(reservation.id, room.id, true), `Chambre ${room.roomNumber} attribuée avec un score de compatibilité de ${score}%.`)}><span><strong>{room.roomNumber}</strong><small>{room.roomType} · {room.housekeepingStatus}</small></span><b>{score}%{index === 0 && <small> Meilleur choix</small>}</b></button>)}</section><aside><small>Timeline du séjour</small><div><span className="done"><Check size={12} /> Réservation</span><span className={guest?.preCheckInStatus === 'completed' ? 'done' : 'current'}>Pré-check-in</span><span className={reservation.roomId ? 'done' : 'current'}>Chambre</span><span>Clé & arrivée</span></div></aside></div> : <div className="staff-list-empty"><CheckCircle2 size={28} /><strong>Aucune arrivée à préparer</strong></div>}</section>;
+  };
+
+  const renderHousekeeperGameChanger = () => {
+    const route = db.pmsHousekeepingTasks.filter(item => item.status !== 'inspected').sort((a, b) => Number(b.priority === 'urgent') - Number(a.priority === 'urgent') || (db.pmsRooms.find(item => item.id === a.roomId)?.roomNumber || '').localeCompare(db.pmsRooms.find(item => item.id === b.roomId)?.roomNumber || ''));
+    const roomService = db.posList.find(item => item.type === 'room_service');
+    const minibarProducts = roomService ? db.posPricing.filter(item => item.posId === roomService.id && item.isAvailable).map(item => ({ pricing: item, product: db.products.find(product => product.id === item.productId) })).filter(item => item.product?.isStockable && getPOSStock(item.product.id, roomService.id).available > 0).slice(0, 8) : [];
+    const occupiedTask = route.find(task => db.pmsRooms.find(room => room.id === task.roomId)?.status === 'occupied');
+    const occupiedRoom = db.pmsRooms.find(item => item.id === occupiedTask?.roomId);
+    const reservation = db.pmsReservations.find(item => item.roomId === occupiedRoom?.id && item.status === 'checked_in');
+    const folio = db.pmsFolios.find(item => item.reservationId === reservation?.id && item.status === 'open');
+    const minibarSelection = minibarProducts.find(item => item.product?.id === minibarProductId) || minibarProducts[0];
+    const postMinibar = () => {
+      if (!roomService || !occupiedRoom || !folio || !minibarSelection?.product) throw new Error('Aucune chambre occupée avec folio actif');
+      const result = state.processSale({ externalSaleId: `MINIBAR-${occupiedRoom.roomNumber}-${Date.now()}`, siteId: roomService.siteId, posId: roomService.id, items: [{ productId: minibarSelection.product.id, quantity: 1 }], paymentContext: { type: 'room_charge', roomNumber: occupiedRoom.roomNumber, folioId: folio.id, amount: minibarSelection.pricing.salePrice } });
+      if (!result.success) throw new Error(result.error || 'Imputation minibar impossible');
+      if (occupiedTask) state.updatePMSHousekeepingDetails(occupiedTask.id, { minibarStatus: 'checked' }, employee.name);
+    };
+    return <section className="staff-game-changer staff-housekeeping-intelligence"><header><Route size={22} /><div><span>TOURNÉE OPTIMISÉE</span><h2>Priorité arrivée, étage et contrôle</h2></div><b>{route.length} chambre(s)</b></header><div className="staff-housekeeping-route"><ol>{route.slice(0, 5).map((task, index) => { const room = db.pmsRooms.find(item => item.id === task.roomId); return <li className={task.priority} key={task.id}><i>{index + 1}</i><span><strong>Chambre {room?.roomNumber}</strong><small>{room?.floor} · {task.priority === 'urgent' ? 'Arrivée prioritaire' : ORDER_STATUS[task.status]}</small></span><b>{(housekeepingChecks[task.id] || []).length}/4</b></li>; })}</ol><aside><small>Minibar connecté au folio et au stock</small><strong>{occupiedRoom ? `Chambre ${occupiedRoom.roomNumber}` : 'Aucune chambre occupée dans la tournée'}</strong><select value={minibarSelection?.product?.id || ''} onChange={event => setMinibarProductId(event.target.value)}>{minibarProducts.map(item => <option key={item.product!.id} value={item.product!.id}>{item.product!.name} · {formatFCFA(item.pricing.salePrice)}</option>)}</select><button disabled={!folio || !minibarSelection} onClick={() => execute(postMinibar, `${minibarSelection?.product?.name || 'Produit'} imputé au folio et déduit du dépôt Room Service.`)}><ScanBarcode size={16} /> Scanner une consommation</button></aside></div></section>;
+  };
+
+  const renderStorekeeperGameChanger = () => {
+    const warehouseId = activeShift?.assignmentId || employee.warehouseId || db.warehouses[0]?.id;
+    const sourceRows = db.stocks.filter(item => item.warehouseId === warehouseId);
+    const expiringBatches = db.batches.filter(item => item.warehouseId === warehouseId && item.quantity > 0).sort((a, b) => (a.expiryDate || '9999').localeCompare(b.expiryDate || '9999')).slice(0, 4);
+    const transferSuggestions = db.stocks
+      .filter(destination => destination.warehouseId !== warehouseId && destination.quantityAvailable - destination.quantityReserved <= destination.alertThreshold)
+      .map(destination => {
+        const source = sourceRows.find(item => item.productId === destination.productId);
+        const product = db.products.find(item => item.id === destination.productId);
+        const available = source ? source.quantityAvailable - source.quantityReserved : 0;
+        const quantity = Math.max(0, Math.min(Math.floor(available - (source?.alertThreshold || 0)), Math.ceil(destination.alertThreshold * 2 - (destination.quantityAvailable - destination.quantityReserved))));
+        return { destination, source, product, quantity };
+      })
+      .filter(item => item.product && item.quantity > 0)
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 3);
+    return <section className="staff-game-changer staff-stock-intelligence"><header><TrendingUp size={22} /><div><span>STOCK PRÉDICTIF</span><h2>Agir avant la rupture</h2></div><b>{transferSuggestions.length} transfert(s) conseillé(s)</b></header><div className="staff-stock-intelligence-grid"><article><small>Sortie FEFO recommandée</small>{expiringBatches.map((batch, index) => <button key={batch.id} onClick={() => { setScanQuery(db.products.find(item => item.id === batch.productId)?.sku || batch.productId); setStockWorkspace('scan'); }}><i>{index + 1}</i><span><strong>{db.products.find(item => item.id === batch.productId)?.name}</strong><small>{batch.batchNumber} · {batch.expiryDate ? `expire le ${batch.expiryDate}` : 'sans péremption'}</small></span><b>{batch.quantity}</b></button>)}</article><article><small>Rééquilibrage entre dépôts</small>{transferSuggestions.map(item => <button key={`${item.destination.warehouseId}-${item.product!.id}`} onClick={() => { setTransferDestinationId(item.destination.warehouseId); setTransferProductId(item.product!.id); setTransferQuantity(String(item.quantity)); setStockWorkspace('transfers'); }}><span><strong>{item.product!.name}</strong><small>Vers {db.warehouses.find(warehouse => warehouse.id === item.destination.warehouseId)?.name}</small></span><b>{item.quantity} à envoyer</b></button>)}</article><aside><small>Capture et comptage terrain</small><label className="staff-document-capture"><ScanBarcode size={18} /><span><strong>{stockDocumentLabel || 'Photographier un bon fournisseur'}</strong><small>{stockDocumentLabel ? 'Document prêt à rapprocher avec la réception' : 'Caméra arrière ou fichier image'}</small></span><input type="file" accept="image/*" capture="environment" onChange={event => setStockDocumentLabel(event.target.files?.[0]?.name || '')} /></label><button onClick={() => { setStockWorkspace('inventory'); startVoiceInventoryCount(); }}><MessageCircle size={17} /> Dicter un comptage</button></aside></div></section>;
+  };
+
+  const renderPickerGameChanger = () => {
+    const zoneRank: Record<string, number> = { 'Point E / Fann': 1, 'Mermoz / Sacré-Coeur': 2, 'Ouakam / Almadies': 3 };
+    const orders = db.deliveryOrders.filter(item => ['confirmed', 'reserved', 'preparing'].includes(item.status)).sort((a, b) => (zoneRank[a.zone || ''] || 9) - (zoneRank[b.zone || ''] || 9) || a.createdAt.localeCompare(b.createdAt));
+    const order = orders.find(item => item.status === 'preparing') || orders[0];
+    const lineKeys = order?.items.map(item => `${order.id}-${item.productId}`) || [];
+    const checked = lineKeys.filter(key => pickedLineIds.has(key)).length;
+    const aisleFor = (productId: string) => {
+      const category = db.products.find(item => item.id === productId)?.category || '';
+      if (/frais|boulangerie/i.test(category)) return 'Zone fraîche';
+      if (/boisson/i.test(category)) return 'Allée boissons';
+      return 'Allée épicerie';
+    };
+    return <section className="staff-game-changer staff-picker-intelligence"><header><Route size={22} /><div><span>PICKING SANS ERREUR</span><h2>Parcours, scan et substitution client</h2></div><b>{order ? `${checked}/${lineKeys.length} scanné(s)` : 'Aucune commande'}</b></header>{order ? <div className="staff-picker-route"><article><small>Ordre de prélèvement · {order.id}</small>{order.items.slice().sort((a, b) => aisleFor(a.productId).localeCompare(aisleFor(b.productId))).map((line, index) => { const key = `${order.id}-${line.productId}`; const product = db.products.find(item => item.id === line.productId); const replacement = db.products.find(item => item.id === line.substitutionProductId); return <button className={pickedLineIds.has(key) ? 'checked' : ''} key={key} onClick={() => toggleProgress(setPickedLineIds, key)}><i>{pickedLineIds.has(key) ? <Check size={14} /> : index + 1}</i><span><strong>{line.quantity}× {product?.name}</strong><small>{aisleFor(line.productId)}{replacement ? ` · remplacement ${replacement.name}` : ''}</small></span><ScanBarcode size={18} /></button>; })}</article><aside><small>Décision de substitution</small>{order.items.filter(item => item.substitutionProductId).map(line => { const original = db.products.find(item => item.id === line.productId); const replacement = db.products.find(item => item.id === line.substitutionProductId); const substitutionMessage = `Bonjour ${order.customerName}, pouvons-nous remplacer ${original?.name} par ${replacement?.name} dans la commande ${order.id} ?`; const whatsappUrl = `https://wa.me/${order.phone.replace(/\D/g, '')}?text=${encodeURIComponent(substitutionMessage)}`; return <div key={line.productId}><strong>{original?.name}</strong><p>{replacement?.name} disponible comme alternative.</p><a href={whatsappUrl} target="_blank" rel="noreferrer"><MessageCircle size={15} /> Demander sur WhatsApp</a><button onClick={() => execute(() => state.requestEmployeeApproval({ type: 'substitution', referenceId: order.id, requestedBy: employee.id, requestedByName: employee.name, label: `Substitution ${original?.name}`, reason: `Alternative proposée : ${replacement?.name}` }), 'Substitution transmise au manager avec le contexte produit.')}><ShieldCheck size={15} /> Faire valider</button></div>; })}<button className="staff-primary-action" disabled={order.status === 'preparing' && checked !== lineKeys.length} onClick={() => runDeliveryStep(order.id, order.status === 'confirmed' ? 'reserve' : order.status === 'reserved' ? 'prepare' : 'ready')}>{order.status === 'confirmed' ? 'Réserver le stock' : order.status === 'reserved' ? 'Démarrer le picking' : 'Contrôler et fermer le panier'}</button></aside></div> : <div className="staff-list-empty"><CheckCircle2 size={28} /><strong>Aucun panier à préparer</strong></div>}</section>;
+  };
+
+  const renderDriverGameChanger = () => {
+    const zoneRank: Record<string, number> = { 'Point E / Fann': 1, 'Mermoz / Sacré-Coeur': 2, 'Ouakam / Almadies': 3 };
+    const routes = db.deliveryOrders.filter(item => ['ready', 'out_for_delivery', 'failed'].includes(item.status)).sort((a, b) => (zoneRank[a.zone || ''] || 9) - (zoneRank[b.zone || ''] || 9));
+    const next = routes.find(item => item.status === 'out_for_delivery') || routes.find(item => item.status === 'ready') || routes[0];
+    const amountToCollect = routes.filter(item => item.paymentStatus !== 'paid').reduce((sum, item) => sum + item.items.reduce((lineSum, line) => lineSum + line.quantity * line.salePrice, 0) + item.deliveryFee, 0);
+    const mapsUrl = next ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${next.address} ${next.landmark || ''}`)}` : '#';
+    return <section className="staff-game-changer staff-driver-intelligence"><header><MapPinned size={22} /><div><span>TOURNÉE ASSISTÉE</span><h2>Le prochain arrêt est déjà prêt</h2></div><b className={navigator.onLine ? 'good' : 'warning'}>{navigator.onLine ? 'Carte en ligne' : 'Données hors ligne'}</b></header>{next ? <div className="staff-driver-route"><article><small>Prochain arrêt · {next.id}</small><strong>{next.customerName}</strong><p>{next.address} · {next.landmark}</p><div><span>{ORDER_STATUS[next.status]}</span><span>{next.paymentStatus === 'paid' ? 'Déjà payé' : `${formatFCFA(next.items.reduce((sum, line) => sum + line.quantity * line.salePrice, 0) + next.deliveryFee)} à encaisser`}</span></div><footer><a href={mapsUrl} target="_blank" rel="noreferrer"><Navigation size={17} /> Ouvrir l’itinéraire</a><a href={`tel:${next.phone}`}><Phone size={17} /> Appeler</a>{next.status === 'ready' && <button onClick={() => runDeliveryStep(next.id, 'dispatch')}><Truck size={17} /> Prendre la course</button>}</footer></article><ol>{routes.slice(0, 4).map((order, index) => <li key={order.id}><i>{index + 1}</i><span><strong>{order.zone || order.address}</strong><small>{order.customerName} · {ORDER_STATUS[order.status]}</small></span></li>)}</ol><aside><small>Réconciliation tournée</small><strong>{formatFCFA(amountToCollect)}</strong><p>À encaisser sur {routes.filter(item => item.paymentStatus !== 'paid').length} livraison(s).</p><span><WifiOff size={15} /> Codes, adresses et preuves conservés pour réseau faible.</span></aside></div> : <div className="staff-list-empty"><CheckCircle2 size={28} /><strong>Aucune tournée en attente</strong></div>}</section>;
+  };
+
+  const renderCustomerExperienceGameChanger = () => {
+    const customerRisks = db.sartalCustomers.map(customer => {
+      const overdue = db.sartalServiceRequests.filter(item => item.customerId === customer.id && !['completed', 'cancelled'].includes(item.status) && new Date(item.promisedAt).getTime() < Date.now()).length;
+      const feedback = db.sartalCustomerFeedback.filter(item => item.customerId === customer.id && item.recoveryStatus === 'open').length;
+      const deliveryIncidents = db.deliveryOrders.filter(item => item.customerId === customer.id && item.status === 'failed').length;
+      return { customer, score: Math.min(100, overdue * 35 + feedback * 30 + deliveryIncidents * 25 + (customer.loyaltyTier === 'signature' ? 10 : 0)) };
+    }).sort((a, b) => b.score - a.score);
+    const focus = customerRisks.find(item => item.customer.id === customerFocusId) || customerRisks[0];
+    const customer = focus?.customer;
+    const guest = db.pmsGuests.find(item => item.phone === customer?.phone || item.fullName === customer?.fullName);
+    const reservationIds = db.pmsReservations.filter(item => item.guestId === guest?.id).map(item => item.id);
+    const timeline: Array<{ id: string; date: string; title: string; detail: string; tone: string }> = [];
+    if (customer) {
+      db.restaurantGuestOrders.filter(item => item.customerId === customer.id).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Restaurant · ${item.tableNumber || item.id}`, detail: `${formatFCFA(item.total)} · ${ORDER_STATUS[item.status]}`, tone: 'restaurant' }));
+      db.deliveryOrders.filter(item => item.customerId === customer.id || item.phone === customer.phone).forEach(item => timeline.push({ id: item.id, date: item.updatedAt, title: `Livraison · ${item.id}`, detail: `${item.zone || item.address} · ${ORDER_STATUS[item.status]}`, tone: 'delivery' }));
+      db.pmsFolios.filter(item => reservationIds.includes(item.reservationId || '')).forEach(item => timeline.push({ id: item.id, date: item.departureDate, title: `Hôtel · ${item.reservationNumber}`, detail: `${item.guestName} · folio ${item.status}`, tone: 'hotel' }));
+      db.sartalCustomerFeedback.filter(item => item.customerId === customer.id).forEach(item => timeline.push({ id: item.id, date: item.submittedAt, title: `Avis ${item.score}/5`, detail: item.note || 'Sans commentaire', tone: item.score <= 3 ? 'alert' : 'success' }));
     }
+    timeline.sort((a, b) => b.date.localeCompare(a.date));
+    const openFeedback = customer && db.sartalCustomerFeedback.find(item => item.customerId === customer.id && item.recoveryStatus === 'open');
+    const playbook = openFeedback && db.sartalRecoveryPlaybooks.find(item => item.active && (item.context === 'all' || item.context === openFeedback.context) && openFeedback.score <= item.maxScore);
+    return <section className="staff-game-changer staff-cx-intelligence"><header><UserRoundSearch size={22} /><div><span>CLIENT 360°</span><h2>Voir le risque avant la réclamation</h2></div><b className={focus && focus.score >= 50 ? 'danger' : 'good'}>{focus?.score || 0}% de vigilance</b></header>{customer && <div className="staff-cx-360"><aside><small>Clients à suivre</small>{customerRisks.slice(0, 5).map(item => <button className={item.customer.id === customer.id ? 'active' : ''} key={item.customer.id} onClick={() => setCustomerFocusId(item.customer.id)}><span><strong>{item.customer.fullName}</strong><small>{item.customer.loyaltyTier} · {item.customer.visits} visite(s)</small></span><b>{item.score}%</b></button>)}</aside><article><header><span><strong>{customer.fullName}</strong><small>{customer.preferredChannel || 'canal à confirmer'} · {customer.preferredLanguage}</small></span><a href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"><MessageCircle size={16} /> Contacter</a></header><p>{customer.preferences || 'Aucune préférence'}{customer.allergies ? ` · Allergie ${customer.allergies}` : ''}</p><div className="staff-customer-timeline">{timeline.slice(0, 6).map(item => <div className={item.tone} key={item.id}><i /><span><strong>{item.title}</strong><small>{item.detail}</small></span><time>{new Date(item.date).toLocaleDateString('fr-FR')}</time></div>)}</div></article><section><small>Protocole recommandé</small>{openFeedback && playbook ? <><strong>{playbook.name}</strong><p>{playbook.solution}</p><span>{playbook.compensationPoints} point(s) · {playbook.managerApproval ? 'validation manager' : 'application immédiate'}</span><button onClick={() => execute(() => state.applySartalRecoveryPlaybook(openFeedback.id, playbook.id), `${playbook.name} appliqué et dossier client mis à jour.`)}><HeartHandshake size={16} /> Appliquer le protocole</button></> : <><CheckCircle2 size={26} /><strong>Aucune reprise urgente</strong><p>Le parcours reste surveillé automatiquement.</p></>}</section></div>}</section>;
+  };
+
+  const renderManagerGameChanger = () => {
+    const bottlenecks = [
+      { id: 'kitchen', label: 'Tickets cuisine en retard', count: db.restaurantGuestOrders.filter(item => ['confirmed', 'preparing'].includes(item.status) && elapsedMinutes(item.createdAt) > item.estimatedMinutes).length, owner: 'Cuisine' },
+      { id: 'rooms', label: 'Chambres à nettoyer', count: db.pmsRooms.filter(item => item.housekeepingStatus === 'dirty').length, owner: 'Étages' },
+      { id: 'stock', label: 'Ruptures critiques', count: db.stocks.filter(item => item.quantityAvailable - item.quantityReserved <= 0).length, owner: 'Stock' },
+      { id: 'delivery', label: 'Livraisons en incident', count: db.deliveryOrders.filter(item => item.status === 'failed').length, owner: 'Livraison' },
+      { id: 'approvals', label: 'Validations sensibles', count: db.employeeApprovals.filter(item => item.status === 'pending').length, owner: 'Manager' }
+    ].sort((a, b) => b.count - a.count);
+    const totalPressure = bottlenecks.reduce((sum, item) => sum + item.count, 0);
+    const activeRoles = new Set(db.employeeShifts.filter(item => item.status === 'open').map(shift => db.employeeProfiles.find(profile => profile.id === shift.employeeId)?.role));
+    const staffing = [
+      { role: 'kitchen' as EmployeeRole, need: bottlenecks.find(item => item.id === 'kitchen')!.count },
+      { role: 'housekeeper' as EmployeeRole, need: bottlenecks.find(item => item.id === 'rooms')!.count },
+      { role: 'driver' as EmployeeRole, need: db.deliveryOrders.filter(item => item.status === 'ready').length }
+    ].filter(item => item.need > 0 && !activeRoles.has(item.role));
+    return <section className="staff-game-changer staff-manager-intelligence"><header><CircleGauge size={22} /><div><span>TOUR DE CONTRÔLE</span><h2>Les goulets d’étranglement, maintenant</h2></div><b className={totalPressure > 5 ? 'danger' : totalPressure ? 'warning' : 'good'}>{totalPressure} point(s) de pression</b></header><div className="staff-manager-command"><article>{bottlenecks.map((item, index) => <div className={item.count ? 'alert' : 'good'} key={item.id}><i>{index + 1}</i><span><strong>{item.label}</strong><small>Responsable · {item.owner}</small></span><b>{item.count}</b></div>)}</article><section><small>Recommandation d’affectation</small>{staffing.length ? staffing.map(item => <p key={item.role}><AlertCircle size={15} /> Ouvrir ou réaffecter un poste {ROLE_CONFIG[item.role].team} pour absorber {item.need} priorité(s).</p>) : <p><CheckCircle2 size={15} /> Les postes critiques disposent d’une présence active.</p>}<button onClick={() => execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Manager`, audience: 'all', content: `Point service : ${bottlenecks.filter(item => item.count).map(item => `${item.label} (${item.count})`).join(', ') || 'aucun blocage critique'}. Merci de confirmer la prise en charge.`, priority: totalPressure > 5 ? 'urgent' : 'normal' }), 'Brief opérationnel envoyé à toutes les équipes.')}><Send size={16} /> Diffuser le point service</button></section><aside><small>Prévision des 30 prochaines minutes</small><strong>{totalPressure > 8 ? 'Saturation probable' : totalPressure > 3 ? 'Tension maîtrisable' : 'Flux normal'}</strong><p>{totalPressure > 8 ? 'Réaffecter une personne et geler les validations non urgentes.' : totalPressure > 3 ? 'Traiter cuisine, chambres et livraisons dans cet ordre.' : 'Maintenir les affectations et surveiller les promesses client.'}</p><button onClick={() => setTab('tasks')}><ArrowRight size={16} /> Ouvrir les priorités</button></aside></div></section>;
+  };
+
+  const renderRoleGameChanger = () => {
+    switch (employee.role) {
+      case 'waiter': return renderWaiterGameChanger();
+      case 'cashier': return renderCashierGameChanger();
+      case 'kitchen': return renderKitchenGameChanger();
+      case 'receptionist': return renderReceptionGameChanger();
+      case 'housekeeper': return renderHousekeeperGameChanger();
+      case 'storekeeper': return renderStorekeeperGameChanger();
+      case 'picker': return renderPickerGameChanger();
+      case 'driver': return renderDriverGameChanger();
+      case 'customer_experience': return renderCustomerExperienceGameChanger();
+      case 'service_manager': return renderManagerGameChanger();
+    }
+  };
+
+  const renderRoleAction = () => {
+    let workspace: React.ReactNode = null;
+    switch (employee.role) {
+      case 'waiter': workspace = renderWaiterAction(); break;
+      case 'cashier': workspace = renderCashierAction(); break;
+      case 'kitchen': workspace = renderKitchenAction(); break;
+      case 'receptionist': workspace = renderReceptionAction(); break;
+      case 'housekeeper': workspace = renderHousekeeperAction(); break;
+      case 'storekeeper': workspace = renderStorekeeperAction(); break;
+      case 'picker': workspace = renderPickerAction(); break;
+      case 'driver': workspace = renderDriverAction(); break;
+      case 'customer_experience': workspace = renderCustomerExperienceAction(); break;
+      case 'service_manager': workspace = renderManagerAction(); break;
+    }
+    return <div className="staff-role-workspace">{renderRoleGameChanger()}{workspace}</div>;
   };
 
   const renderMessages = () => (

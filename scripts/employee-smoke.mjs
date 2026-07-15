@@ -36,6 +36,12 @@ try {
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
   ['Arrivées & séjours', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
+  ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'TOUR DE CONTRÔLE'].forEach(marker => {
+    assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
+  });
+  ['kdsItemProgress', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval', 'setPOSProductAvailability'].forEach(marker => {
+    assert(employeeSource.includes(marker), `Action game changer non câblée : ${marker}`);
+  });
 
   let db = getDB();
   const roles = new Set(db.employeeProfiles.map(item => item.role));
@@ -60,6 +66,12 @@ try {
   const kitchen = getDB().employeeProfiles.find(item => item.role === 'kitchen');
   state.markEmployeeMessageRead(messageId, kitchen.id);
   assert(getDB().employeeMessages.find(item => item.id === messageId).readByEmployeeIds.includes(kitchen.id), 'Lecture du message équipe non tracée');
+
+  const kitchenPricing = getDB().posPricing.find(item => item.posId === kitchen.posId && item.isAvailable);
+  state.setPOSProductAvailability(kitchenPricing.productId, kitchenPricing.posId, false, `${kitchen.name} · Cuisine`);
+  assert(getDB().posPricing.find(item => item.productId === kitchenPricing.productId && item.posId === kitchenPricing.posId).isAvailable === false, 'Rupture KDS non répercutée sur le canal de vente');
+  assert(getDB().employeeMessages.some(item => item.audience === 'waiter' && item.content.includes('en rupture')), 'Salle non prévenue de la rupture KDS');
+  state.setPOSProductAvailability(kitchenPricing.productId, kitchenPricing.posId, true, `${kitchen.name} · Cuisine`);
 
   const approvalId = state.requestEmployeeApproval({ type: 'complimentary', referenceId: 'TABLE-TEST', requestedBy: waiter.id, requestedByName: waiter.name, label: 'Attention client test', reason: 'Reprise de service vérifiée.', amount: 1500 });
   const manager = getDB().employeeProfiles.find(item => item.role === 'service_manager');
@@ -100,7 +112,7 @@ try {
   assert(getDB().movements.some(item => item.type === 'inventory_adjustment' && item.productId === countedStock.productId && item.userName === storekeeper.name), 'Inventaire employé non tracé au nom du magasinier');
   state.closeEmployeeShift(storekeeperShiftId, { notes: 'Réception, transfert et comptage terminés.', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
-  console.log('Sártal Équipe smoke test: 10 postes et 39 contrôles fonctionnels validés.');
+  console.log('Sártal Équipe smoke test: 10 postes et 58 contrôles fonctionnels validés.');
 } finally {
   await server.close();
 }
