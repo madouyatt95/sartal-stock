@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, BedDouble, Building2, CheckCircle2, LockKeyhole, PackageCheck, ShieldCheck, Truck, UsersRound, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, BedDouble, Building2, CalendarDays, CheckCircle2, LockKeyhole, PackageCheck, ShieldCheck, Truck, UsersRound, UtensilsCrossed } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 
 interface SartalAccessCenterProps {
@@ -67,6 +67,17 @@ export const SartalAccessCenter: React.FC<SartalAccessCenterProps> = ({ state, e
       action: 'Voir l’espace client',
       disabled: !brand.enabledModules.includes('restaurant') && !brand.enabledModules.includes('delivery'),
       onClick: () => navigate('client', clientMode)
+    },
+    {
+      id: 'booking',
+      icon: <CalendarDays size={25} />,
+      eyebrow: 'FUTURS VOYAGEURS',
+      title: 'Réserver une chambre',
+      detail: 'Dates, disponibilités, tarifs directs et acompte réunis dans un parcours public autonome.',
+      badges: ['Disponibilité réelle', 'Tarif direct', 'Confirmation'],
+      action: 'Réserver un séjour',
+      disabled: !brand.enabledModules.includes('pms') || !db.pmsBookingEngine.enabled,
+      onClick: () => navigate('reservation', 'hotel')
     },
     {
       id: 'stay',

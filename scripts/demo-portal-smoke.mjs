@@ -89,7 +89,9 @@ try {
   assert(!canAccessBackofficeView('director', ['stock', 'restaurant', 'delivery', 'pms'], 'settings'), 'La direction ne doit pas hériter des réglages administrateur');
   assert(!canAccessBackofficeView('auditor', ['stock'], 'inventories'), 'L’auditeur ne doit pas lancer un inventaire');
   assert(canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'pricing'), 'Le manager restaurant doit pouvoir gérer ses prix');
-  assert(!canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'employees'), 'La gestion globale des équipes doit rester réservée à la direction');
+  assert(canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'employees'), 'Le manager restaurant doit accéder aux affectations de son équipe');
+  assert(canAccessBackofficeView('stock_manager', ['stock'], 'employees'), 'Le responsable stock doit accéder aux affectations de son équipe');
+  assert(DEMO_ACCESS_POLICIES.restaurant_manager.views.includes('employees'), 'Le parcours manager restaurant doit proposer Gestion des équipes');
 
   ['stock_direction', 'restaurant_direction', 'delivery_direction', 'hotel_direction', 'complex_direction', 'suite_direction'].forEach(policyId => {
     const policy = DEMO_ACCESS_POLICIES[policyId];

@@ -27,6 +27,7 @@ try {
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { PMSHotel } = await server.ssrLoadModule('/src/views/PMSHotel.tsx');
   const { PMSGuestExperiencePortal } = await server.ssrLoadModule('/src/views/PMSSignatureExperience.tsx');
+  const { PMSPublicBooking } = await server.ssrLoadModule('/src/views/PMSPublicBooking.tsx');
   const { buildPMSUnifiedJourney } = await server.ssrLoadModule('/src/utils/pmsUnifiedJourney.ts');
   const tabs = {
     dashboard: 'Poste Sártal',
@@ -59,6 +60,8 @@ try {
   const protectedGuestPortalHtml = renderToStaticMarkup(React.createElement(PMSGuestExperiencePortal, { state, initialReservationId: 'res-204', standalone: true, requireAccess: true }));
   ['Votre séjour commence ici', 'Accès privé', 'Recevoir mon code'].forEach(marker => assert(protectedGuestPortalHtml.includes(marker), `Protection du séjour incomplète : ${marker}`));
   assert(!protectedGuestPortalHtml.includes('Aminata'), 'Le nom du client ne doit pas être exposé avant la vérification du téléphone');
+  const publicBookingHtml = renderToStaticMarkup(React.createElement(PMSPublicBooking, { state }));
+  ['RÉSERVER UN SÉJOUR', 'Choisissez votre chambre', 'Disponibilité en temps réel', 'Acompte maintenant'].forEach(marker => assert(publicBookingHtml.includes(marker), `Moteur public de réservation incomplet : ${marker}`));
 
   const unifiedJourney = buildPMSUnifiedJourney(getDB(), 'res-204');
   assert(unifiedJourney.score === 100, `La vérité métier du séjour 204 devrait être complète (${unifiedJourney.score}%)`);

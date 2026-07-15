@@ -1147,6 +1147,20 @@ export type EmployeeRole =
   | 'customer_experience'
   | 'service_manager';
 
+export type EmployeePermission =
+  | 'team_messages'
+  | 'discount_request'
+  | 'cash_close'
+  | 'reservation_create'
+  | 'room_assignment'
+  | 'folio_payment'
+  | 'housekeeping_validation'
+  | 'stock_transfer'
+  | 'stock_adjustment'
+  | 'stock_loss'
+  | 'customer_recovery'
+  | 'sensitive_approval';
+
 export interface EmployeeProfile {
   id: string;
   employeeNumber: string;
@@ -1157,6 +1171,7 @@ export interface EmployeeProfile {
   posId?: string;
   warehouseId?: string;
   active: boolean;
+  permissions?: EmployeePermission[];
 }
 
 export interface EmployeeShift {

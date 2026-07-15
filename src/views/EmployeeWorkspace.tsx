@@ -54,10 +54,12 @@ import {
 } from 'lucide-react';
 import type { StockState } from '../hooks/useStockState';
 import type { EmployeeRole, PaymentType } from '../types';
+import { hasEmployeePermission } from '../employeePermissions';
+import { getPMSAvailabilityByType } from '../utils/pmsAvailability';
 
 type StaffTab = 'today' | 'tasks' | 'action' | 'messages' | 'more';
 type TaskTone = 'urgent' | 'active' | 'waiting' | 'done';
-type ReceptionWorkspace = 'arrivals' | 'rooms';
+type ReceptionWorkspace = 'arrivals' | 'rooms' | 'booking';
 type StockWorkspace = 'scan' | 'receiving' | 'transfers' | 'inventory' | 'journal';
 
 interface EmployeeWorkspaceProps {
@@ -168,6 +170,12 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [lossQuantity, setLossQuantity] = useState('1');
   const [receptionWorkspace, setReceptionWorkspace] = useState<ReceptionWorkspace>('arrivals');
   const [selectedReservationId, setSelectedReservationId] = useState('');
+  const [receptionBooking, setReceptionBooking] = useState(() => {
+    const arrivalDate = db.pmsSettings.businessDate || new Date().toISOString().slice(0, 10);
+    const departure = new Date(`${arrivalDate}T12:00:00`);
+    departure.setDate(departure.getDate() + 1);
+    return { guestName: '', phone: '+221 ', arrivalDate, departureDate: departure.toISOString().slice(0, 10), adults: 1, children: 0, roomType: db.pmsRooms[0]?.roomType || 'Standard', estimatedArrivalTime: db.pmsSettings.checkInTime || '15:00' };
+  });
   const [stockWorkspace, setStockWorkspace] = useState<StockWorkspace>('scan');
   const [selectedSupplierOrderId, setSelectedSupplierOrderId] = useState('');
   const [transferDestinationId, setTransferDestinationId] = useState('');
@@ -188,6 +196,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [handover, setHandover] = useState({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
   const employee = db.employeeProfiles.find(item => item.id === selectedEmployeeId);
+  const canEmployee = (permission: Parameters<typeof hasEmployeePermission>[1]) => employee ? hasEmployeePermission(employee, permission) : false;
   const activeShift = db.employeeShifts.find(item => item.employeeId === employee?.id && item.status === 'open');
   const role = employee?.role;
   const roleConfig = role ? ROLE_CONFIG[role] : ROLE_CONFIG.waiter;
@@ -679,10 +688,43 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     const selectedRoom = db.pmsRooms.find(item => item.id === selectedReservation?.roomId);
     const selectedFolio = db.pmsFolios.find(item => item.reservationId === selectedReservation?.id);
     const availableRooms = selectedReservation ? db.pmsRooms.filter(room => room.status === 'vacant' && ['clean', 'inspected'].includes(room.housekeepingStatus) && room.capacity >= selectedReservation.adults + selectedReservation.children).slice(0, 6) : [];
+    const bookingAvailability = getPMSAvailabilityByType(db, receptionBooking.arrivalDate, receptionBooking.departureDate);
+    const selectedBookingType = bookingAvailability.find(item => item.roomType === receptionBooking.roomType) || bookingAvailability[0];
+    const bookingNights = Math.max(1, Math.ceil((new Date(receptionBooking.departureDate).getTime() - new Date(receptionBooking.arrivalDate).getTime()) / 86400000));
+
+    const createReceptionBooking = (event: React.FormEvent) => {
+      event.preventDefault();
+      if (!canEmployee('reservation_create')) { setNotice('Votre profil ne permet pas de créer une réservation.'); return; }
+      if (!selectedBookingType || selectedBookingType.closed || selectedBookingType.available < 1) { setNotice('Cette catégorie n’est pas disponible sur les dates choisies.'); return; }
+      if (!receptionBooking.guestName.trim() || receptionBooking.phone.replace(/\D/g, '').length < 9) { setNotice('Renseignez le nom et un numéro de téléphone complet.'); return; }
+      try {
+        const reservationId = state.createPMSReservation({
+          guestName: receptionBooking.guestName,
+          phone: receptionBooking.phone,
+          roomId: '',
+          arrivalDate: receptionBooking.arrivalDate,
+          departureDate: receptionBooking.departureDate,
+          adults: receptionBooking.adults,
+          children: receptionBooking.children,
+          source: 'direct',
+          nightlyRate: selectedBookingType.price,
+          depositAmount: 0,
+          requestedRoomType: selectedBookingType.roomType,
+          guaranteeType: 'none',
+          estimatedArrivalTime: receptionBooking.estimatedArrivalTime,
+          notes: `Réservation créée sur place par ${employee?.name || 'la réception'}.`
+        });
+        setSelectedReservationId(reservationId);
+        setReceptionWorkspace('arrivals');
+        setNotice(`Réservation confirmée pour ${receptionBooking.guestName}. Garantie à sécuriser à l’accueil.`);
+      } catch (error) {
+        setNotice(error instanceof Error ? error.message : 'Réservation impossible');
+      }
+    };
 
     return <section className="staff-reception-workspace">
-      <nav className="staff-workspace-switch"><button className={receptionWorkspace === 'arrivals' ? 'active' : ''} onClick={() => setReceptionWorkspace('arrivals')}><CalendarCheck size={17} /> Arrivées & séjours</button><button className={receptionWorkspace === 'rooms' ? 'active' : ''} onClick={() => setReceptionWorkspace('rooms')}><BedDouble size={17} /> État des chambres</button></nav>
-      {receptionWorkspace === 'rooms' ? <div className="staff-room-status-board">{db.pmsRooms.map(room => {
+      <nav className="staff-workspace-switch"><button className={receptionWorkspace === 'arrivals' ? 'active' : ''} onClick={() => setReceptionWorkspace('arrivals')}><CalendarCheck size={17} /> Arrivées & séjours</button>{canEmployee('reservation_create') && <button className={receptionWorkspace === 'booking' ? 'active' : ''} onClick={() => setReceptionWorkspace('booking')}><CalendarCheck size={17} /> Nouvelle réservation</button>}<button className={receptionWorkspace === 'rooms' ? 'active' : ''} onClick={() => setReceptionWorkspace('rooms')}><BedDouble size={17} /> État des chambres</button></nav>
+      {receptionWorkspace === 'booking' ? <form className="staff-reception-booking" onSubmit={createReceptionBooking}><header><div><span>RÉSERVATION SUR PLACE</span><h2>Créer un séjour sans quitter la réception</h2><p>Les disponibilités et les tarifs proviennent du même PMS que le site public.</p></div><b>{selectedBookingType?.available || 0} disponible(s)</b></header><div className="staff-booking-fields"><label>Arrivée<input type="date" value={receptionBooking.arrivalDate} onChange={event => setReceptionBooking({ ...receptionBooking, arrivalDate: event.target.value })} required /></label><label>Départ<input type="date" min={receptionBooking.arrivalDate} value={receptionBooking.departureDate} onChange={event => setReceptionBooking({ ...receptionBooking, departureDate: event.target.value })} required /></label><label>Adultes<input type="number" min="1" max="8" value={receptionBooking.adults} onChange={event => setReceptionBooking({ ...receptionBooking, adults: Number(event.target.value) })} /></label><label>Enfants<input type="number" min="0" max="8" value={receptionBooking.children} onChange={event => setReceptionBooking({ ...receptionBooking, children: Number(event.target.value) })} /></label><label className="wide">Nom du client<input value={receptionBooking.guestName} onChange={event => setReceptionBooking({ ...receptionBooking, guestName: event.target.value })} placeholder="Prénom et nom" required /></label><label>Téléphone<input type="tel" value={receptionBooking.phone} onChange={event => setReceptionBooking({ ...receptionBooking, phone: event.target.value })} required /></label><label>Arrivée estimée<input type="time" value={receptionBooking.estimatedArrivalTime} onChange={event => setReceptionBooking({ ...receptionBooking, estimatedArrivalTime: event.target.value })} /></label></div><section className="staff-booking-types"><h3>Catégorie de chambre</h3><div>{bookingAvailability.map(item => <button type="button" className={receptionBooking.roomType === item.roomType ? 'selected' : ''} disabled={item.closed || item.available < 1} onClick={() => setReceptionBooking({ ...receptionBooking, roomType: item.roomType })} key={item.roomType}><span><strong>{item.roomType}</strong><small>{item.closed ? 'Vente fermée' : `${item.available} disponible(s)`}</small></span><b>{formatFCFA(item.price)}<small>/ nuit</small></b></button>)}</div></section><footer><div><small>{bookingNights} nuit(s) · {receptionBooking.adults + receptionBooking.children} voyageur(s)</small><strong>{formatFCFA((selectedBookingType?.price || 0) * bookingNights)}</strong><span>Garantie à sécuriser au comptoir</span></div><button className="staff-primary-action" disabled={!selectedBookingType || selectedBookingType.closed || selectedBookingType.available < 1}><CalendarCheck size={17} /> Confirmer la réservation</button></footer></form> : receptionWorkspace === 'rooms' ? <div className="staff-room-status-board">{db.pmsRooms.map(room => {
         const reservation = db.pmsReservations.find(item => item.roomId === room.id && item.status === 'checked_in');
         const guest = db.pmsGuests.find(item => item.id === reservation?.guestId);
         const visualStatus = room.status === 'maintenance' ? 'maintenance' : room.status === 'occupied' ? 'occupied' : room.housekeepingStatus === 'dirty' ? 'dirty' : 'vacant';

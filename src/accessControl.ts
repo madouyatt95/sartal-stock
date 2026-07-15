@@ -49,7 +49,7 @@ export const BACKOFFICE_ACCESS_RULES: Record<BackofficeViewId, BackofficeAccessR
   'guided-demo': { roles: everyRole },
   'business-problems': { roles: everyRole },
   client: { roles: ['admin', 'director', 'pos_manager'], anyModule: ['restaurant', 'delivery'] },
-  employees: { roles: ['admin', 'director'] },
+  employees: { roles: ['admin', 'director', 'stock_manager', 'pos_manager'] },
   answer: { roles: everyRole, module: 'restaurant' },
   simulation: { roles: everyRole, module: 'restaurant' },
   connectors: { roles: ['admin'], module: 'restaurant' },

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDB, saveDB, DatabaseState } from '../db';
 import * as stockEngine from '../services/stockEngine';
+import { getDefaultEmployeePermissions, hasEmployeePermission, normalizeEmployeePermissions } from '../employeePermissions';
 import {
   createEmptyPaymentTotals,
   DeliveryOrder,
@@ -112,6 +113,9 @@ export const useStockState = () => {
 
   const saveEmployeeProfile = (payload: Omit<EmployeeProfile, 'id'> & { id?: string }) => {
     const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) {
+      throw new Error('Seule la direction peut créer ou modifier un profil collaborateur');
+    }
     const id = payload.id?.trim() || createRuntimeId('EMP');
     const existing = newDb.employeeProfiles.find(item => item.id === id);
     const employeeNumber = payload.employeeNumber.trim().toUpperCase();
@@ -163,7 +167,8 @@ export const useStockState = () => {
       phone,
       posId,
       warehouseId,
-      active: payload.active
+      active: payload.active,
+      permissions: normalizeEmployeePermissions(payload.permissions || (existing?.role === payload.role && existing?.permissions) || getDefaultEmployeePermissions(payload.role))
     };
     if (existing) Object.assign(existing, profile);
     else newDb.employeeProfiles.unshift(profile);
@@ -174,6 +179,9 @@ export const useStockState = () => {
 
   const deleteEmployeeProfile = (employeeId: string) => {
     const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) {
+      throw new Error('Seule la direction peut supprimer un profil collaborateur');
+    }
     const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
     if (!employee) throw new Error('Collaborateur introuvable');
     const hasHistory = newDb.employeeShifts.some(item => item.employeeId === employeeId)
@@ -187,6 +195,54 @@ export const useStockState = () => {
       throw new Error('Conservez au moins un manager de service actif');
     }
     newDb.employeeProfiles = newDb.employeeProfiles.filter(item => item.id !== employeeId);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateEmployeeAssignment = (employeeId: string, assignmentId: string) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
+    if (!employee) throw new Error('Collaborateur introuvable');
+    if (!['admin', 'director', 'stock_manager', 'pos_manager'].includes(newDb.currentUser.role)) {
+      throw new Error('Votre rôle ne permet pas de modifier les affectations');
+    }
+    if (newDb.employeeShifts.some(item => item.employeeId === employeeId && item.status === 'open')) {
+      throw new Error('Terminez le service ouvert avant de modifier cette affectation');
+    }
+
+    const posRoles: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
+    const warehouseRoles: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+    if (posRoles.includes(employee.role)) {
+      const target = newDb.posList.find(item => item.id === assignmentId && item.siteId === employee.siteId);
+      if (!target) throw new Error('Choisissez un point de vente de cet établissement');
+      if (newDb.currentUser.role === 'stock_manager') throw new Error('Le responsable stock ne peut pas affecter les équipes restaurant');
+      if (newDb.currentUser.role === 'pos_manager') {
+        const managerPOS = newDb.posList.find(item => item.id === newDb.currentUser.posId);
+        if (!managerPOS || managerPOS.siteId !== employee.siteId) throw new Error('Ce collaborateur ne relève pas de votre établissement');
+      }
+      employee.posId = target.id;
+      employee.warehouseId = undefined;
+    } else if (warehouseRoles.includes(employee.role)) {
+      const target = newDb.warehouses.find(item => item.id === assignmentId && item.siteId === employee.siteId);
+      if (!target) throw new Error('Choisissez un dépôt de cet établissement');
+      if (newDb.currentUser.role === 'pos_manager') throw new Error('Le manager restaurant ne peut pas affecter les équipes stock');
+      employee.warehouseId = target.id;
+      employee.posId = undefined;
+    } else {
+      throw new Error('Ce métier ne possède pas d’affectation POS ou dépôt');
+    }
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateEmployeePermissions = (employeeId: string, permissions: EmployeeProfile['permissions']) => {
+    const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) {
+      throw new Error('Seule la direction peut attribuer des droits individuels');
+    }
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
+    if (!employee) throw new Error('Collaborateur introuvable');
+    employee.permissions = normalizeEmployeePermissions(permissions || []);
     saveDB(newDb);
     refresh();
   };
@@ -263,6 +319,8 @@ export const useStockState = () => {
 
   const sendEmployeeMessage = (payload: Omit<EmployeeMessage, 'id' | 'sentAt' | 'readByEmployeeIds'>) => {
     const newDb = getDB();
+    const sender = newDb.employeeProfiles.find(item => item.id === payload.senderId);
+    if (sender && !hasEmployeePermission(sender, 'team_messages')) throw new Error('Votre profil ne permet pas d’envoyer des messages d’équipe');
     if (!payload.content.trim()) throw new Error('Le message est vide');
     const id = `STAFF-MSG-${Date.now().toString().slice(-7)}`;
     newDb.employeeMessages.unshift({ ...payload, id, content: payload.content.trim(), sentAt: new Date().toISOString(), readByEmployeeIds: [payload.senderId] });
@@ -282,6 +340,10 @@ export const useStockState = () => {
 
   const requestEmployeeApproval = (payload: Omit<EmployeeApproval, 'id' | 'status' | 'createdAt' | 'decidedAt' | 'decidedBy' | 'decisionNote'>) => {
     const newDb = getDB();
+    const requester = newDb.employeeProfiles.find(item => item.id === payload.requestedBy);
+    if (requester && ['discount', 'complimentary'].includes(payload.type) && !hasEmployeePermission(requester, 'discount_request')) {
+      throw new Error('Votre profil ne permet pas de demander une remise ou un offert');
+    }
     if (!payload.reason.trim()) throw new Error('Le motif est obligatoire');
     const id = `APPROVAL-${Date.now().toString().slice(-7)}`;
     newDb.employeeApprovals.unshift({ ...payload, id, reason: payload.reason.trim(), status: 'pending', createdAt: new Date().toISOString() });
@@ -295,6 +357,7 @@ export const useStockState = () => {
     const approval = newDb.employeeApprovals.find(item => item.id === approvalId && item.status === 'pending');
     const manager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager');
     if (!approval || !manager) throw new Error('Validation ou manager introuvable');
+    if (!hasEmployeePermission(manager, 'sensitive_approval')) throw new Error('Ce manager ne possède pas le droit de validation sensible');
     approval.status = decision;
     approval.decidedAt = new Date().toISOString();
     approval.decidedBy = manager.name;
@@ -351,6 +414,8 @@ export const useStockState = () => {
     items: Array<{ productId: string; quantity: number }>,
     actor?: { id: string; name: string }
   ) => {
+    const employee = actor ? getDB().employeeProfiles.find(item => item.id === actor.id) : undefined;
+    if (employee && !hasEmployeePermission(employee, 'stock_transfer')) throw new Error('Votre profil ne permet pas de transférer du stock');
     stockEngine.executeTransfer(
       sourceWarehouseId,
       destinationWarehouseId,
@@ -366,6 +431,8 @@ export const useStockState = () => {
     items: Array<{ productId: string; realQty: number }>,
     actor?: { id: string; name: string }
   ) => {
+    const employee = actor ? getDB().employeeProfiles.find(item => item.id === actor.id) : undefined;
+    if (employee && !hasEmployeePermission(employee, 'stock_adjustment')) throw new Error('Votre profil ne permet pas de valider un inventaire');
     stockEngine.executeInventoryAdjustment(
       warehouseId,
       items,
@@ -383,6 +450,8 @@ export const useStockState = () => {
     note: string,
     actor?: { id: string; name: string }
   ) => {
+    const employee = actor ? getDB().employeeProfiles.find(item => item.id === actor.id) : undefined;
+    if (employee && !hasEmployeePermission(employee, 'stock_loss')) throw new Error('Votre profil ne permet pas de déclarer une perte');
     stockEngine.declareLoss(
       productId,
       warehouseId,
@@ -1941,6 +2010,8 @@ export const useStockState = () => {
 
   const closeCashSession = (sessionId: string, closingCashDeclared: number, notes?: string, actor?: { id: string; name: string }) => {
     const newDb = getDB();
+    const employee = actor ? newDb.employeeProfiles.find(item => item.id === actor.id) : undefined;
+    if (employee && !hasEmployeePermission(employee, 'cash_close')) throw new Error('Votre profil ne permet pas de clôturer une caisse');
     const session = newDb.cashSessions.find(s => s.id === sessionId);
     if (!session) throw new Error("Session de caisse introuvable");
     if (session.status === 'closed') throw new Error("Cette session est déjà clôturée");
@@ -2965,6 +3036,8 @@ export const useStockState = () => {
     changeCurrentUser,
     saveEmployeeProfile,
     deleteEmployeeProfile,
+    updateEmployeeAssignment,
+    updateEmployeePermissions,
     startEmployeeShift,
     closeEmployeeShift,
     acknowledgeEmployeeHandover,

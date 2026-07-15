@@ -74,6 +74,7 @@ const BusinessProblems = lazy(() => import('./views/BusinessProblems'));
 const SmartAlerts = lazy(() => import('./views/SmartAlerts'));
 const PMSHotel = lazy(() => import('./views/PMSHotel'));
 const PMSGuestExperiencePortal = lazy(() => import('./views/PMSSignatureExperience').then(module => ({ default: module.PMSGuestExperiencePortal })));
+const PMSPublicBooking = lazy(() => import('./views/PMSPublicBooking'));
 const SartalClient = lazy(() => import('./views/SartalClient'));
 const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
@@ -239,6 +240,13 @@ export const App: React.FC = () => {
       return <Suspense fallback={<AppLoading />}>{frameAccessExperience(<main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone requireAccess /></main>)}</Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÉJOUR" title="Ce lien de séjour n’est plus disponible" message="Demandez un nouveau lien privé à la réception pour retrouver votre chambre, vos services et votre folio." supportPhone={db.sartalBrandSettings.supportPhone} />;
+  }
+  const publicHotelBooking = queryParams.get('reservation');
+  if (publicHotelBooking !== null) {
+    if (publicHotelBooking === 'hotel' && db.sartalBrandSettings.enabledModules.includes('pms')) {
+      return <Suspense fallback={<AppLoading />}>{frameAccessExperience(<PMSPublicBooking state={state} />)}</Suspense>;
+    }
+    return <PublicAccessError eyebrow="RÉSERVATION HÔTEL" title="La réservation directe n’est pas disponible" message="Ce module est désactivé ou l’adresse utilisée n’est pas valide. Contactez la réception pour réserver." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
   const publicClientMode = queryParams.get('client');
   const publicEmployeeMode = queryParams.get('equipe');

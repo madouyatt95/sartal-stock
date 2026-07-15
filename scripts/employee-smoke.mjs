@@ -40,9 +40,9 @@ try {
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
-  ['Collaborateurs', 'Affectations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  ['Collaborateurs', 'Affectations', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
   assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
-  ['Arrivées & séjours', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
+  ['Arrivées & séjours', 'Nouvelle réservation', 'RÉSERVATION SUR PLACE', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'TOUR DE CONTRÔLE'].forEach(marker => {
     assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
   });
@@ -64,6 +64,8 @@ try {
   const alternatePosId = getDB().posList.find(item => item.siteId === 'site-1' && item.id !== 'pos-1')?.id || 'pos-1';
   state.saveEmployeeProfile({ ...getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId), phone: '+221 70 000 10 00', posId: alternatePosId });
   assert(getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId).posId === alternatePosId, 'Modification d’affectation employé non conservée');
+  state.updateEmployeePermissions(temporaryEmployeeId, ['team_messages', 'discount_request']);
+  assert(getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId).permissions.join(',') === 'team_messages,discount_request', 'Droits individuels employé non conservés');
   state.deleteEmployeeProfile(temporaryEmployeeId);
   assert(!getDB().employeeProfiles.some(item => item.id === temporaryEmployeeId), 'Suppression d’un profil sans historique impossible');
 
@@ -105,6 +107,15 @@ try {
   const orderToPay = getDB().restaurantGuestOrders.find(item => item.posId === cashier.posId && !['paid', 'cancelled'].includes(item.status));
   state.addRestaurantGuestOrderPayment(orderToPay.id, 1000, 'wave', cashier.name, cashSessionId);
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).paymentTotals.wave === 1000, 'Paiement addition non rattaché à la caisse');
+  state.updateEmployeePermissions(cashier.id, ['team_messages']);
+  let cashCloseProtected = false;
+  try {
+    state.closeCashSession(cashSessionId, 50000, 'Clôture sans droit', { id: cashier.id, name: cashier.name });
+  } catch {
+    cashCloseProtected = true;
+  }
+  assert(cashCloseProtected, 'Le retrait du droit de clôture caisse devrait bloquer l’action');
+  state.updateEmployeePermissions(cashier.id, ['team_messages', 'discount_request', 'cash_close']);
   state.closeCashSession(cashSessionId, 50000, 'Clôture test équipe', { id: cashier.id, name: cashier.name });
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).cashDifference === 0, 'Écart caisse test incohérent');
   assert(getDB().cashSessions.find(item => item.id === cashSessionId).paymentTotals.wave === 1000, 'Rapport Z incomplet sur les additions');

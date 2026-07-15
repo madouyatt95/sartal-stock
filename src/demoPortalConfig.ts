@@ -36,7 +36,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   stock_manager: {
     label: 'Gestion complète du stock',
-    views: ['pulse', 'dashboard', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'employees', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
   },
   purchasing_manager: {
     label: 'Achats et réapprovisionnement',
@@ -52,11 +52,11 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   restaurant_manager: {
     label: 'Exploitation du restaurant',
-    views: ['client', 'answer', 'simulation', 'pricing', 'stock-control', 'stocks', 'movements', 'exports']
+    views: ['client', 'employees', 'answer', 'simulation', 'pricing', 'stock-control', 'stocks', 'movements', 'exports']
   },
   restaurant_stock_manager: {
     label: 'Stock et ventes restaurant',
-    views: ['pulse', 'dashboard', 'answer', 'simulation', 'pos-imports', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'employees', 'answer', 'simulation', 'pos-imports', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
   },
   delivery_direction: {
     label: 'Pilotage de la vente en ligne',
@@ -64,7 +64,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   delivery_stock_manager: {
     label: 'Stock et préparation des commandes',
-    views: ['pulse', 'dashboard', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'employees', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'transfers', 'inventories', 'losses', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
   },
   hotel_direction: {
     label: 'Pilotage hôtelier',
@@ -86,7 +86,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   complex_restaurant_manager: {
     label: 'Exploitation du restaurant',
-    views: ['client', 'answer', 'simulation', 'pricing', 'stock-control', 'stocks', 'movements', 'exports']
+    views: ['client', 'employees', 'answer', 'simulation', 'pricing', 'stock-control', 'stocks', 'movements', 'exports']
   },
   suite_admin: {
     label: 'Administration complète',
