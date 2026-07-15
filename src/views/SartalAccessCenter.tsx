@@ -44,7 +44,7 @@ export const SartalAccessCenter: React.FC<SartalAccessCenterProps> = ({ state, e
       detail: 'Pilotage temps réel, stocks, ventes, opérations et contrôle selon vos habilitations.',
       badges: brand.enabledModules.map(module => moduleLabels[module]),
       action: 'Ouvrir le pilotage',
-      onClick: () => navigate()
+      onClick: () => embedded ? navigate() : navigate('pilotage', '1')
     },
     {
       id: 'staff',

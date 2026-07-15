@@ -45,16 +45,22 @@ try {
   ['backoffice', 'employee', 'client', 'hotel-client'].forEach(type => assert(targetTypes.has(type), `Type d’interface non relié : ${type}`));
 
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  ['DemoPortal', "queryParams.get('profil')", 'DemoExperienceFrame', 'demoBackoffice', 'enabledModules: demoUniverse.modules'].forEach(marker => {
+  ['DemoPortal', "queryParams.get('profil')", "queryParams.get('pilotage')", "pilotageMode !== '1'", 'DemoExperienceFrame', 'demoBackoffice', 'enabledModules: demoUniverse.modules'].forEach(marker => {
     assert(appSource.includes(marker), `Routage de démonstration incomplet : ${marker}`);
   });
+
+  const accessSource = readFileSync(new URL('../src/views/SartalAccessCenter.tsx', import.meta.url), 'utf8');
+  assert(accessSource.includes("navigate('pilotage', '1')"), 'Le centre d’accès ne rejoint pas le pilotage explicite');
+  const manifest = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
+  assert(manifest.start_url === './', 'La PWA doit démarrer sur le portail de démonstration');
+  assert(manifest.shortcuts.some(item => item.short_name === 'Pulse' && item.url.includes('pilotage=1')), 'Le raccourci Pulse ne rejoint pas le pilotage');
 
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   ['initialRole', 'demoAutoStart', 'Poste de démonstration', 'staff-demo-opening'].forEach(marker => {
     assert(employeeSource.includes(marker), `Accès direct employé incomplet : ${marker}`);
   });
 
-  console.log('Portail de démonstration: 6 offres, 41 points de vue et 24 contrôles validés.');
+  console.log('Portail de démonstration: 6 offres, 41 points de vue et 28 contrôles validés.');
 } finally {
   await server.close();
 }

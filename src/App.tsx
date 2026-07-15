@@ -108,6 +108,7 @@ export const App: React.FC = () => {
   const rawDb = state.db;
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demoMode = queryParams.get('demo');
+  const pilotageMode = queryParams.get('pilotage');
   const demoUniverse = demoMode !== 'portal' ? getDemoUniverse(demoMode) : undefined;
   const demoPerspective = getDemoPerspective(demoUniverse, queryParams.get('profil'));
   const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
@@ -239,6 +240,9 @@ export const App: React.FC = () => {
       return <Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={state} /></main></Suspense>;
     }
     return <PublicAccessError eyebrow="SÁRTAL ÉQUIPE" title="Poste employé introuvable" message="Ouvrez Sártal Équipe depuis le raccourci installé sur votre appareil ou contactez votre responsable." />;
+  }
+  if (!demoBackoffice && pilotageMode !== '1') {
+    return <Suspense fallback={<AppLoading />}><DemoPortal /></Suspense>;
   }
 
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.

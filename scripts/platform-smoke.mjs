@@ -60,7 +60,9 @@ try {
   const swSource = readFileSync(new URL('../public/sw.js', import.meta.url), 'utf8');
   assert(swSource.includes('offline.html') && swSource.includes('sartal-stock-v14'), 'Cache PWA hors connexion incomplet');
   const manifest = JSON.parse(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8'));
-  assert(manifest.start_url.includes('connexion=1'), 'La PWA ne démarre pas sur le Centre d’accès');
+  assert(manifest.start_url === './', 'La PWA ne démarre pas sur le portail de démonstration');
+  assert(manifest.shortcuts.some(item => item.short_name === 'Connexion' && item.url.includes('connexion=1')), 'Le Centre d’accès PWA est introuvable');
+  assert(manifest.shortcuts.some(item => item.short_name === 'Pulse' && item.url.includes('pilotage=1')), 'Le raccourci PWA Pulse ne rejoint pas le pilotage');
   assert(manifest.shortcuts.some(item => item.short_name === 'Pulse') && manifest.shortcuts.some(item => item.short_name === 'Équipe'), 'Raccourcis PWA incomplets');
 
   console.log('Plateforme Sártal smoke test: 6 services premium et 31 contrôles validés.');

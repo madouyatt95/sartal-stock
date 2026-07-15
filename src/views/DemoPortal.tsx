@@ -68,7 +68,7 @@ export const DemoPortal: React.FC<DemoPortalProps> = ({ initialUniverseId }) => 
   return (
     <main className="sartal-demo-portal">
       <header className="demo-portal-header">
-        <a className="demo-portal-brand" href="?demo=portal" aria-label="Retour au portail Sártal">
+        <a className="demo-portal-brand" href="./" aria-label="Retour au portail Sártal">
           <img src="./brand-mark.svg" alt="" />
           <span><strong>SÁRTAL</strong><small>Portail de démonstration</small></span>
         </a>

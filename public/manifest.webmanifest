@@ -2,7 +2,7 @@
   "name": "Sartal Stock",
   "short_name": "Sartal",
   "description": "Gestion multi-sites des stocks, restaurants, livraisons et opérations hôtelières.",
-  "start_url": "./?connexion=1",
+  "start_url": "./",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
@@ -21,7 +21,7 @@
       "name": "Sártal Pulse",
       "short_name": "Pulse",
       "description": "Ouvrir le cockpit de pilotage opérationnel.",
-      "url": "./",
+      "url": "./?pilotage=1",
       "icons": [{ "src": "./pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
