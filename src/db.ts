@@ -121,6 +121,7 @@ export interface DatabaseState {
   restaurantServiceSections: RestaurantServiceSection[];
   restaurantServiceIncidents: RestaurantServiceIncident[];
   restaurantTrainingRuns: RestaurantTrainingRun[];
+  restaurantDemoRevision: number;
   sartalCustomerMessages: SartalCustomerMessage[];
   sartalCustomerFeedback: SartalCustomerFeedback[];
   sartalClientAccess: SartalClientAccess[];
@@ -310,17 +311,24 @@ const buildDefaultRestaurantFloorElements = (posId = 'pos-1'): RestaurantFloorEl
   ): RestaurantFloorElement => ({ id: `floor-${posId}-${id}`, posId, floor, zone, type, label, x, y, width, height, rotation, active: true, createdAt: now, updatedAt: now });
 
   return [
-    element('wall-north', 'wall', 'Mur principal', 'RDC', 'Salle principale', 50, 5, 90, 2),
-    element('wall-west', 'wall', 'Mur latéral', 'RDC', 'Salle principale', 5, 50, 2, 84),
-    element('entrance', 'door', 'Entrée', 'RDC', 'Salle principale', 50, 95, 14, 3),
-    element('window-east', 'window', 'Baie vitrée', 'RDC', 'Salle principale', 95, 28, 2, 28),
-    element('counter', 'counter', 'Comptoir de service', 'RDC', 'Salle principale', 90, 68, 18, 8),
-    element('kitchen-pass', 'kitchen', 'Passe cuisine', 'RDC', 'Salle principale', 82, 8, 24, 9),
-    element('column', 'column', 'Pilier', 'RDC', 'Salle principale', 54, 51, 5, 5),
-    element('terrace-stage', 'stage', 'Animation', 'RDC', 'Terrasse jardin', 50, 10, 28, 10),
-    element('private-door', 'door', 'Accès salon', 'Mezzanine', 'Salon privé', 50, 94, 16, 3)
+    element('entrance', 'door', 'Entrée', 'RDC', 'Salle principale', 50, 95, 14, 3)
   ];
 };
+
+const RETIRED_RESTAURANT_DEMO_ELEMENT_IDS = [
+  'wall-north',
+  'wall-west',
+  'window-east',
+  'counter',
+  'kitchen-pass',
+  'column',
+  'terrace-stage',
+  'private-door'
+];
+
+const isRetiredRestaurantDemoElement = (element: RestaurantFloorElement) => (
+  RETIRED_RESTAURANT_DEMO_ELEMENT_IDS.some(id => element.id === `floor-${element.posId}-${id}`)
+);
 
 const buildDefaultRestaurantFloorSettings = (posId = 'pos-1'): RestaurantFloorPlanSettings => ({
   posId,
@@ -1632,6 +1640,7 @@ const initialDB = (): DatabaseState => {
     restaurantServiceSections,
     restaurantServiceIncidents,
     restaurantTrainingRuns,
+    restaurantDemoRevision: 1,
     sartalCustomerMessages,
     sartalCustomerFeedback,
     sartalClientAccess,
@@ -2337,17 +2346,25 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     { id: 'approval-substitution-1024', type: 'substitution', referenceId: 'CMD-1024', requestedBy: 'emp-picker', requestedByName: 'Mariama Sow', label: 'Substitution commande CMD-1024', reason: 'Seuil de sécurité bientôt atteint sur le Coca-Cola 33 cl.', status: 'pending', createdAt: new Date(Date.now() - 5 * 60000).toISOString() }
   ];
 
+  const restaurantDemoRevision = state.restaurantDemoRevision || 0;
+  const upgradeRestaurantDemo = restaurantDemoRevision < 1;
   const restaurantDiningTables = Array.isArray(state.restaurantDiningTables)
     ? state.restaurantDiningTables.map(table => ({ ...table, rotation: table.rotation || 0, active: table.active !== false }))
     : buildDefaultRestaurantDiningTables();
-  const restaurantFloorElements = Array.isArray(state.restaurantFloorElements)
+  const normalizedRestaurantFloorElements = Array.isArray(state.restaurantFloorElements)
     ? state.restaurantFloorElements.map(element => ({ ...element, active: element.active !== false }))
     : buildDefaultRestaurantFloorElements();
+  const restaurantFloorElements = upgradeRestaurantDemo
+    ? normalizedRestaurantFloorElements.filter(element => !isRetiredRestaurantDemoElement(element))
+    : normalizedRestaurantFloorElements;
   const restaurantFloorPlanSettings = Array.isArray(state.restaurantFloorPlanSettings) && state.restaurantFloorPlanSettings.length
     ? state.restaurantFloorPlanSettings.map(settings => ({ ...buildDefaultRestaurantFloorSettings(settings.posId), ...settings, backgrounds: settings.backgrounds || [] }))
     : [buildDefaultRestaurantFloorSettings()];
   const restaurantFloorPlanVersions = Array.isArray(state.restaurantFloorPlanVersions)
-    ? state.restaurantFloorPlanVersions
+    ? state.restaurantFloorPlanVersions.map(version => ({
+      ...version,
+      elements: upgradeRestaurantDemo ? version.elements.filter(element => !isRetiredRestaurantDemoElement(element)) : version.elements
+    }))
     : [{ id: 'floor-version-migrated', posId: 'pos-1', label: 'Plan importé', status: 'published' as const, tables: restaurantDiningTables.map(table => ({ ...table })), elements: restaurantFloorElements.map(element => ({ ...element })), settings: { ...restaurantFloorPlanSettings[0], backgrounds: [...restaurantFloorPlanSettings[0].backgrounds] }, createdAt: new Date().toISOString(), createdBy: 'Migration Sártal', publishedAt: new Date().toISOString() }];
   const restaurantFloorAudit = Array.isArray(state.restaurantFloorAudit) ? state.restaurantFloorAudit : [];
   const sourceRestaurantGuestOrders = state.restaurantGuestOrders || [
@@ -2364,6 +2381,33 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     });
     return { ...order, items, grossTotal: order.grossTotal ?? order.total, discountTotal: order.discountTotal || 0, complimentaryTotal: order.complimentaryTotal || 0, tipTotal: order.tipTotal || 0, currentCourse: order.currentCourse || 'drinks', servicePace: order.servicePace || 'standard', trainingMode: order.trainingMode || false, serviceEvents: order.serviceEvents || [{ id: `${order.id}-EVENT-OPEN`, type: 'order_opened', label: `Commande ${order.tableNumber || order.id} ouverte`, actor: 'Migration Sártal', createdAt: order.createdAt }] };
   });
+  const restaurantReservations: RestaurantTableReservation[] = [...(state.restaurantReservations || [
+    { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
+  ])];
+  if (upgradeRestaurantDemo) {
+    const demoPOS = posList.find(item => item.type === 'restaurant');
+    const demoTables = restaurantDiningTables.filter(item => item.posId === demoPOS?.id && item.active);
+    const demoCustomer = sartalCustomers.find(item => item.id === 'customer-aminata') || sartalCustomers[0];
+    const secondCustomer = sartalCustomers.find(item => item.id !== demoCustomer?.id) || demoCustomer;
+    const today = new Date().toISOString().slice(0, 10);
+    const hasLiveTable = Boolean(demoPOS && (
+      restaurantGuestOrders.some(item => item.posId === demoPOS.id && !['paid', 'cancelled'].includes(item.status))
+      || restaurantReservations.some(item => item.posId === demoPOS.id && item.date === today && ['confirmed', 'seated'].includes(item.status))
+    ));
+    if (!hasLiveTable && demoPOS && demoCustomer && demoTables.length) {
+      const now = new Date();
+      const occupiedTable = demoTables.find(item => item.label === 'T12') || demoTables[0];
+      const reservedTable = demoTables.find(item => item.id !== occupiedTable.id && item.label === 'T06') || demoTables.find(item => item.id !== occupiedTable.id);
+      const reservationId = 'table-res-demo-live-v1';
+      const orderId = 'REST-DEMO-LIVE-V1';
+      restaurantReservations.unshift({ id: reservationId, customerId: demoCustomer.id, posId: demoPOS.id, date: today, time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), guests: Math.min(2, occupiedTable.capacity), occasion: 'meal', status: 'seated', tableNumber: occupiedTable.label, notes: 'Service de démonstration prêt pour une prise de commande.', createdAt: now.toISOString() });
+      restaurantGuestOrders.unshift({ id: orderId, customerId: demoCustomer.id, posId: demoPOS.id, reservationId, tableNumber: occupiedTable.label, serviceType: 'dine_in', intendedPaymentMethod: demoCustomer.defaultPaymentType || 'cash', status: 'placed', paymentStatus: 'pending', items: [], payments: [], total: 0, grossTotal: 0, discountTotal: 0, complimentaryTotal: 0, tipTotal: 0, currentCourse: 'drinks', servicePace: demoCustomer.restaurantPreferences?.servicePace || 'standard', trainingMode: false, serviceEvents: [{ id: `${orderId}-EVENT-OPEN`, type: 'order_opened', label: `Commande ${occupiedTable.label} ouverte`, actor: 'Sártal', createdAt: now.toISOString() }], estimatedMinutes: 30, createdAt: now.toISOString(), updatedAt: now.toISOString() });
+      if (reservedTable && secondCustomer) {
+        const arrival = new Date(now.getTime() + 60 * 60000);
+        restaurantReservations.unshift({ id: 'table-res-demo-arrival-v1', customerId: secondCustomer.id, posId: demoPOS.id, date: today, time: arrival.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), guests: Math.min(2, reservedTable.capacity), occasion: 'meal', status: 'confirmed', tableNumber: reservedTable.label, notes: 'Arrivée attendue dans une heure.', createdAt: now.toISOString() });
+      }
+    }
+  }
   const restaurantServiceSections: RestaurantServiceSection[] = Array.isArray(state.restaurantServiceSections) && state.restaurantServiceSections.length
     ? state.restaurantServiceSections
     : Array.from(new Set(restaurantDiningTables.map(table => `${table.floor}::${table.zone}`))).map((scope, index) => {
@@ -2402,13 +2446,12 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     restaurantFloorPlanSettings,
     restaurantFloorPlanVersions,
     restaurantFloorAudit,
-    restaurantReservations: state.restaurantReservations || [
-      { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
-    ],
+    restaurantReservations,
     restaurantGuestOrders,
     restaurantServiceSections,
     restaurantServiceIncidents,
     restaurantTrainingRuns,
+    restaurantDemoRevision: 1,
     sartalCustomerMessages: state.sartalCustomerMessages || [
       { id: 'client-message-restaurant-1', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', sender: 'team', senderName: 'Moussa · La Terrasse', content: 'Bienvenue Aminata. Votre table est prête et la cuisine a bien reçu vos préférences.', sentAt: new Date().toISOString(), status: 'read' },
       { id: 'client-message-delivery-1', customerId: 'customer-awa', context: 'delivery', referenceId: 'CMD-1024', sender: 'team', senderName: 'Fatou · Préparation', content: 'Bonjour Awa, votre panier est confirmé. Nous vous préviendrons dès le départ du livreur.', sentAt: new Date().toISOString(), status: 'read' }

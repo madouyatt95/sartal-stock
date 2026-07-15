@@ -45,6 +45,9 @@ try {
     assert(floorSource.includes(marker), `Expérience Studio premium incomplète : ${marker}`);
   });
   ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'requestEmployeeApproval'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
+  ['Installer et prendre la commande', 'orderPanelOrder', 'seatReservationAndTakeOrder'].forEach(marker => assert(floorSource.includes(marker), `Parcours table vers commande incomplet : ${marker}`));
+  assert(!/<button(?![^>]*\btype=)/.test(floorSource), 'Un bouton du plan de salle peut encore soumettre la page et perdre les paramètres de démonstration');
+  assert(!/<button(?![^>]*\btype=)/.test(orderPanelSource), 'Un bouton de prise de commande peut encore soumettre la page et quitter le profil');
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
@@ -70,6 +73,24 @@ try {
   ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals', 'employeeSchedules', 'employeeWellbeingCheckIns', 'employeeSupportRequests', 'employeeBreaks', 'employeeRecognitions', 'employeeLearningModules', 'restaurantFloorElements', 'restaurantFloorPlanSettings', 'restaurantFloorPlanVersions', 'restaurantFloorAudit', 'restaurantServiceSections', 'restaurantServiceIncidents', 'restaurantTrainingRuns'].forEach(collection => {
     assert(Array.isArray(db[collection]), `Collection équipe absente : ${collection}`);
   });
+  assert(db.restaurantFloorElements.length === 1 && db.restaurantFloorElements[0].type === 'door' && db.restaurantFloorElements[0].label === 'Entrée', 'Le plan initial doit conserver uniquement l’entrée');
+
+  const originalDatabase = localStorage.getItem('sartal_stock_db');
+  const legacyFloor = structuredClone(db);
+  delete legacyFloor.restaurantDemoRevision;
+  const entrance = legacyFloor.restaurantFloorElements[0];
+  const retiredWall = { ...entrance, id: `floor-${entrance.posId}-wall-north`, type: 'wall', label: 'Mur principal' };
+  legacyFloor.restaurantFloorElements.push(retiredWall);
+  legacyFloor.restaurantFloorPlanVersions[0].elements.push(structuredClone(retiredWall));
+  legacyFloor.restaurantGuestOrders = legacyFloor.restaurantGuestOrders.map(order => ({ ...order, status: 'paid', paymentStatus: 'paid' }));
+  legacyFloor.restaurantReservations = legacyFloor.restaurantReservations.map(reservation => ({ ...reservation, status: 'cancelled' }));
+  localStorage.setItem('sartal_stock_db', JSON.stringify(legacyFloor));
+  const repairedFloor = getDB();
+  assert(repairedFloor.restaurantDemoRevision === 1, 'La révision de démonstration de salle n’est pas appliquée');
+  assert(!repairedFloor.restaurantFloorElements.some(element => element.id === retiredWall.id), 'Un ancien mur encombrant reste visible après migration');
+  assert(!repairedFloor.restaurantFloorPlanVersions.some(version => version.elements.some(element => element.id === retiredWall.id)), 'Une ancienne version peut réintroduire les éléments encombrants');
+  assert(repairedFloor.restaurantGuestOrders.some(order => !['paid', 'cancelled'].includes(order.status)), 'Une ancienne salle entièrement libre n’est pas préparée pour la démonstration');
+  localStorage.setItem('sartal_stock_db', originalDatabase);
 
   const temporaryEmployeeId = state.saveEmployeeProfile({ employeeNumber: 'SAL-999', name: 'Profil Test Équipe', role: 'waiter', siteId: 'site-1', phone: '+221 70 000 09 99', posId: 'pos-1', active: true });
   assert(getDB().employeeProfiles.some(item => item.id === temporaryEmployeeId && item.posId === 'pos-1'), 'Création ou affectation employé non conservée');
