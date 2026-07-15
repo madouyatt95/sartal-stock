@@ -43,6 +43,10 @@ import {
   PMSSettings,
   RestaurantGuestOrder,
   RestaurantDiningTable,
+  RestaurantFloorAuditEntry,
+  RestaurantFloorElement,
+  RestaurantFloorPlanSettings,
+  RestaurantFloorPlanVersion,
   RestaurantWaitlistEntry,
   RestaurantTableReservation,
   SartalBrandSettings,
@@ -93,6 +97,48 @@ const createRuntimeId = (prefix: string) => `${prefix}-${Date.now().toString(36)
 const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
 const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
 
+const canManageRestaurantFloor = (database: DatabaseState, posId: string) => (
+  ['admin', 'director'].includes(database.currentUser.role)
+  || (database.currentUser.role === 'pos_manager' && database.currentUser.posId === posId)
+);
+
+const cloneRestaurantFloor = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const findRestaurantFloorCollision = (tables: RestaurantDiningTable[], elements: RestaurantFloorElement[]) => {
+  const activeTables = tables.filter(table => table.active);
+  for (let index = 0; index < activeTables.length; index += 1) {
+    const table = activeTables[index];
+    for (let comparison = index + 1; comparison < activeTables.length; comparison += 1) {
+      const other = activeTables[comparison];
+      if (table.floor !== other.floor || table.zone !== other.zone) continue;
+      const horizontalLimit = table.shape === 'rectangle' || other.shape === 'rectangle' ? 11 : 8;
+      if (Math.abs(table.x - other.x) < horizontalLimit && Math.abs(table.y - other.y) < 10) return [table.label, other.label] as const;
+    }
+    const tableHalfWidth = table.shape === 'rectangle' ? 6 : 4.5;
+    const collidingElement = elements.find(element => (
+      element.active
+      && element.floor === table.floor
+      && element.zone === table.zone
+      && Math.abs(table.x - element.x) < tableHalfWidth + element.width / 2
+      && Math.abs(table.y - element.y) < 5 + element.height / 2
+    ));
+    if (collidingElement) return [table.label, collidingElement.label] as const;
+  }
+  return undefined;
+};
+
+const appendRestaurantFloorAudit = (
+  database: DatabaseState,
+  posId: string,
+  action: RestaurantFloorAuditEntry['action'],
+  summary: string,
+  actor: string,
+  metadata?: RestaurantFloorAuditEntry['metadata']
+) => {
+  database.restaurantFloorAudit.unshift({ id: createRuntimeId('FLOOR-AUDIT'), posId, action, summary, actor, createdAt: new Date().toISOString(), metadata });
+  database.restaurantFloorAudit = database.restaurantFloorAudit.slice(0, 250);
+};
+
 const canManageEmployeeSchedule = (database: DatabaseState, employee: EmployeeProfile, managerId?: string) => {
   const staffManager = managerId
     ? database.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active)
@@ -121,8 +167,16 @@ export const useStockState = () => {
         refresh();
       }
     };
+    const handleRealtime = () => refresh();
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('sartal-db-updated', handleRealtime);
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel('sartal-realtime') : undefined;
+    if (channel) channel.onmessage = event => { if (event.data?.type === 'database-updated') refresh(); };
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('sartal-db-updated', handleRealtime);
+      channel?.close();
+    };
   }, [refresh]);
 
   const changeCurrentUser = (userId: string) => {
@@ -2419,9 +2473,7 @@ export const useStockState = () => {
   const saveRestaurantDiningTable = (payload: Omit<RestaurantDiningTable, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     const newDb = getDB();
     const pos = newDb.posList.find(item => item.id === payload.posId && item.type === 'restaurant');
-    const canManage = ['admin', 'director'].includes(newDb.currentUser.role)
-      || (newDb.currentUser.role === 'pos_manager' && newDb.currentUser.posId === payload.posId);
-    if (!canManage) throw new Error('Seul un manager autorisé peut modifier le plan de salle');
+    if (!canManageRestaurantFloor(newDb, payload.posId)) throw new Error('Seul un manager autorisé peut modifier le plan de salle');
     if (!pos) throw new Error('Restaurant introuvable');
 
     const label = payload.label.trim().toUpperCase();
@@ -2454,6 +2506,7 @@ export const useStockState = () => {
     };
     if (existing) Object.assign(existing, record);
     else newDb.restaurantDiningTables.push(record);
+    appendRestaurantFloorAudit(newDb, pos.id, 'table_updated', `${existing ? 'Table modifiée' : 'Table ajoutée'} : ${label}`, newDb.currentUser.name, { tableId: id, capacity });
     saveDB(newDb);
     refresh();
     return id;
@@ -2463,15 +2516,282 @@ export const useStockState = () => {
     const newDb = getDB();
     const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
     if (!table) throw new Error('Table introuvable');
-    const canManage = ['admin', 'director'].includes(newDb.currentUser.role)
-      || (newDb.currentUser.role === 'pos_manager' && newDb.currentUser.posId === table.posId);
-    if (!canManage) throw new Error('Seul un manager autorisé peut supprimer une table');
+    if (!canManageRestaurantFloor(newDb, table.posId)) throw new Error('Seul un manager autorisé peut supprimer une table');
     const hasOpenOrder = newDb.restaurantGuestOrders.some(order => order.posId === table.posId && order.tableNumber === table.label && !['paid', 'cancelled'].includes(order.status));
     const hasOpenReservation = newDb.restaurantReservations.some(reservation => reservation.posId === table.posId && reservation.tableNumber === table.label && ['confirmed', 'seated'].includes(reservation.status));
     if (hasOpenOrder || hasOpenReservation) throw new Error('Libérez la table et ses réservations avant de la supprimer');
     newDb.restaurantDiningTables = newDb.restaurantDiningTables.filter(item => item.id !== tableId);
+    appendRestaurantFloorAudit(newDb, table.posId, 'table_deleted', `Table retirée : ${table.label}`, newDb.currentUser.name, { tableId });
     saveDB(newDb);
     refresh();
+  };
+
+  const normalizeRestaurantFloorPayload = (payload: {
+    posId: string;
+    tables: RestaurantDiningTable[];
+    elements: RestaurantFloorElement[];
+    settings: RestaurantFloorPlanSettings;
+  }) => {
+    const labels = new Set<string>();
+    const ids = new Set<string>();
+    const now = new Date().toISOString();
+    const tables = payload.tables.map(table => {
+      const label = table.label.trim().toUpperCase();
+      if (!label || labels.has(label)) throw new Error(`Numéro de table vide ou dupliqué : ${label || 'sans numéro'}`);
+      if (!table.id || ids.has(table.id)) throw new Error('Identifiant de table dupliqué');
+      if (table.posId !== payload.posId || table.capacity < 1 || table.capacity > 20) throw new Error(`Configuration invalide pour ${label}`);
+      labels.add(label);
+      ids.add(table.id);
+      return { ...cloneRestaurantFloor(table), label, x: Math.min(96, Math.max(4, table.x)), y: Math.min(94, Math.max(8, table.y)), rotation: Math.round(table.rotation || 0) % 360, updatedAt: now };
+    });
+    const elements = payload.elements.map(element => {
+      if (!element.id || element.posId !== payload.posId || !element.label.trim()) throw new Error('Élément architectural incomplet');
+      return { ...cloneRestaurantFloor(element), label: element.label.trim(), x: Math.min(98, Math.max(2, element.x)), y: Math.min(98, Math.max(2, element.y)), width: Math.min(100, Math.max(1, element.width)), height: Math.min(100, Math.max(1, element.height)), updatedAt: now };
+    });
+    const settings: RestaurantFloorPlanSettings = { ...cloneRestaurantFloor(payload.settings), posId: payload.posId, gridSize: Math.min(10, Math.max(1, payload.settings.gridSize || 5)), backgrounds: payload.settings.backgrounds || [], updatedAt: now };
+    const backgroundSize = settings.backgrounds.reduce((total, background) => total + background.imageDataUrl.length, 0);
+    if (backgroundSize > 2_500_000) throw new Error('Le fond importé est trop lourd. Utilisez une image inférieure à 2,5 Mo.');
+    return { tables, elements, settings };
+  };
+
+  const saveRestaurantFloorPlanDraft = (payload: {
+    posId: string;
+    label: string;
+    tables: RestaurantDiningTable[];
+    elements: RestaurantFloorElement[];
+    settings: RestaurantFloorPlanSettings;
+  }) => {
+    const newDb = getDB();
+    if (!canManageRestaurantFloor(newDb, payload.posId)) throw new Error('Votre rôle ne permet pas d’enregistrer ce plan');
+    const normalized = normalizeRestaurantFloorPayload(payload);
+    const version: RestaurantFloorPlanVersion = {
+      id: createRuntimeId('FLOOR-DRAFT'), posId: payload.posId, label: payload.label.trim() || 'Brouillon sans titre', status: 'draft',
+      tables: normalized.tables, elements: normalized.elements, settings: normalized.settings,
+      createdAt: new Date().toISOString(), createdBy: newDb.currentUser.name
+    };
+    newDb.restaurantFloorPlanVersions.unshift(version);
+    const otherVersions = newDb.restaurantFloorPlanVersions.filter(item => item.posId !== payload.posId);
+    const scopedVersions = newDb.restaurantFloorPlanVersions.filter(item => item.posId === payload.posId).slice(0, 12);
+    newDb.restaurantFloorPlanVersions = [...scopedVersions, ...otherVersions];
+    appendRestaurantFloorAudit(newDb, payload.posId, 'draft_saved', `Brouillon enregistré : ${version.label}`, newDb.currentUser.name, { versionId: version.id, tables: version.tables.length });
+    saveDB(newDb);
+    refresh();
+    return version.id;
+  };
+
+  const publishRestaurantFloorPlan = (payload: {
+    posId: string;
+    label: string;
+    tables: RestaurantDiningTable[];
+    elements: RestaurantFloorElement[];
+    settings: RestaurantFloorPlanSettings;
+  }) => {
+    const newDb = getDB();
+    if (!canManageRestaurantFloor(newDb, payload.posId)) throw new Error('Votre rôle ne permet pas de publier ce plan');
+    const normalized = normalizeRestaurantFloorPayload(payload);
+    const activeLabels = new Set([
+      ...newDb.restaurantGuestOrders.filter(order => order.posId === payload.posId && order.tableNumber && !['paid', 'cancelled'].includes(order.status)).map(order => order.tableNumber!),
+      ...newDb.restaurantReservations.filter(reservation => reservation.posId === payload.posId && reservation.tableNumber && ['confirmed', 'seated'].includes(reservation.status)).map(reservation => reservation.tableNumber!)
+    ]);
+    activeLabels.forEach(label => {
+      if (!normalized.tables.some(table => table.label === label)) throw new Error(`La table ${label} est active et doit rester dans le plan publié`);
+    });
+    const collision = findRestaurantFloorCollision(normalized.tables, normalized.elements);
+    if (collision) throw new Error(`Chevauchement à corriger entre ${collision[0]} et ${collision[1]}`);
+    newDb.restaurantDiningTables = [...normalized.tables, ...newDb.restaurantDiningTables.filter(table => table.posId !== payload.posId)];
+    newDb.restaurantFloorElements = [...normalized.elements, ...newDb.restaurantFloorElements.filter(element => element.posId !== payload.posId)];
+    const settingsIndex = newDb.restaurantFloorPlanSettings.findIndex(item => item.posId === payload.posId);
+    if (settingsIndex >= 0) newDb.restaurantFloorPlanSettings[settingsIndex] = normalized.settings;
+    else newDb.restaurantFloorPlanSettings.push(normalized.settings);
+    newDb.restaurantFloorPlanVersions.forEach(version => { if (version.posId === payload.posId && version.status === 'published') version.status = 'archived'; });
+    const now = new Date().toISOString();
+    const version: RestaurantFloorPlanVersion = {
+      id: createRuntimeId('FLOOR-VERSION'), posId: payload.posId, label: payload.label.trim() || `Plan publié ${new Date().toLocaleDateString('fr-FR')}`, status: 'published',
+      tables: cloneRestaurantFloor(normalized.tables), elements: cloneRestaurantFloor(normalized.elements), settings: cloneRestaurantFloor(normalized.settings),
+      createdAt: now, createdBy: newDb.currentUser.name, publishedAt: now
+    };
+    newDb.restaurantFloorPlanVersions.unshift(version);
+    newDb.restaurantFloorPlanVersions = [
+      ...newDb.restaurantFloorPlanVersions.filter(item => item.posId === payload.posId).slice(0, 12),
+      ...newDb.restaurantFloorPlanVersions.filter(item => item.posId !== payload.posId)
+    ];
+    appendRestaurantFloorAudit(newDb, payload.posId, 'published', `Plan publié : ${version.label}`, newDb.currentUser.name, { versionId: version.id, tables: normalized.tables.length, elements: normalized.elements.length });
+    saveDB(newDb);
+    refresh();
+    return version.id;
+  };
+
+  const restoreRestaurantFloorPlanVersion = (versionId: string) => {
+    const newDb = getDB();
+    const source = newDb.restaurantFloorPlanVersions.find(item => item.id === versionId);
+    if (!source) throw new Error('Version du plan introuvable');
+    if (!canManageRestaurantFloor(newDb, source.posId)) throw new Error('Votre rôle ne permet pas de restaurer ce plan');
+    const normalized = normalizeRestaurantFloorPayload({ posId: source.posId, tables: source.tables, elements: source.elements, settings: source.settings });
+    const activeLabels = new Set([
+      ...newDb.restaurantGuestOrders.filter(order => order.posId === source.posId && order.tableNumber && !['paid', 'cancelled'].includes(order.status)).map(order => order.tableNumber!),
+      ...newDb.restaurantReservations.filter(reservation => reservation.posId === source.posId && reservation.tableNumber && ['confirmed', 'seated'].includes(reservation.status)).map(reservation => reservation.tableNumber!)
+    ]);
+    activeLabels.forEach(label => { if (!normalized.tables.some(table => table.label === label)) throw new Error(`La version ne contient pas la table active ${label}`); });
+    const collision = findRestaurantFloorCollision(normalized.tables, normalized.elements);
+    if (collision) throw new Error(`La version contient un chevauchement entre ${collision[0]} et ${collision[1]}`);
+    newDb.restaurantDiningTables = [...cloneRestaurantFloor(normalized.tables), ...newDb.restaurantDiningTables.filter(table => table.posId !== source.posId)];
+    newDb.restaurantFloorElements = [...cloneRestaurantFloor(normalized.elements), ...newDb.restaurantFloorElements.filter(element => element.posId !== source.posId)];
+    const settingsIndex = newDb.restaurantFloorPlanSettings.findIndex(item => item.posId === source.posId);
+    if (settingsIndex >= 0) newDb.restaurantFloorPlanSettings[settingsIndex] = cloneRestaurantFloor(normalized.settings);
+    else newDb.restaurantFloorPlanSettings.push(cloneRestaurantFloor(normalized.settings));
+    newDb.restaurantFloorPlanVersions.forEach(version => { if (version.posId === source.posId && version.status === 'published') version.status = 'archived'; });
+    const now = new Date().toISOString();
+    const restored: RestaurantFloorPlanVersion = {
+      ...cloneRestaurantFloor(source),
+      id: createRuntimeId('FLOOR-RESTORE'),
+      label: `Restauration · ${source.label}`,
+      status: 'published',
+      tables: cloneRestaurantFloor(normalized.tables),
+      elements: cloneRestaurantFloor(normalized.elements),
+      settings: cloneRestaurantFloor(normalized.settings),
+      createdAt: now,
+      createdBy: newDb.currentUser.name,
+      publishedAt: now
+    };
+    newDb.restaurantFloorPlanVersions.unshift(restored);
+    newDb.restaurantFloorPlanVersions = [
+      ...newDb.restaurantFloorPlanVersions.filter(item => item.posId === source.posId).slice(0, 12),
+      ...newDb.restaurantFloorPlanVersions.filter(item => item.posId !== source.posId)
+    ];
+    appendRestaurantFloorAudit(newDb, source.posId, 'restored', `Version restaurée : ${source.label}`, newDb.currentUser.name, { sourceVersionId: source.id, versionId: restored.id });
+    saveDB(newDb);
+    refresh();
+    return restored.id;
+  };
+
+  const deleteRestaurantFloorPlanVersion = (versionId: string) => {
+    const newDb = getDB();
+    const version = newDb.restaurantFloorPlanVersions.find(item => item.id === versionId);
+    if (!version || version.status !== 'draft') throw new Error('Seul un brouillon peut être supprimé');
+    if (!canManageRestaurantFloor(newDb, version.posId)) throw new Error('Votre rôle ne permet pas de supprimer ce brouillon');
+    newDb.restaurantFloorPlanVersions = newDb.restaurantFloorPlanVersions.filter(item => item.id !== versionId);
+    appendRestaurantFloorAudit(newDb, version.posId, 'draft_deleted', `Brouillon supprimé : ${version.label}`, newDb.currentUser.name, { versionId });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const assignRestaurantDiningTableWaiter = (tableId: string, employeeId?: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
+    if (!table || !canManageRestaurantFloor(newDb, table.posId)) throw new Error('Table ou autorisation introuvable');
+    const employee = employeeId ? newDb.employeeProfiles.find(item => item.id === employeeId && item.active && item.role === 'waiter' && item.posId === table.posId) : undefined;
+    if (employeeId && !employee) throw new Error('Ce serveur ne relève pas de ce point de vente');
+    table.assignedEmployeeId = employee?.id;
+    table.updatedAt = new Date().toISOString();
+    appendRestaurantFloorAudit(newDb, table.posId, 'waiter_assigned', employee ? `${table.label} affectée à ${employee.name}` : `Affectation retirée de ${table.label}`, newDb.currentUser.name, { tableId, employeeId: employeeId || '' });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const seatRestaurantWalkIn = (payload: { tableId: string; guestName: string; guests: number; actor: string }) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === payload.tableId && item.active);
+    if (!table || payload.guests < 1 || payload.guests > table.capacity) throw new Error('Table ou nombre de personnes invalide');
+    const serviceDate = new Date().toISOString().slice(0, 10);
+    const occupied = newDb.restaurantGuestOrders.some(order => order.posId === table.posId && order.tableNumber === table.label && !['paid', 'cancelled'].includes(order.status))
+      || newDb.restaurantReservations.some(reservation => reservation.posId === table.posId && reservation.tableNumber === table.label && reservation.date === serviceDate && ['confirmed', 'seated'].includes(reservation.status));
+    if (occupied) throw new Error(`${table.label} n’est plus disponible`);
+    const now = new Date();
+    const customerId = createRuntimeId('customer-walkin');
+    newDb.sartalCustomers.unshift({ id: customerId, fullName: payload.guestName.trim() || 'Client de passage', phone: `walkin-${now.getTime()}`, preferredLanguage: 'fr', preferredChannel: 'portal', profileConsent: false, marketingConsent: false, guestSession: true, defaultPaymentType: 'cash', loyaltyPoints: 0, loyaltyTier: 'welcome', visits: 0, totalSpend: 0, addresses: [] });
+    const reservationId = createRuntimeId('TABLE-WALKIN');
+    newDb.restaurantReservations.unshift({ id: reservationId, customerId, posId: table.posId, date: now.toISOString().slice(0, 10), time: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }), guests: payload.guests, occasion: 'meal', status: 'seated', tableNumber: table.label, notes: 'Client installé sans réservation.', createdAt: now.toISOString() });
+    appendRestaurantFloorAudit(newDb, table.posId, 'guest_seated', `${payload.guestName.trim() || 'Client de passage'} installé à ${table.label}`, payload.actor, { tableId: table.id, guests: payload.guests });
+    saveDB(newDb);
+    refresh();
+    return { customerId, reservationId };
+  };
+
+  const seatRestaurantReservation = (reservationId: string, tableId: string, actor: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId && item.active);
+    const reservation = newDb.restaurantReservations.find(item => item.id === reservationId && item.status === 'confirmed');
+    if (!table || !reservation || reservation.posId !== table.posId || reservation.guests > table.capacity) throw new Error('Réservation incompatible avec cette table');
+    const occupied = newDb.restaurantGuestOrders.some(order => order.posId === table.posId && order.tableNumber === table.label && !['paid', 'cancelled'].includes(order.status))
+      || newDb.restaurantReservations.some(item => item.id !== reservation.id && item.posId === table.posId && item.tableNumber === table.label && ['confirmed', 'seated'].includes(item.status));
+    if (occupied) throw new Error(`${table.label} n’est plus disponible`);
+    reservation.tableNumber = table.label;
+    reservation.status = 'seated';
+    appendRestaurantFloorAudit(newDb, table.posId, 'reservation_seated', `Réservation ${reservation.id} installée à ${table.label}`, actor, { tableId, reservationId });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const openRestaurantTableOrder = (tableId: string, actor: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId && item.active);
+    if (!table) throw new Error('Table introuvable');
+    const existing = newDb.restaurantGuestOrders.find(order => order.posId === table.posId && order.tableNumber === table.label && !['paid', 'cancelled'].includes(order.status));
+    if (existing) return existing.id;
+    const reservation = newDb.restaurantReservations.find(item => item.posId === table.posId && item.tableNumber === table.label && item.status === 'seated');
+    if (!reservation) throw new Error('Installez d’abord le client à cette table');
+    const now = new Date().toISOString();
+    const id = createRuntimeId('REST-TABLE');
+    newDb.restaurantGuestOrders.unshift({ id, customerId: reservation.customerId, posId: table.posId, reservationId: reservation.id, tableNumber: table.label, serviceType: 'dine_in', intendedPaymentMethod: 'cash', status: 'placed', paymentStatus: 'pending', items: [], payments: [], total: 0, estimatedMinutes: 30, createdAt: now, updatedAt: now });
+    appendRestaurantFloorAudit(newDb, table.posId, 'order_opened', `Commande ouverte sur ${table.label}`, actor, { tableId, orderId: id });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const transferRestaurantTable = (sourceTableId: string, targetTableId: string, actor: string) => {
+    const newDb = getDB();
+    const source = newDb.restaurantDiningTables.find(item => item.id === sourceTableId);
+    const target = newDb.restaurantDiningTables.find(item => item.id === targetTableId && item.active);
+    if (!source || !target || source.posId !== target.posId || source.id === target.id) throw new Error('Transfert de table invalide');
+    const serviceDate = new Date().toISOString().slice(0, 10);
+    const targetOccupied = newDb.restaurantGuestOrders.some(order => order.posId === target.posId && order.tableNumber === target.label && !['paid', 'cancelled'].includes(order.status))
+      || newDb.restaurantReservations.some(reservation => reservation.posId === target.posId && reservation.tableNumber === target.label && reservation.date === serviceDate && ['confirmed', 'seated'].includes(reservation.status));
+    if (targetOccupied) throw new Error(`${target.label} est déjà occupée ou réservée`);
+    const order = newDb.restaurantGuestOrders.find(item => item.posId === source.posId && item.tableNumber === source.label && !['paid', 'cancelled'].includes(item.status));
+    const reservations = newDb.restaurantReservations.filter(item => item.posId === source.posId && item.tableNumber === source.label && item.date === serviceDate && ['confirmed', 'seated'].includes(item.status));
+    if (!order && reservations.length === 0) throw new Error(`${source.label} n’a aucun service à transférer`);
+    if (reservations.some(reservation => reservation.guests > target.capacity)) throw new Error(`${target.label} n’a pas assez de places`);
+    if (order) order.tableNumber = target.label;
+    reservations.forEach(reservation => { reservation.tableNumber = target.label; });
+    target.assignedEmployeeId = source.assignedEmployeeId;
+    appendRestaurantFloorAudit(newDb, source.posId, 'table_transferred', `${source.label} transférée vers ${target.label}`, actor, { sourceTableId, targetTableId });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const createRestaurantTableQR = (tableId: string, actor: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
+    if (!table) throw new Error('Table introuvable');
+    const order = newDb.restaurantGuestOrders.find(item => item.posId === table.posId && item.tableNumber === table.label && !['paid', 'cancelled'].includes(item.status));
+    const reservation = newDb.restaurantReservations.find(item => item.posId === table.posId && item.tableNumber === table.label && ['confirmed', 'seated'].includes(item.status));
+    const customerId = order?.customerId || reservation?.customerId;
+    if (!customerId) throw new Error('Aucun client installé sur cette table');
+    newDb.sartalClientAccess.filter(item => item.customerId === customerId && item.status === 'active').forEach(item => { item.status = 'expired'; });
+    const now = new Date();
+    const access = { id: createRuntimeId('access-table'), customerId, channel: 'qr' as const, destination: `Table ${table.label}`, code: String(Math.floor(1000 + Math.random() * 9000)), linkToken: createRuntimeId(`table-${table.label}`), status: 'active' as const, createdAt: now.toISOString(), expiresAt: new Date(now.getTime() + 4 * 3600000).toISOString() };
+    newDb.sartalClientAccess.unshift(access);
+    appendRestaurantFloorAudit(newDb, table.posId, 'qr_created', `Accès client créé pour ${table.label}`, actor, { tableId, accessId: access.id });
+    saveDB(newDb);
+    refresh();
+    return access;
+  };
+
+  const requestRestaurantTableBill = (tableId: string, actor: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
+    const order = table && newDb.restaurantGuestOrders.find(item => item.posId === table.posId && item.tableNumber === table.label && !['paid', 'cancelled'].includes(item.status));
+    if (!table || !order || order.status !== 'served') throw new Error('La commande doit être servie avant de demander l’addition');
+    const existing = newDb.sartalServiceRequests.find(item => item.referenceId === order.id && item.type === 'bill' && ['requested', 'accepted'].includes(item.status));
+    if (existing) return existing.id;
+    const now = new Date();
+    const id = createRuntimeId('service-bill');
+    newDb.sartalServiceRequests.unshift({ id, customerId: order.customerId, context: 'restaurant', referenceId: order.id, type: 'bill', label: `Addition ${table.label}`, status: 'requested', priority: 'urgent', assignedTo: 'Caisse restaurant', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + 3 * 60000).toISOString() });
+    appendRestaurantFloorAudit(newDb, table.posId, 'bill_requested', `Addition demandée pour ${table.label}`, actor, { tableId, orderId: order.id });
+    saveDB(newDb);
+    refresh();
+    return id;
   };
 
   const createRestaurantReservation = (payload: Omit<RestaurantTableReservation, 'id' | 'status' | 'createdAt'>) => {
@@ -3512,6 +3832,17 @@ export const useStockState = () => {
     deliverDeliveryOrder,
     saveRestaurantDiningTable,
     deleteRestaurantDiningTable,
+    saveRestaurantFloorPlanDraft,
+    publishRestaurantFloorPlan,
+    restoreRestaurantFloorPlanVersion,
+    deleteRestaurantFloorPlanVersion,
+    assignRestaurantDiningTableWaiter,
+    seatRestaurantWalkIn,
+    seatRestaurantReservation,
+    openRestaurantTableOrder,
+    transferRestaurantTable,
+    createRestaurantTableQR,
+    requestRestaurantTableBill,
     createRestaurantReservation,
     updateRestaurantReservation,
     cancelRestaurantReservation,

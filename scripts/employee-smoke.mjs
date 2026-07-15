@@ -39,6 +39,10 @@ try {
   ['Les bonnes personnes, au bon poste', 'Répertoire des collaborateurs', 'Ajouter un collaborateur'].forEach(marker => assert(teamHtml.includes(marker), `Centre de gestion des équipes incomplet : ${marker}`));
   const floorHtml = renderToStaticMarkup(React.createElement(RestaurantFloorStudio, { state, posId: 'pos-1', editable: true }));
   ['Plan de salle interactif', 'Ouvrir le Studio', 'T12', 'Addition'].forEach(marker => assert(floorHtml.includes(marker), `Plan de salle manager incomplet : ${marker}`));
+  const floorSource = readFileSync(new URL('../src/components/RestaurantFloorStudio.tsx', import.meta.url), 'utf8');
+  ['ELEMENT_CATALOG', 'Annuler', 'Magnétisme', 'Multi-sélection', 'chevauchement', 'Fusionner', 'Installer sans réservation', 'Serveur affecté', 'Heatmap', 'Brouillon', 'Publier', 'Journal d’audit', 'Fond de plan', 'Mode tablette', 'Transférer'].forEach(marker => {
+    assert(floorSource.includes(marker), `Expérience Studio premium incomplète : ${marker}`);
+  });
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
@@ -61,7 +65,7 @@ try {
   ['waiter', 'cashier', 'kitchen', 'receptionist', 'housekeeper', 'storekeeper', 'picker', 'driver', 'customer_experience', 'service_manager'].forEach(role => {
     assert(roles.has(role), `Profil métier absent : ${role}`);
   });
-  ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals', 'employeeSchedules', 'employeeWellbeingCheckIns', 'employeeSupportRequests', 'employeeBreaks', 'employeeRecognitions', 'employeeLearningModules'].forEach(collection => {
+  ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals', 'employeeSchedules', 'employeeWellbeingCheckIns', 'employeeSupportRequests', 'employeeBreaks', 'employeeRecognitions', 'employeeLearningModules', 'restaurantFloorElements', 'restaurantFloorPlanSettings', 'restaurantFloorPlanVersions', 'restaurantFloorAudit'].forEach(collection => {
     assert(Array.isArray(db[collection]), `Collection équipe absente : ${collection}`);
   });
 
@@ -94,6 +98,66 @@ try {
   assert(getDB().restaurantDiningTables.find(item => item.id === temporaryTableId)?.x === 72, 'Le déplacement d’une table du Studio n’est pas conservé');
   state.deleteRestaurantDiningTable(temporaryTableId);
   assert(!getDB().restaurantDiningTables.some(item => item.id === temporaryTableId), 'Le manager restaurant ne peut pas retirer une table libre');
+
+  const floorBeforeDraft = getDB();
+  const liveTablesBeforeDraft = JSON.stringify(floorBeforeDraft.restaurantDiningTables.filter(item => item.posId === 'pos-1'));
+  const floorPayload = {
+    posId: 'pos-1',
+    label: 'Organisation test premium',
+    tables: structuredClone(floorBeforeDraft.restaurantDiningTables.filter(item => item.posId === 'pos-1')),
+    elements: structuredClone(floorBeforeDraft.restaurantFloorElements.filter(item => item.posId === 'pos-1')),
+    settings: structuredClone(floorBeforeDraft.restaurantFloorPlanSettings.find(item => item.posId === 'pos-1'))
+  };
+  const draftPlanId = state.saveRestaurantFloorPlanDraft(floorPayload);
+  assert(getDB().restaurantFloorPlanVersions.find(item => item.id === draftPlanId)?.status === 'draft', 'Le brouillon du Studio n’est pas versionné');
+  assert(JSON.stringify(getDB().restaurantDiningTables.filter(item => item.posId === 'pos-1')) === liveTablesBeforeDraft, 'Un brouillon ne doit jamais modifier la salle publiée');
+  state.deleteRestaurantFloorPlanVersion(draftPlanId);
+  assert(!getDB().restaurantFloorPlanVersions.some(item => item.id === draftPlanId), 'Le brouillon du Studio ne peut pas être supprimé');
+  assert(getDB().restaurantFloorAudit.some(item => item.action === 'draft_deleted'), 'La suppression du brouillon n’est pas auditée');
+
+  const collidingPayload = structuredClone(floorPayload);
+  collidingPayload.tables[1].x = collidingPayload.tables[0].x;
+  collidingPayload.tables[1].y = collidingPayload.tables[0].y;
+  let collisionBlocked = false;
+  try {
+    state.publishRestaurantFloorPlan(collidingPayload);
+  } catch {
+    collisionBlocked = true;
+  }
+  assert(collisionBlocked, 'La publication doit bloquer les tables qui se chevauchent');
+
+  const architecturalCollisionPayload = structuredClone(floorPayload);
+  architecturalCollisionPayload.elements[0].x = architecturalCollisionPayload.tables[0].x;
+  architecturalCollisionPayload.elements[0].y = architecturalCollisionPayload.tables[0].y;
+  let architecturalCollisionBlocked = false;
+  try {
+    state.publishRestaurantFloorPlan(architecturalCollisionPayload);
+  } catch {
+    architecturalCollisionBlocked = true;
+  }
+  assert(architecturalCollisionBlocked, 'La publication doit bloquer une table posée sur un élément architectural');
+
+  const versionToRestore = getDB().restaurantFloorPlanVersions.find(item => item.posId === 'pos-1' && item.status === 'published');
+  const publishedPlanId = state.publishRestaurantFloorPlan(floorPayload);
+  assert(getDB().restaurantFloorPlanVersions.find(item => item.id === publishedPlanId)?.status === 'published', 'Le plan validé n’est pas publié');
+  assert(getDB().restaurantFloorAudit.some(item => item.action === 'published' && item.metadata?.versionId === publishedPlanId), 'La publication du plan n’est pas auditée');
+  const restoredPlanId = state.restoreRestaurantFloorPlanVersion(versionToRestore.id);
+  assert(getDB().restaurantFloorPlanVersions.find(item => item.id === restoredPlanId)?.status === 'published', 'La restauration ne recrée pas une version publiée');
+  assert(getDB().restaurantFloorAudit.some(item => item.action === 'restored' && item.metadata?.versionId === restoredPlanId), 'La restauration du plan n’est pas auditée');
+
+  state.changeCurrentUser('user-admin');
+  const secondaryRestaurantName = `Restaurant test multi-POS ${Date.now()}`;
+  state.addPOS(secondaryRestaurantName, 'restaurant', 'wh-restaurant');
+  const secondaryRestaurant = getDB().posList.find(item => item.name === secondaryRestaurantName);
+  const secondaryTableId = state.saveRestaurantDiningTable({ posId: secondaryRestaurant.id, label: 'S01', capacity: 2, shape: 'round', floor: 'RDC', zone: 'Salle secondaire', x: 50, y: 50, rotation: 0, active: true });
+  state.changeCurrentUser('user-pos-mgr');
+  state.publishRestaurantFloorPlan({ ...floorPayload, label: 'Contrôle isolation multi-POS' });
+  assert(getDB().restaurantDiningTables.some(item => item.id === secondaryTableId && item.posId === secondaryRestaurant.id), 'Publier un restaurant ne doit pas effacer le plan d’un autre POS');
+  state.changeCurrentUser('user-admin');
+  state.deleteRestaurantDiningTable(secondaryTableId);
+  state.deletePOS(secondaryRestaurant.id);
+  state.changeCurrentUser('user-pos-mgr');
+
   const plannedServiceId = state.saveEmployeeSchedule({ employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '10:00', endTime: '18:00', assignmentLabel: 'Restaurant La Terrasse · Salle principale', status: 'confirmed' }, 'user-pos-mgr');
   assert(getDB().employeeSchedules.some(item => item.id === plannedServiceId && item.status === 'confirmed'), 'Le manager restaurant ne peut pas créer un service');
   state.saveEmployeeSchedule({ id: plannedServiceId, employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '11:00', endTime: '19:00', assignmentLabel: 'Restaurant La Terrasse · Terrasse', status: 'confirmed' }, 'user-pos-mgr');
@@ -236,7 +300,44 @@ try {
   assert(getDB().movements.some(item => item.type === 'inventory_adjustment' && item.productId === countedStock.productId && item.userName === storekeeper.name), 'Inventaire employé non tracé au nom du magasinier');
   state.closeEmployeeShift(storekeeperShiftId, { notes: 'Réception, transfert et comptage terminés.', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
-  console.log('Sártal Équipe smoke test: postes métier, QVT et double validation des échanges vérifiés.');
+  const serviceDb = getDB();
+  const serviceDate = new Date().toISOString().slice(0, 10);
+  const occupiedLabels = new Set([
+    ...serviceDb.restaurantGuestOrders.filter(item => item.posId === 'pos-1' && !['paid', 'cancelled'].includes(item.status)).map(item => item.tableNumber),
+    ...serviceDb.restaurantReservations.filter(item => item.posId === 'pos-1' && item.date === serviceDate && ['confirmed', 'seated'].includes(item.status)).map(item => item.tableNumber)
+  ]);
+  const serviceTables = serviceDb.restaurantDiningTables.filter(item => item.posId === 'pos-1' && item.active && !occupiedLabels.has(item.label));
+  const futureReservation = serviceDb.restaurantReservations.find(item => item.posId === 'pos-1' && item.date > serviceDate && item.tableNumber && item.status === 'confirmed');
+  const sourceTable = serviceTables.find(item => item.label === futureReservation?.tableNumber) || serviceTables.find(item => item.capacity >= 2);
+  assert(sourceTable, 'Une table libre est nécessaire au scénario salle');
+  const targetTable = serviceTables.find(item => item.id !== sourceTable.id && item.capacity >= 2);
+  assert(targetTable, 'Une table de transfert est nécessaire au scénario salle');
+  state.assignRestaurantDiningTableWaiter(sourceTable.id, waiter.id);
+  assert(getDB().restaurantDiningTables.find(item => item.id === sourceTable.id)?.assignedEmployeeId === waiter.id, 'Affectation visuelle du serveur non conservée');
+  const walkInResult = state.seatRestaurantWalkIn({ tableId: sourceTable.id, guestName: 'Client Studio Test', guests: 2, actor: waiter.name });
+  const tableOrderId = state.openRestaurantTableOrder(sourceTable.id, waiter.name);
+  const orderProduct = getDB().posPricing.find(rule => rule.posId === 'pos-1' && rule.isAvailable && getDB().stocks.some(stock => stock.warehouseId === 'wh-restaurant' && stock.productId === rule.productId && stock.quantityAvailable >= 1));
+  assert(orderProduct, 'Aucun produit disponible pour le scénario de commande à table');
+  state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1 }]);
+  state.updateRestaurantGuestOrderStatus(tableOrderId, 'preparing');
+  state.updateRestaurantGuestOrderStatus(tableOrderId, 'ready');
+  state.updateRestaurantGuestOrderStatus(tableOrderId, 'served');
+  const tableAccess = state.createRestaurantTableQR(sourceTable.id, waiter.name);
+  assert(tableAccess.status === 'active' && tableAccess.destination.includes(sourceTable.label), 'Accès QR de table non créé');
+  const billRequestId = state.requestRestaurantTableBill(sourceTable.id, waiter.name);
+  assert(getDB().sartalServiceRequests.find(item => item.id === billRequestId)?.type === 'bill', 'Demande d’addition non transmise à la caisse');
+  state.transferRestaurantTable(sourceTable.id, targetTable.id, waiter.name);
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId)?.tableNumber === targetTable.label, 'La commande ne suit pas le transfert de table');
+  assert(getDB().restaurantReservations.find(item => item.id === walkInResult.reservationId)?.tableNumber === targetTable.label, 'La réservation ne suit pas le transfert de table');
+  if (futureReservation) assert(getDB().restaurantReservations.find(item => item.id === futureReservation.id)?.tableNumber === sourceTable.label, 'Une réservation future ne doit pas suivre le transfert du service en cours');
+  const tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
+  state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test');
+  state.cancelRestaurantReservation(walkInResult.reservationId);
+  ['waiter_assigned', 'guest_seated', 'order_opened', 'qr_created', 'bill_requested', 'table_transferred'].forEach(action => {
+    assert(getDB().restaurantFloorAudit.some(item => item.action === action), `Action salle non auditée : ${action}`);
+  });
+
+  console.log('Sártal Équipe smoke test: postes métier, QVT, Studio premium et opérations de salle vérifiés.');
 } finally {
   await server.close();
 }

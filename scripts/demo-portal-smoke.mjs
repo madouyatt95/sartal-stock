@@ -116,7 +116,7 @@ try {
   const managerSource = readFileSync(new URL('../src/views/ManagerAnswer.tsx', import.meta.url), 'utf8');
   ['RestaurantFloorStudio', 'editable={canOperateRestaurant}', 'Équipes & planning'].forEach(marker => assert(managerSource.includes(marker), `Cockpit manager restaurant incomplet : ${marker}`));
   const floorStudioSource = readFileSync(new URL('../src/components/RestaurantFloorStudio.tsx', import.meta.url), 'utf8');
-  ['SALLE EN DIRECT', 'Plan de salle interactif', 'Ouvrir le Studio', 'Glisser-déposer actif', 'Ajouter une table ici'].forEach(marker => assert(floorStudioSource.includes(marker), `Studio de salle incomplet : ${marker}`));
+  ['SALLE EN DIRECT', 'Plan de salle interactif', 'Ouvrir le Studio', 'Studio premium du plan de salle', 'Multi-sélection', 'Fusionner', 'Heatmap', 'Fond de plan', 'Mode tablette', 'Versions & journal'].forEach(marker => assert(floorStudioSource.includes(marker), `Studio de salle incomplet : ${marker}`));
 
   const accessSource = readFileSync(new URL('../src/views/SartalAccessCenter.tsx', import.meta.url), 'utf8');
   assert(accessSource.includes("navigate('pilotage', '1')"), 'Le centre d’accès ne rejoint pas le pilotage explicite');

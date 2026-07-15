@@ -425,6 +425,19 @@ export interface RestaurantTableReservation {
 
 export type RestaurantDiningTableShape = 'round' | 'square' | 'rectangle';
 
+export interface RestaurantDiningTablePart {
+  id: string;
+  label: string;
+  capacity: number;
+  shape: RestaurantDiningTableShape;
+  floor: string;
+  zone: string;
+  x: number;
+  y: number;
+  rotation: number;
+  assignedEmployeeId?: string;
+}
+
 export interface RestaurantDiningTable {
   id: string;
   posId: string;
@@ -436,9 +449,71 @@ export interface RestaurantDiningTable {
   x: number;
   y: number;
   rotation: number;
+  assignedEmployeeId?: string;
+  mergedFrom?: RestaurantDiningTablePart[];
+  blockedReason?: string;
   active: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type RestaurantFloorElementType = 'wall' | 'door' | 'window' | 'counter' | 'kitchen' | 'column' | 'stage';
+
+export interface RestaurantFloorElement {
+  id: string;
+  posId: string;
+  floor: string;
+  zone: string;
+  type: RestaurantFloorElementType;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RestaurantFloorBackground {
+  floor: string;
+  zone: string;
+  name: string;
+  imageDataUrl: string;
+  opacity: number;
+}
+
+export interface RestaurantFloorPlanSettings {
+  posId: string;
+  gridSize: number;
+  snapToGrid: boolean;
+  showGrid: boolean;
+  backgrounds: RestaurantFloorBackground[];
+  updatedAt: string;
+}
+
+export interface RestaurantFloorPlanVersion {
+  id: string;
+  posId: string;
+  label: string;
+  status: 'draft' | 'published' | 'archived';
+  tables: RestaurantDiningTable[];
+  elements: RestaurantFloorElement[];
+  settings: RestaurantFloorPlanSettings;
+  createdAt: string;
+  createdBy: string;
+  publishedAt?: string;
+}
+
+export interface RestaurantFloorAuditEntry {
+  id: string;
+  posId: string;
+  action: 'table_updated' | 'table_deleted' | 'draft_saved' | 'draft_deleted' | 'published' | 'restored' | 'guest_seated' | 'reservation_seated' | 'order_opened' | 'table_transferred' | 'waiter_assigned' | 'qr_created' | 'bill_requested';
+  summary: string;
+  actor: string;
+  createdAt: string;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 export interface RestaurantGuestOrderItem {

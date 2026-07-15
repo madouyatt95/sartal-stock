@@ -49,6 +49,10 @@ import {
   PMSGuestFeedback,
   SartalCustomer,
   RestaurantDiningTable,
+  RestaurantFloorAuditEntry,
+  RestaurantFloorElement,
+  RestaurantFloorPlanSettings,
+  RestaurantFloorPlanVersion,
   RestaurantTableReservation,
   RestaurantGuestOrder,
   SartalCustomerMessage,
@@ -105,6 +109,10 @@ export interface DatabaseState {
   deliveryOrders: DeliveryOrder[];
   sartalCustomers: SartalCustomer[];
   restaurantDiningTables: RestaurantDiningTable[];
+  restaurantFloorElements: RestaurantFloorElement[];
+  restaurantFloorPlanSettings: RestaurantFloorPlanSettings[];
+  restaurantFloorPlanVersions: RestaurantFloorPlanVersion[];
+  restaurantFloorAudit: RestaurantFloorAuditEntry[];
   restaurantReservations: RestaurantTableReservation[];
   restaurantGuestOrders: RestaurantGuestOrder[];
   sartalCustomerMessages: SartalCustomerMessage[];
@@ -248,6 +256,7 @@ const buildDefaultRestaurantDiningTables = (posId = 'pos-1'): RestaurantDiningTa
     x,
     y,
     rotation,
+    assignedEmployeeId: Number(label.replace(/\D/g, '')) <= 6 ? 'emp-waiter' : 'emp-waiter-2',
     active: true,
     createdAt: now,
     updatedAt: now
@@ -278,6 +287,43 @@ const buildDefaultRestaurantDiningTables = (posId = 'pos-1'): RestaurantDiningTa
     table('T34', 10, 'Mezzanine', 'Salon privé', 72, 72)
   ];
 };
+
+const buildDefaultRestaurantFloorElements = (posId = 'pos-1'): RestaurantFloorElement[] => {
+  const now = new Date().toISOString();
+  const element = (
+    id: string,
+    type: RestaurantFloorElement['type'],
+    label: string,
+    floor: string,
+    zone: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    rotation = 0
+  ): RestaurantFloorElement => ({ id: `floor-${posId}-${id}`, posId, floor, zone, type, label, x, y, width, height, rotation, active: true, createdAt: now, updatedAt: now });
+
+  return [
+    element('wall-north', 'wall', 'Mur principal', 'RDC', 'Salle principale', 50, 5, 90, 2),
+    element('wall-west', 'wall', 'Mur latéral', 'RDC', 'Salle principale', 5, 50, 2, 84),
+    element('entrance', 'door', 'Entrée', 'RDC', 'Salle principale', 50, 95, 14, 3),
+    element('window-east', 'window', 'Baie vitrée', 'RDC', 'Salle principale', 95, 28, 2, 28),
+    element('counter', 'counter', 'Comptoir de service', 'RDC', 'Salle principale', 90, 68, 18, 8),
+    element('kitchen-pass', 'kitchen', 'Passe cuisine', 'RDC', 'Salle principale', 82, 8, 24, 9),
+    element('column', 'column', 'Pilier', 'RDC', 'Salle principale', 54, 51, 5, 5),
+    element('terrace-stage', 'stage', 'Animation', 'RDC', 'Terrasse jardin', 50, 10, 28, 10),
+    element('private-door', 'door', 'Accès salon', 'Mezzanine', 'Salon privé', 50, 94, 16, 3)
+  ];
+};
+
+const buildDefaultRestaurantFloorSettings = (posId = 'pos-1'): RestaurantFloorPlanSettings => ({
+  posId,
+  gridSize: 5,
+  snapToGrid: true,
+  showGrid: true,
+  backgrounds: [],
+  updatedAt: new Date().toISOString()
+});
 
 const initialDB = (): DatabaseState => {
   const companies: Company[] = [
@@ -1139,6 +1185,21 @@ const initialDB = (): DatabaseState => {
   ];
 
   const restaurantDiningTables = buildDefaultRestaurantDiningTables();
+  const restaurantFloorElements = buildDefaultRestaurantFloorElements();
+  const restaurantFloorPlanSettings = [buildDefaultRestaurantFloorSettings()];
+  const restaurantFloorPlanVersions: RestaurantFloorPlanVersion[] = [{
+    id: 'floor-version-initial',
+    posId: 'pos-1',
+    label: 'Plan initial Sártal',
+    status: 'published',
+    tables: restaurantDiningTables.map(table => ({ ...table })),
+    elements: restaurantFloorElements.map(element => ({ ...element })),
+    settings: { ...restaurantFloorPlanSettings[0], backgrounds: [] },
+    createdAt: new Date().toISOString(),
+    createdBy: 'Sártal',
+    publishedAt: new Date().toISOString()
+  }];
+  const restaurantFloorAudit: RestaurantFloorAuditEntry[] = [{ id: 'floor-audit-initial', posId: 'pos-1', action: 'published', summary: 'Plan initial publié', actor: 'Sártal', createdAt: new Date().toISOString() }];
 
   const restaurantGuestOrders: RestaurantGuestOrder[] = [
     { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', intendedPaymentMethod: 'wave', status: 'served', paymentStatus: 'pending', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
@@ -1550,6 +1611,10 @@ const initialDB = (): DatabaseState => {
     deliveryOrders,
     sartalCustomers,
     restaurantDiningTables,
+    restaurantFloorElements,
+    restaurantFloorPlanSettings,
+    restaurantFloorPlanVersions,
+    restaurantFloorAudit,
     restaurantReservations,
     restaurantGuestOrders,
     sartalCustomerMessages,
@@ -2257,6 +2322,20 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     { id: 'approval-substitution-1024', type: 'substitution', referenceId: 'CMD-1024', requestedBy: 'emp-picker', requestedByName: 'Mariama Sow', label: 'Substitution commande CMD-1024', reason: 'Seuil de sécurité bientôt atteint sur le Coca-Cola 33 cl.', status: 'pending', createdAt: new Date(Date.now() - 5 * 60000).toISOString() }
   ];
 
+  const restaurantDiningTables = Array.isArray(state.restaurantDiningTables)
+    ? state.restaurantDiningTables.map(table => ({ ...table, rotation: table.rotation || 0, active: table.active !== false }))
+    : buildDefaultRestaurantDiningTables();
+  const restaurantFloorElements = Array.isArray(state.restaurantFloorElements)
+    ? state.restaurantFloorElements.map(element => ({ ...element, active: element.active !== false }))
+    : buildDefaultRestaurantFloorElements();
+  const restaurantFloorPlanSettings = Array.isArray(state.restaurantFloorPlanSettings) && state.restaurantFloorPlanSettings.length
+    ? state.restaurantFloorPlanSettings.map(settings => ({ ...buildDefaultRestaurantFloorSettings(settings.posId), ...settings, backgrounds: settings.backgrounds || [] }))
+    : [buildDefaultRestaurantFloorSettings()];
+  const restaurantFloorPlanVersions = Array.isArray(state.restaurantFloorPlanVersions)
+    ? state.restaurantFloorPlanVersions
+    : [{ id: 'floor-version-migrated', posId: 'pos-1', label: 'Plan importé', status: 'published' as const, tables: restaurantDiningTables.map(table => ({ ...table })), elements: restaurantFloorElements.map(element => ({ ...element })), settings: { ...restaurantFloorPlanSettings[0], backgrounds: [...restaurantFloorPlanSettings[0].backgrounds] }, createdAt: new Date().toISOString(), createdBy: 'Migration Sártal', publishedAt: new Date().toISOString() }];
+  const restaurantFloorAudit = Array.isArray(state.restaurantFloorAudit) ? state.restaurantFloorAudit : [];
+
   const migratedState: DatabaseState = {
     ...state,
     companies: state.companies || [],
@@ -2280,9 +2359,11 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     externalPOSImportRuns: state.externalPOSImportRuns || [],
     deliveryOrders,
     sartalCustomers,
-    restaurantDiningTables: Array.isArray(state.restaurantDiningTables)
-      ? state.restaurantDiningTables.map(table => ({ ...table, rotation: table.rotation || 0, active: table.active !== false }))
-      : buildDefaultRestaurantDiningTables(),
+    restaurantDiningTables,
+    restaurantFloorElements,
+    restaurantFloorPlanSettings,
+    restaurantFloorPlanVersions,
+    restaurantFloorAudit,
     restaurantReservations: state.restaurantReservations || [
       { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
     ],
@@ -2482,6 +2563,14 @@ export const getDB = (): DatabaseState => {
 
 export const saveDB = (state: DatabaseState): void => {
   localStorage.setItem(DB_KEY, JSON.stringify(state));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sartal-db-updated'));
+    if ('BroadcastChannel' in window) {
+      const channel = new BroadcastChannel('sartal-realtime');
+      channel.postMessage({ type: 'database-updated', at: Date.now() });
+      channel.close();
+    }
+  }
 };
 
 export const resetDB = (): DatabaseState => {
