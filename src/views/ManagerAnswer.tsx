@@ -1,5 +1,6 @@
 import React from 'react';
-import { AlertTriangle, ArrowRight, BedDouble, CheckCircle, ChefHat, CircleDollarSign, Clock3, Package, ReceiptText, Users, Warehouse } from 'lucide-react';
+import { AlertTriangle, ArrowRight, BedDouble, CalendarDays, CheckCircle, ChefHat, CircleDollarSign, Clock3, Package, ReceiptText, Users, Warehouse } from 'lucide-react';
+import RestaurantFloorStudio from '../components/RestaurantFloorStudio';
 import { StockState } from '../hooks/useStockState';
 import { RestaurantGuestOrder } from '../types';
 
@@ -11,7 +12,7 @@ interface ManagerAnswerProps {
 
 export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, canAccessView }) => {
   const { db, updateRestaurantGuestOrderStatus } = state;
-  const canOperateRestaurant = db.currentUser.role === 'admin' || db.currentUser.role === 'pos_manager';
+  const canOperateRestaurant = ['admin', 'director', 'pos_manager'].includes(db.currentUser.role);
   const pmsEnabled = db.sartalBrandSettings.enabledModules.includes('pms');
   const coca = db.products.find(product => product.id === 'prod-coca');
   const demoPOS = db.posList.filter(pos => ['pos-1', 'pos-2', 'pos-3'].includes(pos.id));
@@ -38,17 +39,20 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, ca
   const orderStatusLabels: Record<RestaurantGuestOrder['status'], string> = { placed: 'Reçue', confirmed: 'Confirmée', preparing: 'En cuisine', ready: 'Prête', served: 'Servie', paid: 'Payée', cancelled: 'Annulée' };
   const nextOrderStatus: Record<RestaurantGuestOrder['status'], RestaurantGuestOrder['status'] | null> = { placed: 'preparing', confirmed: 'preparing', preparing: 'ready', ready: 'served', served: null, paid: null, cancelled: null };
   const nextOrderLabels: Partial<Record<RestaurantGuestOrder['status'], string>> = { placed: 'Démarrer', confirmed: 'Démarrer', preparing: 'Marquer prête', ready: 'Servir' };
+  const restaurantPOS = db.posList.find(item => item.id === db.currentUser.posId && item.type === 'restaurant')
+    || db.posList.find(item => item.type === 'restaurant');
 
   return (
     <div className="manager-mobile-page" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Restaurant / POS</h1>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Salle & opérations restaurant</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Un seul produit dans le catalogue, plusieurs prix de vente, plusieurs dépôts de sortie et une imputation chambre possible.
+            Suivez la salle, les demandes et la cuisine en direct, puis contrôlez les prix et les stocks de chaque point de vente.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          {(canAccessView?.('employees') ?? true) && <button className="btn btn-primary" onClick={() => setView('employees')}><CalendarDays size={17} /> Équipes & planning</button>}
           {(canAccessView?.('client') ?? true) && <button className="btn btn-secondary" onClick={() => setView('client')}>Suivi clients en direct</button>}
           {(canAccessView?.('pricing') ?? true) && <button className="btn btn-secondary" onClick={() => setView('pricing')}>
             Prix par canal
@@ -58,6 +62,8 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, ca
           </button>}
         </div>
       </div>
+
+      {restaurantPOS && <RestaurantFloorStudio state={state} posId={restaurantPOS.id} editable={canOperateRestaurant} operatorName={db.currentUser.name} />}
 
       <div className="grid-4">
         <div className="card">

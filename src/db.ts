@@ -48,6 +48,7 @@ import {
   PMSStayCompanion,
   PMSGuestFeedback,
   SartalCustomer,
+  RestaurantDiningTable,
   RestaurantTableReservation,
   RestaurantGuestOrder,
   SartalCustomerMessage,
@@ -103,6 +104,7 @@ export interface DatabaseState {
   externalPOSImportRuns: ExternalPOSImportRun[];
   deliveryOrders: DeliveryOrder[];
   sartalCustomers: SartalCustomer[];
+  restaurantDiningTables: RestaurantDiningTable[];
   restaurantReservations: RestaurantTableReservation[];
   restaurantGuestOrders: RestaurantGuestOrder[];
   sartalCustomerMessages: SartalCustomerMessage[];
@@ -223,6 +225,58 @@ const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string =>
     || ['prod-riz-5kg', 'prod-fonio-1kg', 'prod-niebe-1kg', 'prod-bouillon-sachet'].includes(product.id)
   ) return 'sup-grocery';
   return 'sup-market';
+};
+
+const buildDefaultRestaurantDiningTables = (posId = 'pos-1'): RestaurantDiningTable[] => {
+  const now = new Date().toISOString();
+  const table = (
+    label: string,
+    capacity: number,
+    floor: string,
+    zone: string,
+    x: number,
+    y: number,
+    rotation = 0
+  ): RestaurantDiningTable => ({
+    id: `dining-${posId}-${label.toLowerCase()}`,
+    posId,
+    label,
+    capacity,
+    shape: capacity <= 2 ? 'round' : capacity <= 4 ? 'square' : 'rectangle',
+    floor,
+    zone,
+    x,
+    y,
+    rotation,
+    active: true,
+    createdAt: now,
+    updatedAt: now
+  });
+
+  return [
+    table('T01', 2, 'RDC', 'Salle principale', 12, 20),
+    table('T02', 2, 'RDC', 'Salle principale', 28, 20),
+    table('T03', 4, 'RDC', 'Salle principale', 47, 20),
+    table('T04', 4, 'RDC', 'Salle principale', 68, 20),
+    table('T05', 2, 'RDC', 'Salle principale', 87, 20),
+    table('T06', 4, 'RDC', 'Salle principale', 14, 51),
+    table('T07', 6, 'RDC', 'Salle principale', 37, 51),
+    table('T08', 6, 'RDC', 'Salle principale', 64, 51),
+    table('T09', 4, 'RDC', 'Salle principale', 87, 51),
+    table('T10', 2, 'RDC', 'Salle principale', 17, 82),
+    table('T11', 4, 'RDC', 'Salle principale', 42, 82),
+    table('T12', 8, 'RDC', 'Salle principale', 75, 82),
+    table('T21', 2, 'RDC', 'Terrasse jardin', 18, 30),
+    table('T22', 4, 'RDC', 'Terrasse jardin', 48, 30),
+    table('T23', 4, 'RDC', 'Terrasse jardin', 80, 30),
+    table('T24', 2, 'RDC', 'Terrasse jardin', 18, 72),
+    table('T25', 6, 'RDC', 'Terrasse jardin', 50, 72),
+    table('T26', 4, 'RDC', 'Terrasse jardin', 82, 72),
+    table('T31', 4, 'Mezzanine', 'Salon privé', 22, 30),
+    table('T32', 6, 'Mezzanine', 'Salon privé', 64, 30),
+    table('T33', 8, 'Mezzanine', 'Salon privé', 30, 72),
+    table('T34', 10, 'Mezzanine', 'Salon privé', 72, 72)
+  ];
 };
 
 const initialDB = (): DatabaseState => {
@@ -1084,6 +1138,8 @@ const initialDB = (): DatabaseState => {
     { id: 'table-res-awa', customerId: 'customer-awa', posId: 'pos-1', date: hotelDate(2), time: '13:00', guests: 2, occasion: 'business', status: 'confirmed', tableNumber: 'T06', createdAt: `${today}T10:15:00.000Z` }
   ];
 
+  const restaurantDiningTables = buildDefaultRestaurantDiningTables();
+
   const restaurantGuestOrders: RestaurantGuestOrder[] = [
     { id: 'REST-CLIENT-204', customerId: 'customer-aminata', posId: 'pos-1', reservationId: 'table-res-aminata', tableNumber: 'T12', serviceType: 'dine_in', intendedPaymentMethod: 'wave', status: 'served', paymentStatus: 'pending', items: [{ productId: 'prod-thieb-signature', quantity: 1, salePrice: 9500 }, { productId: 'prod-yassa-poulet', quantity: 1, salePrice: 8000 }, { productId: 'prod-eau-50', quantity: 2, salePrice: 1000 }], payments: [], total: 19500, estimatedMinutes: 30, createdAt: `${today}T19:55:00.000Z`, updatedAt: `${today}T20:32:00.000Z`, kitchenStartedAt: `${today}T19:57:00.000Z`, readyAt: `${today}T20:25:00.000Z`, servedAt: `${today}T20:32:00.000Z` }
   ];
@@ -1493,6 +1549,7 @@ const initialDB = (): DatabaseState => {
     externalPOSImportRuns: [],
     deliveryOrders,
     sartalCustomers,
+    restaurantDiningTables,
     restaurantReservations,
     restaurantGuestOrders,
     sartalCustomerMessages,
@@ -2223,6 +2280,9 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     externalPOSImportRuns: state.externalPOSImportRuns || [],
     deliveryOrders,
     sartalCustomers,
+    restaurantDiningTables: Array.isArray(state.restaurantDiningTables)
+      ? state.restaurantDiningTables.map(table => ({ ...table, rotation: table.rotation || 0, active: table.active !== false }))
+      : buildDefaultRestaurantDiningTables(),
     restaurantReservations: state.restaurantReservations || [
       { id: 'table-res-aminata', customerId: 'customer-aminata', posId: 'pos-1', date: state.pmsSettings?.businessDate || new Date().toISOString().slice(0, 10), time: '20:00', guests: 4, occasion: 'family', status: 'seated', tableNumber: 'T12', notes: 'Allergie aux arachides signalée en cuisine.', createdAt: new Date().toISOString() }
     ],

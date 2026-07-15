@@ -112,6 +112,11 @@ try {
   ['DemoPortal', "queryParams.get('profil')", "queryParams.get('pilotage')", "pilotageMode !== '1'", 'DemoExperienceFrame', 'demoBackoffice', 'enabledModules: demoUniverse.modules', 'canAccessBackofficeView', 'demoPolicy.views.includes', 'state={experienceState}'].forEach(marker => {
     assert(appSource.includes(marker), `Routage de démonstration incomplet : ${marker}`);
   });
+  assert(appSource.includes('demoRoleUser') && appSource.includes("label: 'Salle & opérations'"), 'Le manager restaurant doit conserver son POS et rejoindre le cockpit de salle');
+  const managerSource = readFileSync(new URL('../src/views/ManagerAnswer.tsx', import.meta.url), 'utf8');
+  ['RestaurantFloorStudio', 'editable={canOperateRestaurant}', 'Équipes & planning'].forEach(marker => assert(managerSource.includes(marker), `Cockpit manager restaurant incomplet : ${marker}`));
+  const floorStudioSource = readFileSync(new URL('../src/components/RestaurantFloorStudio.tsx', import.meta.url), 'utf8');
+  ['SALLE EN DIRECT', 'Plan de salle interactif', 'Ouvrir le Studio', 'Glisser-déposer actif', 'Ajouter une table ici'].forEach(marker => assert(floorStudioSource.includes(marker), `Studio de salle incomplet : ${marker}`));
 
   const accessSource = readFileSync(new URL('../src/views/SartalAccessCenter.tsx', import.meta.url), 'utf8');
   assert(accessSource.includes("navigate('pilotage', '1')"), 'Le centre d’accès ne rejoint pas le pilotage explicite');
@@ -120,7 +125,7 @@ try {
   assert(manifest.shortcuts.some(item => item.short_name === 'Pulse' && item.url.includes('pilotage=1')), 'Le raccourci Pulse ne rejoint pas le pilotage');
 
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
-  ['initialRole', 'demoAutoStart', 'Poste de démonstration', 'staff-demo-opening', 'assignedRestaurantOrders', 'item.id === employee.posId', 'item.id === employee.warehouseId', 'customerContextAllowed'].forEach(marker => {
+  ['initialRole', 'demoAutoStart', 'Poste de démonstration', 'staff-demo-opening', 'assignedRestaurantOrders', 'RestaurantFloorStudio', 'item.id === employee.posId', 'item.id === employee.warehouseId', 'customerContextAllowed'].forEach(marker => {
     assert(employeeSource.includes(marker), `Accès direct employé incomplet : ${marker}`);
   });
 

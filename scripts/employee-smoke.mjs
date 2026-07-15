@@ -24,6 +24,7 @@ try {
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { EmployeeWorkspace } = await server.ssrLoadModule('/src/views/EmployeeWorkspace.tsx');
   const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
+  const { RestaurantFloorStudio } = await server.ssrLoadModule('/src/components/RestaurantFloorStudio.tsx');
   let state;
   const Harness = () => {
     state = useStockState();
@@ -36,17 +37,19 @@ try {
   });
   const teamHtml = renderToStaticMarkup(React.createElement(TeamManagement, { state }));
   ['Les bonnes personnes, au bon poste', 'Répertoire des collaborateurs', 'Ajouter un collaborateur'].forEach(marker => assert(teamHtml.includes(marker), `Centre de gestion des équipes incomplet : ${marker}`));
+  const floorHtml = renderToStaticMarkup(React.createElement(RestaurantFloorStudio, { state, posId: 'pos-1', editable: true }));
+  ['Plan de salle interactif', 'Ouvrir le Studio', 'T12', 'Addition'].forEach(marker => assert(floorHtml.includes(marker), `Plan de salle manager incomplet : ${marker}`));
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
-  ['Collaborateurs', 'Affectations', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  ['Collaborateurs', 'Affectations', 'Planning de l’équipe', 'Planifier un service', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
   assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
   ['Arrivées & séjours', 'Nouvelle réservation', 'RÉSERVATION SUR PLACE', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'TOUR DE CONTRÔLE'].forEach(marker => {
     assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
   });
-  ['Mon quotidien', 'Mon planning', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
+  ['Mon quotidien', 'Mon planning', "id: 'schedule'", 'Voir tout mon planning avant de commencer', 'RestaurantFloorStudio', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
     assert(employeeSource.includes(marker), `Expérience collaborateur incomplète : ${marker}`);
   });
   ['kdsItemProgress', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval', 'setPOSProductAvailability'].forEach(marker => {
@@ -71,8 +74,41 @@ try {
   assert(getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId).permissions.join(',') === 'team_messages,discount_request', 'Droits individuels employé non conservés');
   state.deleteEmployeeProfile(temporaryEmployeeId);
   assert(!getDB().employeeProfiles.some(item => item.id === temporaryEmployeeId), 'Suppression d’un profil sans historique impossible');
+  const outsideEmployeeId = state.saveEmployeeProfile({ employeeNumber: 'SAL-998', name: 'Serveur Autre POS', role: 'waiter', siteId: 'site-1', phone: '+221 70 000 09 98', posId: alternatePosId, active: true });
 
   const waiter = db.employeeProfiles.find(item => item.role === 'waiter');
+  const planningDate = new Date();
+  planningDate.setDate(planningDate.getDate() + 10);
+  const planningDateKey = planningDate.toISOString().slice(0, 10);
+  state.changeCurrentUser('user-pos-mgr');
+  let outsideScheduleBlocked = false;
+  try {
+    state.saveEmployeeSchedule({ employeeId: outsideEmployeeId, siteId: 'site-1', date: planningDateKey, startTime: '09:00', endTime: '17:00', assignmentLabel: 'Autre point de vente', status: 'confirmed' }, 'user-pos-mgr');
+  } catch {
+    outsideScheduleBlocked = true;
+  }
+  assert(outsideScheduleBlocked, 'Le manager restaurant ne doit pas planifier un employé d’un autre POS');
+  const temporaryTableId = state.saveRestaurantDiningTable({ posId: 'pos-1', label: 'T99', capacity: 4, shape: 'square', floor: 'RDC', zone: 'Salle test', x: 50, y: 50, rotation: 0, active: true });
+  assert(getDB().restaurantDiningTables.some(item => item.id === temporaryTableId && item.label === 'T99'), 'Le manager restaurant ne peut pas ajouter une table au Studio');
+  state.saveRestaurantDiningTable({ ...getDB().restaurantDiningTables.find(item => item.id === temporaryTableId), x: 72, y: 38, rotation: 45 });
+  assert(getDB().restaurantDiningTables.find(item => item.id === temporaryTableId)?.x === 72, 'Le déplacement d’une table du Studio n’est pas conservé');
+  state.deleteRestaurantDiningTable(temporaryTableId);
+  assert(!getDB().restaurantDiningTables.some(item => item.id === temporaryTableId), 'Le manager restaurant ne peut pas retirer une table libre');
+  const plannedServiceId = state.saveEmployeeSchedule({ employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '10:00', endTime: '18:00', assignmentLabel: 'Restaurant La Terrasse · Salle principale', status: 'confirmed' }, 'user-pos-mgr');
+  assert(getDB().employeeSchedules.some(item => item.id === plannedServiceId && item.status === 'confirmed'), 'Le manager restaurant ne peut pas créer un service');
+  state.saveEmployeeSchedule({ id: plannedServiceId, employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '11:00', endTime: '19:00', assignmentLabel: 'Restaurant La Terrasse · Terrasse', status: 'confirmed' }, 'user-pos-mgr');
+  assert(getDB().employeeSchedules.find(item => item.id === plannedServiceId)?.startTime === '11:00', 'Le manager restaurant ne peut pas modifier un service');
+  let overlappingScheduleBlocked = false;
+  try {
+    state.saveEmployeeSchedule({ employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '18:00', endTime: '20:00', assignmentLabel: 'Restaurant La Terrasse', status: 'confirmed' }, 'user-pos-mgr');
+  } catch {
+    overlappingScheduleBlocked = true;
+  }
+  assert(overlappingScheduleBlocked, 'Deux services qui se chevauchent ne doivent pas être acceptés');
+  state.deleteEmployeeSchedule(plannedServiceId, 'user-pos-mgr');
+  assert(!getDB().employeeSchedules.some(item => item.id === plannedServiceId), 'Le manager restaurant ne peut pas retirer un service futur');
+  state.changeCurrentUser('user-admin');
+  state.deleteEmployeeProfile(outsideEmployeeId);
   const shiftId = state.startEmployeeShift(waiter.id, waiter.posId, 'Tablette de service');
   db = getDB();
   assert(db.employeeShifts.find(item => item.id === shiftId)?.status === 'open', 'Prise de service non enregistrée');

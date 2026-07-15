@@ -423,6 +423,24 @@ export interface RestaurantTableReservation {
   createdAt: string;
 }
 
+export type RestaurantDiningTableShape = 'round' | 'square' | 'rectangle';
+
+export interface RestaurantDiningTable {
+  id: string;
+  posId: string;
+  label: string;
+  capacity: number;
+  shape: RestaurantDiningTableShape;
+  floor: string;
+  zone: string;
+  x: number;
+  y: number;
+  rotation: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RestaurantGuestOrderItem {
   productId: string;
   quantity: number;

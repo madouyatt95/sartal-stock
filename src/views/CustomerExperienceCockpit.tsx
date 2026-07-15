@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  AlertTriangle, ArrowRight, BellRing, CalendarCheck, CheckCircle, ClipboardCheck,
+  ArrowRight, BellRing, CalendarCheck, CheckCircle, ClipboardCheck,
   Clock3, HeartHandshake, ListChecks, MessageCircle, ShieldCheck, Sparkles,
   UserCheck, Users
 } from 'lucide-react';
@@ -80,7 +80,7 @@ export const CustomerExperienceCockpit: React.FC<CustomerExperienceCockpitProps>
         <section><header><UserCheck size={19} /><div><strong>Parcours à tenir</strong><span>Le prochain engagement de chaque service</span></div></header><div>{liveJourneys.slice(0, 6).map(item => <article key={item.id}><div><strong>{item.title}</strong><small>{db.sartalCustomers.find(customer => customer.id === item.customerId)?.fullName} · {item.assignedTo}</small></div><time>{new Date(item.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time><button onClick={() => updateSartalJourneyItemStatus(item.id, item.status === 'upcoming' ? 'in_progress' : 'completed')}>{item.status === 'upcoming' ? 'Démarrer' : 'Terminer'}</button></article>)}</div></section>
       </div>
     </section>
-    <section className="cx-client-preview"><header><div><span>APERÇU INTERNE DU PORTAIL PUBLIC</span><h2>Ce que le client voit réellement</h2></div><small><AlertTriangle size={14} /> Le test public s’ouvre séparément et recommence par l’identification</small></header><SartalClient state={state} /></section>
+    <section className="cx-client-preview"><header><div><span>APERÇU INTERNE DU PORTAIL PUBLIC</span><h2>Ce que le client voit réellement</h2></div><small><ShieldCheck size={14} /> Aperçu réservé aux équipes autorisées</small></header><SartalClient state={state} /></section>
   </div>;
 };
 

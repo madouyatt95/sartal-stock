@@ -12,6 +12,7 @@ import {
   EmployeeMessage,
   EmployeeProfile,
   EmployeeRecognition,
+  EmployeeSchedule,
   EmployeeShift,
   EmployeeSupportRequest,
   EmployeeWellbeingCheckIn,
@@ -41,6 +42,7 @@ import {
   PMSServiceRequest,
   PMSSettings,
   RestaurantGuestOrder,
+  RestaurantDiningTable,
   RestaurantWaitlistEntry,
   RestaurantTableReservation,
   SartalBrandSettings,
@@ -88,6 +90,22 @@ type PMSConfigRecord =
 
 const isOffline = () => typeof navigator !== 'undefined' && !navigator.onLine;
 const createRuntimeId = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
+const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+
+const canManageEmployeeSchedule = (database: DatabaseState, employee: EmployeeProfile, managerId?: string) => {
+  const staffManager = managerId
+    ? database.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active)
+    : undefined;
+  if (staffManager?.siteId === employee.siteId) return true;
+  if (['admin', 'director'].includes(database.currentUser.role)) return true;
+  if (database.currentUser.role === 'pos_manager') {
+    const managerPOS = database.posList.find(item => item.id === database.currentUser.posId);
+    return Boolean(managerPOS && employee.posId === managerPOS.id && POS_EMPLOYEE_ROLES.includes(employee.role));
+  }
+  if (database.currentUser.role === 'stock_manager') return WAREHOUSE_EMPLOYEE_ROLES.includes(employee.role);
+  return false;
+};
 
 export const useStockState = () => {
   const [db, setDb] = useState<DatabaseState>(() => getDB());
@@ -108,9 +126,10 @@ export const useStockState = () => {
   }, [refresh]);
 
   const changeCurrentUser = (userId: string) => {
-    const user = db.users.find(u => u.id === userId);
+    const currentDb = getDB();
+    const user = currentDb.users.find(u => u.id === userId);
     if (user) {
-      const newDb = { ...db, currentUser: user };
+      const newDb = { ...currentDb, currentUser: user };
       saveDB(newDb);
       setDb(newDb);
     }
@@ -236,7 +255,7 @@ export const useStockState = () => {
       if (newDb.currentUser.role === 'stock_manager') throw new Error('Le responsable stock ne peut pas affecter les équipes restaurant');
       if (newDb.currentUser.role === 'pos_manager') {
         const managerPOS = newDb.posList.find(item => item.id === newDb.currentUser.posId);
-        if (!managerPOS || managerPOS.siteId !== employee.siteId) throw new Error('Ce collaborateur ne relève pas de votre établissement');
+        if (!managerPOS || employee.posId !== managerPOS.id || target.id !== managerPOS.id) throw new Error('Ce collaborateur ne relève pas de votre point de vente');
       }
       employee.posId = target.id;
       employee.warehouseId = undefined;
@@ -436,11 +455,75 @@ export const useStockState = () => {
     refresh();
   };
 
+  const saveEmployeeSchedule = (
+    payload: Pick<EmployeeSchedule, 'employeeId' | 'siteId' | 'date' | 'startTime' | 'endTime' | 'assignmentLabel'> & {
+      id?: string;
+      status?: Extract<EmployeeSchedule['status'], 'planned' | 'confirmed'>;
+    },
+    managerId?: string
+  ) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === payload.employeeId && item.active);
+    if (!employee || employee.siteId !== payload.siteId) throw new Error('Collaborateur ou établissement invalide');
+    if (!canManageEmployeeSchedule(newDb, employee, managerId)) throw new Error('Votre périmètre ne permet pas de planifier ce collaborateur');
+    const existing = payload.id ? newDb.employeeSchedules.find(item => item.id === payload.id) : undefined;
+    if (payload.id && !existing) throw new Error('Service planifié introuvable');
+    if (existing && existing.employeeId !== employee.id) throw new Error('Le collaborateur d’un service existant ne peut pas être remplacé');
+    if (existing && ['swap_pending_colleague', 'swap_colleague_accepted', 'leave_requested'].includes(existing.status)) {
+      throw new Error('Traitez la demande en cours avant de modifier ce service');
+    }
+    if (!payload.date || payload.date < new Date().toISOString().slice(0, 10)) throw new Error('Choisissez une date à partir d’aujourd’hui');
+    if (!payload.startTime || !payload.endTime || payload.startTime >= payload.endTime) throw new Error('Les horaires du service sont invalides');
+    const assignmentLabel = payload.assignmentLabel.trim();
+    if (!assignmentLabel) throw new Error('Précisez le poste ou la zone de service');
+    const overlap = newDb.employeeSchedules.some(item => (
+      item.id !== existing?.id
+      && item.employeeId === employee.id
+      && item.date === payload.date
+      && payload.startTime < item.endTime
+      && payload.endTime > item.startTime
+    ));
+    if (overlap) throw new Error('Ce collaborateur possède déjà un service sur cette plage horaire');
+    const schedule: EmployeeSchedule = {
+      id: existing?.id || createRuntimeId('SCHEDULE'),
+      employeeId: employee.id,
+      siteId: employee.siteId,
+      date: payload.date,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      assignmentLabel,
+      status: payload.status || 'confirmed'
+    };
+    if (existing) Object.assign(existing, schedule);
+    else newDb.employeeSchedules.push(schedule);
+    newDb.employeeSchedules.sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
+    saveDB(newDb);
+    refresh();
+    return schedule.id;
+  };
+
+  const deleteEmployeeSchedule = (scheduleId: string, managerId?: string) => {
+    const newDb = getDB();
+    const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId);
+    const employee = schedule && newDb.employeeProfiles.find(item => item.id === schedule.employeeId);
+    if (!schedule || !employee) throw new Error('Service planifié introuvable');
+    if (!canManageEmployeeSchedule(newDb, employee, managerId)) throw new Error('Votre périmètre ne permet pas de supprimer ce service');
+    const engaged = ['swap_pending_colleague', 'swap_colleague_accepted', 'leave_requested'].includes(schedule.status)
+      || newDb.employeeSchedules.some(item => item.requestedColleagueScheduleId === schedule.id && ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status));
+    if (engaged) throw new Error('Traitez la demande ou l’échange en cours avant de supprimer ce service');
+    if (schedule.date < new Date().toISOString().slice(0, 10)) throw new Error('Un service passé reste conservé dans l’historique');
+    newDb.employeeSchedules = newDb.employeeSchedules.filter(item => item.id !== schedule.id);
+    saveDB(newDb);
+    refresh();
+  };
+
   const reviewEmployeeScheduleChange = (scheduleId: string, managerId: string, approved: boolean, note = '') => {
     const newDb = getDB();
     const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId && ['swap_colleague_accepted', 'leave_requested'].includes(item.status));
-    const manager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active);
-    if (!schedule || !manager || schedule.siteId !== manager.siteId) throw new Error('Demande de planning ou manager introuvable');
+    const scheduledEmployee = schedule && newDb.employeeProfiles.find(item => item.id === schedule.employeeId);
+    const staffManager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active);
+    if (!schedule || !scheduledEmployee || !canManageEmployeeSchedule(newDb, scheduledEmployee, managerId)) throw new Error('Demande de planning ou manager introuvable');
+    const managerName = staffManager?.name || newDb.currentUser.name;
     if (approved && schedule.status === 'swap_colleague_accepted') {
       const colleagueSchedule = newDb.employeeSchedules.find(item => item.id === schedule.requestedColleagueScheduleId && item.employeeId === schedule.requestedColleagueId);
       if (!colleagueSchedule || !['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(colleagueSchedule.status)) throw new Error('Le créneau du collègue n’est plus disponible');
@@ -454,10 +537,10 @@ export const useStockState = () => {
       colleagueSchedule.endTime = requesterSlot.endTime;
       colleagueSchedule.assignmentLabel = requesterSlot.assignmentLabel;
       colleagueSchedule.status = 'change_approved';
-      colleagueSchedule.managerNote = `Échange validé par ${manager.name}`;
+      colleagueSchedule.managerNote = `Échange validé par ${managerName}`;
     }
     schedule.status = approved ? 'change_approved' : 'change_rejected';
-    schedule.managerNote = note.trim() || (approved ? `Validé par ${manager.name}` : `Refusé par ${manager.name}`);
+    schedule.managerNote = note.trim() || (approved ? `Validé par ${managerName}` : `Refusé par ${managerName}`);
     saveDB(newDb);
     refresh();
   };
@@ -2333,6 +2416,64 @@ export const useStockState = () => {
     return result;
   };
 
+  const saveRestaurantDiningTable = (payload: Omit<RestaurantDiningTable, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
+    const newDb = getDB();
+    const pos = newDb.posList.find(item => item.id === payload.posId && item.type === 'restaurant');
+    const canManage = ['admin', 'director'].includes(newDb.currentUser.role)
+      || (newDb.currentUser.role === 'pos_manager' && newDb.currentUser.posId === payload.posId);
+    if (!canManage) throw new Error('Seul un manager autorisé peut modifier le plan de salle');
+    if (!pos) throw new Error('Restaurant introuvable');
+
+    const label = payload.label.trim().toUpperCase();
+    const floor = payload.floor.trim();
+    const zone = payload.zone.trim();
+    const capacity = Math.round(payload.capacity);
+    if (!label || !floor || !zone) throw new Error('Numéro, niveau et zone sont obligatoires');
+    if (capacity < 1 || capacity > 20) throw new Error('La capacité doit être comprise entre 1 et 20 personnes');
+
+    const id = payload.id || createRuntimeId('TABLE');
+    const existing = newDb.restaurantDiningTables.find(item => item.id === id);
+    if (existing && existing.posId !== payload.posId) throw new Error('Une table ne peut pas être déplacée vers un autre point de vente');
+    if (newDb.restaurantDiningTables.some(item => item.id !== id && item.posId === pos.id && item.label === label)) {
+      throw new Error(`La table ${label} existe déjà dans ce restaurant`);
+    }
+    const now = new Date().toISOString();
+    const record: RestaurantDiningTable = {
+      ...payload,
+      id,
+      label,
+      floor,
+      zone,
+      capacity,
+      x: Math.min(96, Math.max(4, payload.x)),
+      y: Math.min(94, Math.max(8, payload.y)),
+      rotation: Math.round(payload.rotation || 0) % 360,
+      active: payload.active !== false,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now
+    };
+    if (existing) Object.assign(existing, record);
+    else newDb.restaurantDiningTables.push(record);
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const deleteRestaurantDiningTable = (tableId: string) => {
+    const newDb = getDB();
+    const table = newDb.restaurantDiningTables.find(item => item.id === tableId);
+    if (!table) throw new Error('Table introuvable');
+    const canManage = ['admin', 'director'].includes(newDb.currentUser.role)
+      || (newDb.currentUser.role === 'pos_manager' && newDb.currentUser.posId === table.posId);
+    if (!canManage) throw new Error('Seul un manager autorisé peut supprimer une table');
+    const hasOpenOrder = newDb.restaurantGuestOrders.some(order => order.posId === table.posId && order.tableNumber === table.label && !['paid', 'cancelled'].includes(order.status));
+    const hasOpenReservation = newDb.restaurantReservations.some(reservation => reservation.posId === table.posId && reservation.tableNumber === table.label && ['confirmed', 'seated'].includes(reservation.status));
+    if (hasOpenOrder || hasOpenReservation) throw new Error('Libérez la table et ses réservations avant de la supprimer');
+    newDb.restaurantDiningTables = newDb.restaurantDiningTables.filter(item => item.id !== tableId);
+    saveDB(newDb);
+    refresh();
+  };
+
   const createRestaurantReservation = (payload: Omit<RestaurantTableReservation, 'id' | 'status' | 'createdAt'>) => {
     const newDb = getDB();
     const customer = newDb.sartalCustomers.find(item => item.id === payload.customerId);
@@ -3274,6 +3415,8 @@ export const useStockState = () => {
     updateEmployeeSupportRequest,
     requestEmployeeScheduleChange,
     respondEmployeeScheduleSwap,
+    saveEmployeeSchedule,
+    deleteEmployeeSchedule,
     reviewEmployeeScheduleChange,
     startEmployeeBreak,
     completeEmployeeBreak,
@@ -3367,6 +3510,8 @@ export const useStockState = () => {
     returnDeliveryOrder,
     cancelDeliveryOrder,
     deliverDeliveryOrder,
+    saveRestaurantDiningTable,
+    deleteRestaurantDiningTable,
     createRestaurantReservation,
     updateRestaurantReservation,
     cancelRestaurantReservation,

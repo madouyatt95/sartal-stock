@@ -52,6 +52,602 @@
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Restaurant floor plan shared by management and dining-room teams */
+.restaurant-floor-studio {
+  position: relative;
+  overflow: hidden;
+  padding: 1.25rem;
+  color: #f7fffd;
+  background: #0b2622;
+  border: 1px solid #1d4d45;
+  border-radius: 8px;
+  box-shadow: 0 18px 42px rgba(5, 33, 29, 0.18);
+}
+
+.restaurant-floor-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.restaurant-floor-toolbar > div:first-child > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #78e2c8;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.restaurant-floor-toolbar > div:first-child > span i {
+  width: 8px;
+  height: 8px;
+  background: #33d39f;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(51, 211, 159, 0.13);
+}
+
+.restaurant-floor-toolbar h2 {
+  margin-top: 0.3rem;
+  color: #fff;
+  font-size: 1.35rem;
+}
+
+.restaurant-floor-toolbar p {
+  max-width: 680px;
+  margin-top: 0.25rem;
+  color: #b8cfca;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.restaurant-floor-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.restaurant-floor-live-stats {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.restaurant-floor-live-stats span {
+  min-width: 82px;
+  padding: 0.6rem 0.7rem;
+  color: #b8cfca;
+  background: #123832;
+  border: 1px solid #225149;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.restaurant-floor-live-stats strong {
+  display: block;
+  color: #fff;
+  font-size: 1.05rem;
+}
+
+.restaurant-floor-live-stats .attention strong { color: #63f0cf; }
+
+.restaurant-floor-toolbar-actions > button,
+.restaurant-floor-zones .add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+  color: #15332e;
+  background: #f2bd4c;
+  border: 1px solid #f2bd4c;
+  border-radius: 6px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.restaurant-floor-toolbar-actions > button.active {
+  color: #fff;
+  background: #b74d3a;
+  border-color: #d36954;
+}
+
+.restaurant-floor-levels,
+.restaurant-floor-zones {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
+}
+
+.restaurant-floor-levels { margin-bottom: 0.55rem; }
+.restaurant-floor-zones { margin-bottom: 0.85rem; }
+
+.restaurant-floor-levels button,
+.restaurant-floor-zones button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 40px;
+  padding: 0.55rem 0.85rem;
+  color: #b8cfca;
+  background: #123832;
+  border: 1px solid #225149;
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.restaurant-floor-levels button.active,
+.restaurant-floor-zones button.active {
+  color: #06231e;
+  background: #72dbc2;
+  border-color: #72dbc2;
+}
+
+.restaurant-floor-zones .add {
+  color: #15332e;
+  background: #f2bd4c;
+  border-color: #f2bd4c;
+}
+
+.restaurant-floor-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.restaurant-floor-workspace.has-panel { grid-template-columns: minmax(0, 1fr) 330px; }
+.restaurant-floor-studio.compact .restaurant-floor-workspace.has-panel { grid-template-columns: minmax(0, 1fr); }
+
+.restaurant-floor-canvas {
+  position: relative;
+  min-height: 610px;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #071a17;
+  border: 1px solid #2c5b52;
+  border-radius: 8px;
+  box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.42);
+}
+
+.restaurant-floor-studio.compact .restaurant-floor-canvas { min-height: 540px; }
+
+.restaurant-floor-grid-lines {
+  position: absolute;
+  z-index: -1;
+  inset: -16% -8% -24%;
+  opacity: 0.28;
+  background-image: linear-gradient(rgba(119, 205, 184, 0.25) 1px, transparent 1px), linear-gradient(90deg, rgba(119, 205, 184, 0.25) 1px, transparent 1px);
+  background-size: 36px 36px;
+  transform: perspective(680px) rotateX(54deg) translateY(-4%);
+  transform-origin: center bottom;
+}
+
+.restaurant-floor-orientation {
+  position: absolute;
+  z-index: 20;
+  top: 0.85rem;
+  left: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #8fb8af;
+  font-size: 0.78rem;
+  font-weight: 850;
+  pointer-events: none;
+}
+
+.restaurant-floor-orientation b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.35rem;
+  padding: 0.3rem 0.45rem;
+  color: #171f1c;
+  background: #f2bd4c;
+  border-radius: 4px;
+}
+
+.restaurant-studio-table {
+  --table-scale: 1;
+  position: absolute;
+  z-index: 5;
+  width: 92px;
+  height: 92px;
+  padding: 0;
+  color: #fff;
+  background: transparent;
+  border: 0;
+  transform: translate(-50%, -50%) rotate(var(--table-rotation)) scale(var(--table-scale));
+  transform-origin: center;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.restaurant-floor-studio.editing .restaurant-studio-table { cursor: grab; }
+.restaurant-floor-studio.editing .restaurant-studio-table:active { cursor: grabbing; }
+.restaurant-studio-table.rectangle { width: 126px; }
+
+.restaurant-studio-table-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.restaurant-studio-table-surface {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  color: #dff8f1;
+  background: #193b35;
+  border: 2px solid #42c996;
+  border-radius: 7px;
+  box-shadow: 0 8px 0 #0d2521, 0 13px 20px rgba(0, 0, 0, 0.38);
+  transform: translate(-50%, -55%);
+}
+
+.restaurant-studio-table.round .restaurant-studio-table-surface { border-radius: 50%; }
+.restaurant-studio-table.rectangle .restaurant-studio-table-surface { width: 92px; height: 48px; }
+.restaurant-studio-table-surface strong { font-size: 0.92rem; }
+.restaurant-studio-table-surface small { margin-top: 0.1rem; color: #a7c7bf; font-size: 0.75rem; font-weight: 800; }
+
+.restaurant-studio-chair {
+  --chair-radius: 41px;
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 17px;
+  height: 11px;
+  background: #40645c;
+  border: 1px solid #68867f;
+  border-radius: 4px 4px 7px 7px;
+  box-shadow: 0 4px 0 #1c3731;
+  transform: translate(-50%, -50%) rotate(var(--chair-angle)) translateY(calc(-1 * var(--chair-radius)));
+}
+
+.restaurant-studio-table.rectangle .restaurant-studio-chair { --chair-radius: 48px; }
+
+.restaurant-studio-table.reserved .restaurant-studio-table-surface { color: #ddebff; border-color: #62a9ff; }
+.restaurant-studio-table.occupied .restaurant-studio-table-surface { color: #fff2c9; border-color: #f0bc4b; }
+.restaurant-studio-table.kitchen .restaurant-studio-table-surface { color: #ffe5d5; border-color: #ff8a4c; }
+.restaurant-studio-table.ready .restaurant-studio-table-surface { color: #cffff1; border-color: #2ee3b6; box-shadow: 0 8px 0 #0d2521, 0 0 24px rgba(46, 227, 182, 0.48); }
+.restaurant-studio-table.bill .restaurant-studio-table-surface { color: #f3e4ff; border-color: #d59bff; }
+.restaurant-studio-table.selected { --table-scale: 1.1; z-index: 15; }
+.restaurant-studio-table.selected .restaurant-studio-table-surface { outline: 3px solid rgba(255, 255, 255, 0.82); outline-offset: 4px; }
+
+.restaurant-studio-ready,
+.restaurant-studio-request {
+  position: absolute;
+  z-index: 8;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  color: #06231e;
+  background: #55edc8;
+  border: 2px solid #d9fff5;
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px rgba(85, 237, 200, 0.12);
+  animation: restaurant-ready-pulse 1.4s ease-in-out infinite;
+}
+
+.restaurant-studio-request { top: auto; right: 1px; bottom: 10px; color: #382907; background: #f2bd4c; border-color: #fff0c9; }
+
+@keyframes restaurant-ready-pulse {
+  50% { transform: scale(1.12); }
+}
+
+.restaurant-studio-timer {
+  position: absolute;
+  z-index: 7;
+  right: 50%;
+  bottom: -6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.25rem 0.4rem;
+  color: #dcece8;
+  background: #0c2823;
+  border: 1px solid #315c53;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+  transform: translateX(50%) rotate(calc(-1 * var(--table-rotation)));
+}
+
+.restaurant-floor-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  color: #97b7af;
+}
+
+.restaurant-floor-empty button,
+.restaurant-studio-help button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.8rem;
+  color: #15332e;
+  background: #f2bd4c;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 850;
+}
+
+.restaurant-studio-editor,
+.restaurant-floor-detail,
+.restaurant-studio-help {
+  min-width: 0;
+  padding: 1rem;
+  color: #eafff9;
+  background: #123832;
+  border: 1px solid #2c5b52;
+  border-radius: 8px;
+}
+
+.restaurant-studio-help {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.restaurant-studio-help p { color: #b8cfca; line-height: 1.5; }
+
+.restaurant-studio-editor > header,
+.restaurant-floor-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 1px solid #2c5b52;
+}
+
+.restaurant-studio-editor > header span,
+.restaurant-floor-detail > header span { color: #78e2c8; font-size: 0.75rem; font-weight: 900; }
+.restaurant-studio-editor > header h3,
+.restaurant-floor-detail > header h3 { margin-top: 0.15rem; color: #fff; font-size: 1.35rem; }
+.restaurant-floor-detail > header p { color: #a9c3bd; font-size: 0.82rem; }
+.restaurant-studio-editor > header > button,
+.restaurant-floor-detail > header > button { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; color: #dff8f1; background: #1b4a42; border: 1px solid #37675e; border-radius: 6px; }
+
+.restaurant-studio-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  margin-top: 0.9rem;
+}
+
+.restaurant-studio-form label,
+.restaurant-studio-rotation {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #b8cfca;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.restaurant-studio-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.65rem 0.7rem;
+  color: #fff;
+  background: #092b25;
+  border: 1px solid #37675e;
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
+
+.restaurant-studio-editor fieldset { margin-top: 0.85rem; padding: 0; border: 0; }
+.restaurant-studio-editor legend { margin-bottom: 0.45rem; color: #b8cfca; font-size: 0.78rem; font-weight: 800; }
+.restaurant-studio-editor fieldset > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.35rem; }
+.restaurant-studio-editor fieldset button { min-height: 54px; padding: 0.4rem; color: #b8cfca; background: #092b25; border: 1px solid #37675e; border-radius: 6px; font-size: 0.76rem; font-weight: 800; }
+.restaurant-studio-editor fieldset button.active { color: #092b25; background: #72dbc2; border-color: #72dbc2; }
+.restaurant-studio-editor fieldset button i { display: block; width: 21px; height: 15px; margin: 0 auto 0.25rem; background: currentColor; border-radius: 3px; }
+.restaurant-studio-editor fieldset button i.round { width: 17px; height: 17px; border-radius: 50%; }
+.restaurant-studio-editor fieldset button i.rectangle { width: 30px; }
+
+.restaurant-studio-rotation { margin-top: 0.9rem; }
+.restaurant-studio-rotation span { display: flex; align-items: center; gap: 0.4rem; }
+.restaurant-studio-rotation span b { margin-left: auto; color: #fff; }
+.restaurant-studio-rotation input { accent-color: #f2bd4c; }
+
+.restaurant-studio-editor-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.restaurant-studio-editor-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  border-radius: 6px;
+  font-weight: 850;
+}
+
+.restaurant-studio-editor-actions .danger { color: #ffd7d0; background: #57271f; border: 1px solid #814236; }
+.restaurant-studio-editor-actions .save { color: #112d28; background: #f2bd4c; border: 1px solid #f2bd4c; }
+
+.restaurant-floor-customer,
+.restaurant-floor-reservation,
+.restaurant-floor-bill {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  background: #092b25;
+  border: 1px solid #2b5a51;
+  border-radius: 6px;
+}
+
+.restaurant-floor-customer span,
+.restaurant-floor-reservation span,
+.restaurant-floor-bill span { display: flex; min-width: 0; flex-direction: column; }
+.restaurant-floor-customer small,
+.restaurant-floor-reservation small,
+.restaurant-floor-bill small { color: #a9c3bd; font-size: 0.75rem; }
+.restaurant-floor-customer em { margin-top: 0.3rem; color: #ffd39b; font-size: 0.78rem; font-style: normal; font-weight: 800; }
+.restaurant-floor-order { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.75rem; color: #c6dbd6; }
+.restaurant-floor-order span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.restaurant-floor-order strong { color: #fff; }
+.restaurant-floor-primary { display: inline-flex; width: 100%; min-height: 44px; align-items: center; justify-content: center; gap: 0.45rem; margin-top: 0.8rem; color: #102e28; background: #72dbc2; border: 0; border-radius: 6px; font-weight: 850; }
+
+.restaurant-floor-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  overflow-x: auto;
+  margin-top: 0.85rem;
+  color: #a9c3bd;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.restaurant-floor-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.restaurant-floor-legend span i { width: 9px; height: 9px; background: #42c996; border-radius: 50%; }
+.restaurant-floor-legend .reserved i { background: #62a9ff; }
+.restaurant-floor-legend .occupied i { background: #f0bc4b; }
+.restaurant-floor-legend .kitchen i { background: #ff8a4c; }
+.restaurant-floor-legend .ready i { background: #2ee3b6; box-shadow: 0 0 8px rgba(46, 227, 182, 0.8); }
+.restaurant-floor-legend .bill i { background: #d59bff; }
+.restaurant-floor-legend b { margin-left: auto; color: #d9ece7; }
+
+.restaurant-floor-notice {
+  position: absolute;
+  z-index: 100;
+  right: 1rem;
+  bottom: 1rem;
+  max-width: min(360px, calc(100% - 2rem));
+  padding: 0.75rem 0.9rem;
+  color: #092b25;
+  background: #f8d887;
+  border: 1px solid #ffeba9;
+  border-radius: 6px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+  font-weight: 800;
+}
+
+.staff-floor-main { padding: 0 !important; overflow: visible !important; background: transparent !important; border: 0 !important; }
+.staff-floor-main .restaurant-floor-studio { min-height: 100%; }
+
+.staff-pre-shift-planning-toggle {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  padding: 0.7rem 0.8rem;
+  color: var(--staff-role);
+  background: color-mix(in srgb, var(--staff-role) 8%, #fff);
+  border: 1px solid color-mix(in srgb, var(--staff-role) 30%, #d9e2e0);
+  border-radius: 6px;
+  font-weight: 850;
+  text-align: left;
+}
+
+.staff-pre-shift-planning-toggle svg:last-child { margin-left: auto; }
+
+.staff-pre-shift-planning {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+  padding: 0.55rem;
+  background: #f6faf9;
+  border: 1px solid #d7e4e1;
+  border-radius: 6px;
+}
+
+.staff-pre-shift-planning article {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem;
+  background: #fff;
+  border: 1px solid #dfe9e7;
+  border-radius: 5px;
+}
+
+.staff-pre-shift-planning time,
+.staff-pre-shift-planning article > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.staff-pre-shift-planning time span,
+.staff-pre-shift-planning article small { color: #61716e; font-size: 0.78rem; }
+.staff-pre-shift-planning > p { padding: 0.7rem; color: #61716e; text-align: center; }
+
+@media (max-width: 1100px) {
+  .restaurant-floor-toolbar { flex-direction: column; }
+  .restaurant-floor-toolbar-actions { width: 100%; justify-content: space-between; }
+  .restaurant-floor-workspace.has-panel { grid-template-columns: minmax(0, 1fr) 290px; }
+  .restaurant-floor-canvas { min-height: 560px; }
+}
+
+@media (max-width: 820px) {
+  .restaurant-floor-studio { padding: 0.85rem; }
+  .restaurant-floor-toolbar-actions { align-items: stretch; flex-direction: column; }
+  .restaurant-floor-live-stats { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .restaurant-floor-live-stats span { min-width: 0; }
+  .restaurant-floor-toolbar-actions > button { width: 100%; }
+  .restaurant-floor-workspace.has-panel { grid-template-columns: 1fr; }
+  .restaurant-floor-canvas,
+  .restaurant-floor-studio.compact .restaurant-floor-canvas { min-height: 540px; }
+  .restaurant-studio-editor,
+  .restaurant-floor-detail,
+  .restaurant-studio-help { min-height: auto; }
+}
+
+@media (max-width: 520px) {
+  .restaurant-floor-studio { margin-inline: -0.15rem; padding: 0.7rem; }
+  .restaurant-floor-toolbar h2 { font-size: 1.15rem; }
+  .restaurant-floor-toolbar p { font-size: 0.86rem; }
+  .restaurant-floor-live-stats span { padding-inline: 0.35rem; font-size: 0.76rem; }
+  .restaurant-floor-levels button,
+  .restaurant-floor-zones button { min-height: 42px; padding-inline: 0.7rem; font-size: 0.8rem; }
+  .restaurant-floor-canvas,
+  .restaurant-floor-studio.compact .restaurant-floor-canvas { min-height: 510px; }
+  .restaurant-studio-table { --table-scale: 0.78; }
+  .restaurant-studio-table.selected { --table-scale: 0.9; }
+  .restaurant-floor-orientation { top: 0.6rem; left: 0.65rem; max-width: calc(100% - 1.3rem); flex-wrap: wrap; }
+  .restaurant-studio-form { grid-template-columns: 1fr; }
+  .restaurant-studio-editor-actions { grid-template-columns: 1fr; }
+  .restaurant-floor-legend { gap: 0.65rem; padding-bottom: 0.2rem; }
+  .restaurant-floor-legend b { margin-left: 0; }
+  .staff-pre-shift-planning article { grid-template-columns: 1fr; }
+}
+
 /* Employee wellbeing, planning and growth workspace. */
 .staff-next-shift {
   display: flex;
@@ -94,7 +690,7 @@
 .staff-workload-choice button { min-height: 36px; padding: 6px; border: 1px solid #cfddda; border-radius: 6px; background: #fff; color: #536b65; cursor: pointer; font-size: 0.68rem; font-weight: 800; }
 .staff-workload-choice button.active { border-color: var(--staff-role); background: var(--staff-role); color: #fff; }
 
-.staff-wellbeing-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #d7e3e0; background: #fff; }
+.staff-wellbeing-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #d7e3e0; background: #fff; }
 .staff-wellbeing-strip article { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px; }
 .staff-wellbeing-strip article + article { border-left: 1px solid #d7e3e0; }
 .staff-wellbeing-strip article.active { background: #fff8e8; }
@@ -12150,4 +12746,189 @@ button, input, select, textarea {
   .pms-guest-tabs button,
   .sartal-client-tabs button,
   .sartal-hub-tabs button { font-size: 0.875rem !important; }
+}
+
+/* Restaurant manager: live dining room. */
+.restaurant-live-room {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #cbded9;
+  border-top: 5px solid #17786c;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(22 72 65 / 0.08);
+}
+.restaurant-live-room > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+.restaurant-live-room > header > div:first-child { min-width: 0; display: grid; gap: 4px; }
+.restaurant-live-room > header > div:first-child > span { display: flex; align-items: center; gap: 7px; color: #17786c; font-size: 0.78rem; font-weight: 900; }
+.restaurant-live-room > header > div:first-child > span i { width: 9px; height: 9px; border-radius: 50%; background: #19a67e; box-shadow: 0 0 0 5px #e0f5ef; }
+.restaurant-live-room > header h2 { font-size: 1.35rem; }
+.restaurant-live-room > header p { margin: 0; color: #627873; }
+.restaurant-live-legend { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.restaurant-live-legend span { padding: 6px 9px; border-radius: 5px; font-size: 0.76rem; font-weight: 850; white-space: nowrap; }
+.restaurant-live-legend .free { background: #eaf2f0; color: #55706a; }
+.restaurant-live-legend .reserved { background: #fff2cf; color: #8a6110; }
+.restaurant-live-legend .kitchen { background: #fff0e8; color: #a34d27; }
+.restaurant-live-legend .ready { background: #dcf5e9; color: #147252; }
+.restaurant-live-legend .bill { background: #e8edfb; color: #355d9c; }
+.restaurant-live-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #d8e5e2; border-radius: 7px; background: #f8fbfa; }
+.restaurant-live-metrics article { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 13px; }
+.restaurant-live-metrics article + article { border-left: 1px solid #d8e5e2; }
+.restaurant-live-metrics article.attention { background: #fff8e8; }
+.restaurant-live-metrics svg { flex: 0 0 auto; color: #17786c; }
+.restaurant-live-metrics span { min-width: 0; display: grid; gap: 2px; }
+.restaurant-live-metrics small { color: #6a7f79; }
+.restaurant-live-metrics strong { overflow: hidden; font-size: 1.05rem; text-overflow: ellipsis; white-space: nowrap; }
+.restaurant-live-metrics strong em { margin-left: 3px; color: #768984; font-size: 0.72rem; font-style: normal; }
+.restaurant-floor-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.restaurant-floor-grid > article { min-width: 0; min-height: 190px; display: grid; align-content: start; gap: 9px; padding: 12px; border: 1px solid #d6e3e0; border-top: 4px solid #aabbb7; border-radius: 7px; background: #fbfdfc; }
+.restaurant-floor-grid > article.reserved { border-top-color: #d29a27; background: #fffbf1; }
+.restaurant-floor-grid > article.occupied { border-top-color: #3b78b7; background: #f4f8fd; }
+.restaurant-floor-grid > article.kitchen { border-top-color: #d36b3c; background: #fff8f4; }
+.restaurant-floor-grid > article.ready { border-top-color: #1a9a70; background: #f0faf6; }
+.restaurant-floor-grid > article.bill { border-top-color: #4b6fb0; background: #f5f7fc; }
+.restaurant-floor-grid > article > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.restaurant-floor-grid > article > header > strong { font-size: 1.15rem; }
+.restaurant-floor-grid > article > header > span { padding: 4px 7px; border-radius: 4px; background: #e7efed; color: #506963; font-size: 0.72rem; font-weight: 900; }
+.restaurant-floor-grid > article.reserved > header > span { background: #ffedbd; color: #825b0c; }
+.restaurant-floor-grid > article.kitchen > header > span { background: #ffe5d8; color: #9a4320; }
+.restaurant-floor-grid > article.ready > header > span { background: #d9f2e7; color: #11684a; }
+.restaurant-floor-grid > article.bill > header > span { background: #e2e8f7; color: #31568f; }
+.restaurant-table-guest { min-width: 0; display: grid; gap: 3px; }
+.restaurant-table-guest b { overflow: hidden; font-size: 0.92rem; text-overflow: ellipsis; white-space: nowrap; }
+.restaurant-table-guest small { color: #6d817c; }
+.restaurant-table-owner { display: flex; align-items: center; gap: 6px; color: #57706a; font-size: 0.82rem; }
+.restaurant-table-total { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #dce7e4; }
+.restaurant-table-total span { color: #6c817b; font-size: 0.78rem; }
+.restaurant-table-total strong { font-size: 0.9rem; }
+.restaurant-floor-grid > article > button { min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: auto; border: 0; border-radius: 6px; background: #176f64; color: #fff; font-weight: 850; }
+.restaurant-table-reservation { display: flex; align-items: center; gap: 6px; margin-top: auto; padding: 8px; border-radius: 5px; background: #fff1c9; color: #7f5b11; font-size: 0.8rem; font-weight: 800; }
+
+/* Team planning: full weekly control for managers, one clear day on mobile. */
+.team-planning-panel { gap: 14px; }
+.team-planning-heading { align-items: center; }
+.team-planning-heading > button { flex: 0 0 auto; }
+.team-planning-toolbar { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px; border: 1px solid #d4e2df; border-radius: 7px; background: #f7faf9; }
+.team-week-navigation { display: grid; grid-template-columns: 42px minmax(210px, auto) 42px; align-items: center; gap: 7px; }
+.team-week-navigation > button { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid #c8dad5; border-radius: 6px; background: #fff; color: #176f64; }
+.team-week-navigation > span { display: grid; gap: 2px; text-align: center; }
+.team-week-navigation small { color: #71847f; }
+.team-week-navigation strong { font-size: 0.88rem; }
+.team-today-button { min-height: 42px; padding: 0 13px; border: 1px solid #c8dad5; border-radius: 6px; background: #fff; color: #315f56; font-weight: 850; }
+.team-planning-summary { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+.team-planning-summary > span { min-width: 100px; display: grid; gap: 1px; padding: 7px 10px; border-radius: 5px; background: #eaf3f1; text-align: center; }
+.team-planning-summary > span.attention { background: #fff0d2; color: #8b6317; }
+.team-planning-summary strong { font-size: 1rem; }
+.team-planning-summary small { color: #607772; }
+.team-planning-requests { display: grid; gap: 8px; padding: 12px; border: 1px solid #e1c783; border-radius: 7px; background: #fff9e9; }
+.team-planning-requests > header { display: flex; align-items: center; gap: 9px; color: #8a6214; }
+.team-planning-requests > header > div { display: grid; gap: 2px; }
+.team-planning-requests > div { display: grid; gap: 7px; }
+.team-planning-requests article { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid #e4d5ac; border-radius: 6px; background: #fff; }
+.team-planning-requests article > div { min-width: 0; display: grid; gap: 3px; }
+.team-planning-requests article > div > span { color: #916619; font-size: 0.76rem; font-weight: 900; text-transform: uppercase; }
+.team-planning-requests article p { margin: 0; color: #60756f; }
+.team-planning-requests article footer { display: flex; gap: 7px; }
+.team-planning-requests article footer button { min-height: 40px; padding: 0 11px; border: 1px solid #cad9d5; border-radius: 6px; background: #fff; color: #526a64; font-weight: 850; }
+.team-planning-requests article footer button.primary { border-color: #17786c; background: #17786c; color: #fff; }
+.team-mobile-days { display: none; }
+.team-planning-week { min-width: 0; display: grid; grid-template-columns: repeat(7, minmax(155px, 1fr)); gap: 7px; overflow-x: auto; padding-bottom: 5px; overscroll-behavior-x: contain; }
+.team-planning-week > section { min-width: 155px; display: grid; align-content: start; gap: 7px; padding: 7px; border: 1px solid #d5e3df; border-radius: 7px; background: #f6f9f8; }
+.team-planning-week > section.today { border-color: #78b7aa; background: #eff8f6; }
+.team-planning-week > section > header { min-height: 58px; display: grid; align-content: center; gap: 1px; padding: 3px; text-align: center; text-transform: capitalize; }
+.team-planning-week > section > header span { color: #627974; font-size: 0.78rem; }
+.team-planning-week > section > header strong { font-size: 0.9rem; }
+.team-planning-week > section > header b { color: #17786c; font-size: 0.7rem; }
+.team-planning-week > section > div { display: grid; align-content: start; gap: 7px; }
+.team-planning-week article { min-width: 0; display: grid; gap: 8px; padding: 9px; border: 1px solid #d5e2df; border-left: 4px solid #6f9189; border-radius: 6px; background: #fff; }
+.team-planning-week article.planned { border-left-color: #d49b2c; }
+.team-planning-week article.swap_pending_colleague,
+.team-planning-week article.swap_colleague_accepted,
+.team-planning-week article.leave_requested { border-left-color: #d26b3f; background: #fff8f4; }
+.team-planning-week article.change_approved { border-left-color: #19946b; background: #f2faf7; }
+.team-planning-week article.change_rejected,
+.team-planning-week article.swap_colleague_rejected { border-left-color: #bd5149; }
+.team-planning-week article > header { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 7px; align-items: center; }
+.team-planning-week article .team-avatar { width: 34px; height: 34px; grid-row: 1 / span 2; }
+.team-planning-week article > header > div { min-width: 0; display: grid; gap: 1px; }
+.team-planning-week article > header > div strong,
+.team-planning-week article > header > div small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-planning-week article > header > div strong { font-size: 0.84rem; }
+.team-planning-week article > header > b { grid-column: 1 / -1; width: max-content; max-width: 100%; padding: 4px 6px; border-radius: 4px; background: #eaf2f0; color: #43655e; font-size: 0.7rem; }
+.team-schedule-time { display: flex; align-items: center; gap: 6px; color: #234c44; }
+.team-schedule-time strong { font-size: 0.9rem; }
+.team-planning-week article > p { display: flex; align-items: flex-start; gap: 5px; margin: 0; color: #617772; }
+.team-planning-week article > p svg { flex: 0 0 auto; margin-top: 2px; }
+.team-schedule-note { color: #874b40; }
+.team-planning-week article footer { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding-top: 7px; border-top: 1px solid #dce6e3; }
+.team-planning-week article footer button { min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 5px; border: 1px solid #c6d7d3; border-radius: 5px; background: #fff; color: #315f56; font-weight: 800; }
+.team-planning-week article footer button.danger { border-color: #e8c3bf; color: #a3453e; }
+.team-planning-week article footer button:disabled { opacity: 0.45; }
+.team-empty-day { min-height: 104px; display: grid; place-content: center; justify-items: center; gap: 3px; border: 1px dashed #c5d6d2; border-radius: 6px; background: #fff; color: #5f7771; text-align: center; }
+.team-empty-day svg { color: #17786c; }
+.team-empty-day span { font-weight: 850; }
+.team-empty-day:disabled { cursor: default; }
+.team-schedule-modal { width: min(720px, calc(100vw - 32px)); }
+.team-schedule-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.team-schedule-form-grid label { display: grid; gap: 5px; color: #4d6862; font-size: 0.82rem; font-weight: 850; }
+.team-schedule-form-grid label.wide { grid-column: 1 / -1; }
+.team-schedule-summary { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 6px; background: #eaf5f2; color: #176f64; }
+.team-schedule-summary > span { min-width: 0; display: grid; gap: 2px; }
+.team-schedule-summary strong { line-height: 1.4; }
+
+@media (max-width: 1050px) {
+  .restaurant-floor-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .team-planning-toolbar { grid-template-columns: auto 1fr; }
+  .team-planning-summary { grid-column: 1 / -1; justify-content: stretch; }
+  .team-planning-summary > span { flex: 1; }
+}
+
+@media (max-width: 768px) {
+  .restaurant-live-room { padding: 13px; }
+  .restaurant-live-room > header { align-items: flex-start; flex-direction: column; }
+  .restaurant-live-legend { width: 100%; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding-bottom: 3px; }
+  .restaurant-live-metrics { grid-template-columns: 1fr 1fr; }
+  .restaurant-live-metrics article + article { border-left: 0; }
+  .restaurant-live-metrics article:nth-child(2n) { border-left: 1px solid #d8e5e2; }
+  .restaurant-live-metrics article:nth-child(-n + 2) { border-bottom: 1px solid #d8e5e2; }
+  .restaurant-floor-grid { grid-template-columns: 1fr 1fr; }
+  .restaurant-floor-grid > article { min-height: 180px; }
+  .team-planning-heading { align-items: stretch; }
+  .team-planning-heading > button { width: 100%; justify-content: center; }
+  .team-planning-toolbar { grid-template-columns: 1fr; }
+  .team-week-navigation { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+  .team-today-button { width: 100%; }
+  .team-planning-summary { grid-column: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .team-planning-summary > span { min-width: 0; padding-inline: 5px; }
+  .team-planning-requests article { grid-template-columns: 1fr; }
+  .team-planning-requests article footer { display: grid; grid-template-columns: 1fr 1fr; }
+  .team-mobile-days { display: flex; gap: 6px; overflow-x: auto; padding: 3px 0; overscroll-behavior-x: contain; }
+  .team-mobile-days button { min-width: 58px; min-height: 58px; display: grid; place-content: center; gap: 2px; border: 1px solid #cededb; border-radius: 6px; background: #fff; color: #637a74; text-transform: capitalize; }
+  .team-mobile-days button.active { border-color: #17786c; background: #17786c; color: #fff; }
+  .team-mobile-days button span { font-size: 0.76rem; }
+  .team-mobile-days button strong { font-size: 0.92rem; }
+  .team-planning-week { display: block; overflow: visible; }
+  .team-planning-week > section { display: none; min-width: 0; }
+  .team-planning-week > section.selected { display: grid; }
+  .team-planning-week > section > header { min-height: 52px; grid-template-columns: auto auto 1fr; align-items: center; justify-content: start; gap: 8px; text-align: left; }
+  .team-planning-week > section > header b { justify-self: end; }
+  .team-planning-week article { padding: 12px; }
+  .team-planning-week article > header { grid-template-columns: 42px minmax(0, 1fr) auto; }
+  .team-planning-week article .team-avatar { width: 42px; height: 42px; grid-row: auto; }
+  .team-planning-week article > header > b { grid-column: auto; }
+  .team-schedule-modal { width: 100%; }
+  .team-schedule-modal .modal-header { position: sticky; z-index: 3; top: -16px; margin: -16px -16px 0; padding: 16px; border-bottom: 1px solid #dce7e4; background: #fff; }
+  .team-schedule-modal .modal-actions { position: sticky; z-index: 3; bottom: -16px; margin: 0 -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #dce7e4; background: #fff; }
+  .team-schedule-form-grid { grid-template-columns: 1fr; }
+  .team-schedule-form-grid label.wide { grid-column: auto; }
+}
+
+@media (max-width: 430px) {
+  .restaurant-floor-grid { grid-template-columns: 1fr; }
+  .restaurant-live-metrics strong { font-size: 0.9rem; }
+  .team-planning-summary { grid-template-columns: 1fr; }
+  .team-planning-summary > span { grid-template-columns: auto 1fr; align-items: center; gap: 7px; text-align: left; }
+  .team-planning-week article > header { grid-template-columns: 42px minmax(0, 1fr); }
+  .team-planning-week article > header > b { grid-column: 1 / -1; }
 }

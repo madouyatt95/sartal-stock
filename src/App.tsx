@@ -136,10 +136,11 @@ export const App: React.FC = () => {
   const demoPerspective = getDemoPerspective(demoUniverse, queryParams.get('profil'));
   const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
   const demoPolicy = demoBackoffice ? DEMO_ACCESS_POLICIES[demoBackoffice.policy] : undefined;
+  const demoRoleUser = demoBackoffice ? rawDb.users.find(user => user.role === demoBackoffice.role) : undefined;
   const db = demoUniverse ? {
     ...rawDb,
     currentUser: demoBackoffice
-      ? { ...rawDb.currentUser, name: demoPerspective?.label || rawDb.currentUser.name, role: demoBackoffice.role }
+      ? { ...rawDb.currentUser, ...demoRoleUser, name: demoPerspective?.label || demoRoleUser?.name || rawDb.currentUser.name, role: demoBackoffice.role }
       : rawDb.currentUser,
     sartalBrandSettings: { ...rawDb.sartalBrandSettings, enabledModules: demoUniverse.modules }
   } : rawDb;
@@ -289,7 +290,7 @@ export const App: React.FC = () => {
 
     { id: 'employees', label: 'Équipes & affectations', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
 
-    { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
+    { id: 'answer', label: 'Salle & opérations', mobileLabel: 'Salle', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, section: 'Restaurant' },
     { id: 'connectors', label: 'Caisse POS', icon: <Network size={18} />, section: 'Restaurant' },
     { id: 'pos-imports', label: 'Reprendre ventes caisse', mobileLabel: 'Ventes', icon: <FileSpreadsheet size={18} />, section: 'Restaurant' },
