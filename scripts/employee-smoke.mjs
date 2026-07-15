@@ -23,6 +23,7 @@ try {
   const { useStockState } = await server.ssrLoadModule('/src/hooks/useStockState.ts');
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { EmployeeWorkspace } = await server.ssrLoadModule('/src/views/EmployeeWorkspace.tsx');
+  const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
   let state;
   const Harness = () => {
     state = useStockState();
@@ -33,8 +34,14 @@ try {
   ['SÁRTAL ÉQUIPE', 'Accès de démonstration', 'Code démo : 2468', 'Serveur / Chef de rang', 'Cuisine / KDS', 'Réceptionniste hôtel', 'Préparateur livraison', 'Manager de service'].forEach(marker => {
     assert(html.includes(marker), `Interface employé incomplète : ${marker}`);
   });
+  const teamHtml = renderToStaticMarkup(React.createElement(TeamManagement, { state }));
+  ['Les bonnes personnes, au bon poste', 'Répertoire des collaborateurs', 'Ajouter un collaborateur'].forEach(marker => assert(teamHtml.includes(marker), `Centre de gestion des équipes incomplet : ${marker}`));
   const employeeSource = readFileSync(new URL('../src/views/EmployeeWorkspace.tsx', import.meta.url), 'utf8');
+  const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
+  const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
+  ['Collaborateurs', 'Affectations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
   ['Arrivées & séjours', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'TOUR DE CONTRÔLE'].forEach(marker => {
     assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
@@ -51,6 +58,14 @@ try {
   ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals'].forEach(collection => {
     assert(Array.isArray(db[collection]), `Collection équipe absente : ${collection}`);
   });
+
+  const temporaryEmployeeId = state.saveEmployeeProfile({ employeeNumber: 'SAL-999', name: 'Profil Test Équipe', role: 'waiter', siteId: 'site-1', phone: '+221 70 000 09 99', posId: 'pos-1', active: true });
+  assert(getDB().employeeProfiles.some(item => item.id === temporaryEmployeeId && item.posId === 'pos-1'), 'Création ou affectation employé non conservée');
+  const alternatePosId = getDB().posList.find(item => item.siteId === 'site-1' && item.id !== 'pos-1')?.id || 'pos-1';
+  state.saveEmployeeProfile({ ...getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId), phone: '+221 70 000 10 00', posId: alternatePosId });
+  assert(getDB().employeeProfiles.find(item => item.id === temporaryEmployeeId).posId === alternatePosId, 'Modification d’affectation employé non conservée');
+  state.deleteEmployeeProfile(temporaryEmployeeId);
+  assert(!getDB().employeeProfiles.some(item => item.id === temporaryEmployeeId), 'Suppression d’un profil sans historique impossible');
 
   const waiter = db.employeeProfiles.find(item => item.role === 'waiter');
   const shiftId = state.startEmployeeShift(waiter.id, waiter.posId, 'Tablette de service');
@@ -112,7 +127,7 @@ try {
   assert(getDB().movements.some(item => item.type === 'inventory_adjustment' && item.productId === countedStock.productId && item.userName === storekeeper.name), 'Inventaire employé non tracé au nom du magasinier');
   state.closeEmployeeShift(storekeeperShiftId, { notes: 'Réception, transfert et comptage terminés.', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
-  console.log('Sártal Équipe smoke test: 10 postes et 58 contrôles fonctionnels validés.');
+  console.log('Sártal Équipe smoke test: 10 postes et 69 contrôles fonctionnels validés.');
 } finally {
   await server.close();
 }

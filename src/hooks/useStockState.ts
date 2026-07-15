@@ -7,6 +7,7 @@ import {
   EmployeeApproval,
   EmployeeHandover,
   EmployeeMessage,
+  EmployeeProfile,
   EmployeeShift,
   ExternalPOSSaleRow,
   LossReason,
@@ -107,6 +108,87 @@ export const useStockState = () => {
       saveDB(newDb);
       setDb(newDb);
     }
+  };
+
+  const saveEmployeeProfile = (payload: Omit<EmployeeProfile, 'id'> & { id?: string }) => {
+    const newDb = getDB();
+    const id = payload.id?.trim() || createRuntimeId('EMP');
+    const existing = newDb.employeeProfiles.find(item => item.id === id);
+    const employeeNumber = payload.employeeNumber.trim().toUpperCase();
+    const name = payload.name.trim();
+    const phone = payload.phone.trim();
+    const phoneDigits = phone.replace(/\D/g, '');
+    const site = newDb.sites.find(item => item.id === payload.siteId);
+    if (!employeeNumber || !name || !phone || !site) throw new Error('Matricule, nom, téléphone et établissement sont obligatoires');
+    if (phoneDigits.length < 9) throw new Error('Saisissez un numéro de téléphone complet');
+    if (newDb.employeeProfiles.some(item => item.id !== id && item.employeeNumber.toLowerCase() === employeeNumber.toLowerCase())) {
+      throw new Error('Ce matricule est déjà utilisé');
+    }
+    if (newDb.employeeProfiles.some(item => item.id !== id && item.phone.replace(/\D/g, '') === phoneDigits)) {
+      throw new Error('Ce téléphone est déjà rattaché à un collaborateur');
+    }
+
+    const posRoles: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
+    const warehouseRoles: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+    const posId = posRoles.includes(payload.role) ? payload.posId : undefined;
+    const warehouseId = warehouseRoles.includes(payload.role) ? payload.warehouseId : undefined;
+    if (posRoles.includes(payload.role) && !newDb.posList.some(item => item.id === posId && item.siteId === payload.siteId)) {
+      throw new Error('Choisissez un point de vente de cet établissement');
+    }
+    if (warehouseRoles.includes(payload.role) && !newDb.warehouses.some(item => item.id === warehouseId && item.siteId === payload.siteId)) {
+      throw new Error('Choisissez un dépôt de cet établissement');
+    }
+
+    const openShift = existing && newDb.employeeShifts.find(item => item.employeeId === existing.id && item.status === 'open');
+    const criticalAssignmentChanged = existing && (
+      existing.role !== payload.role
+      || existing.siteId !== payload.siteId
+      || existing.posId !== posId
+      || existing.warehouseId !== warehouseId
+      || (existing.active && !payload.active)
+    );
+    if (openShift && criticalAssignmentChanged) throw new Error('Terminez le service ouvert avant de modifier le rôle, l’affectation ou le statut');
+
+    const activeManagers = newDb.employeeProfiles.filter(item => item.role === 'service_manager' && item.active && item.id !== id);
+    if (existing?.role === 'service_manager' && existing.active && (payload.role !== 'service_manager' || !payload.active) && activeManagers.length === 0) {
+      throw new Error('Conservez au moins un manager de service actif');
+    }
+
+    const profile: EmployeeProfile = {
+      id,
+      employeeNumber,
+      name,
+      role: payload.role,
+      siteId: payload.siteId,
+      phone,
+      posId,
+      warehouseId,
+      active: payload.active
+    };
+    if (existing) Object.assign(existing, profile);
+    else newDb.employeeProfiles.unshift(profile);
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const deleteEmployeeProfile = (employeeId: string) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
+    if (!employee) throw new Error('Collaborateur introuvable');
+    const hasHistory = newDb.employeeShifts.some(item => item.employeeId === employeeId)
+      || newDb.employeeHandovers.some(item => item.employeeId === employeeId)
+      || newDb.employeeMessages.some(item => item.senderId === employeeId)
+      || newDb.employeeApprovals.some(item => item.requestedBy === employeeId)
+      || newDb.cashSessions.some(item => item.userId === employeeId)
+      || newDb.movements.some(item => item.userId === employeeId);
+    if (hasHistory) throw new Error('Ce collaborateur possède un historique. Désactivez son accès pour conserver la traçabilité.');
+    if (employee.role === 'service_manager' && employee.active && newDb.employeeProfiles.filter(item => item.role === 'service_manager' && item.active).length === 1) {
+      throw new Error('Conservez au moins un manager de service actif');
+    }
+    newDb.employeeProfiles = newDb.employeeProfiles.filter(item => item.id !== employeeId);
+    saveDB(newDb);
+    refresh();
   };
 
   const startEmployeeShift = (employeeId: string, assignmentId?: string, deviceLabel = 'Terminal partagé') => {
@@ -2881,6 +2963,8 @@ export const useStockState = () => {
   return {
     db,
     changeCurrentUser,
+    saveEmployeeProfile,
+    deleteEmployeeProfile,
     startEmployeeShift,
     closeEmployeeShift,
     acknowledgeEmployeeHandover,

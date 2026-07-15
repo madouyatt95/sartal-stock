@@ -77,6 +77,7 @@ const PMSGuestExperiencePortal = lazy(() => import('./views/PMSSignatureExperien
 const SartalClient = lazy(() => import('./views/SartalClient'));
 const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
+const TeamManagement = lazy(() => import('./views/TeamManagement'));
 const SartalAccessCenter = lazy(() => import('./views/SartalAccessCenter'));
 const SartalPulse = lazy(() => import('./views/SartalPulse'));
 const DemoPortal = lazy(() => import('./views/DemoPortal'));
@@ -94,7 +95,7 @@ const returnToDemoPortal = (universe: DemoUniverse) => {
 
 const DemoExperienceBar: React.FC<{ universe: DemoUniverse; perspective: DemoPerspective }> = ({ universe, perspective }) => (
   <header className="demo-experience-bar">
-    <button onClick={() => returnToDemoPortal(universe)}><ArrowLeft size={17} /><span>Changer de point de vue</span></button>
+    <button onClick={() => returnToDemoPortal(universe)}><ArrowLeft size={17} /><span>Retour aux profils</span></button>
     <div><small>{universe.label}</small><strong>{perspective.label}</strong></div>
     <b>MODE DÉMO</b>
   </header>
@@ -104,12 +105,32 @@ const DemoExperienceFrame: React.FC<React.PropsWithChildren<{ universe: DemoUniv
   <div className="demo-experience-frame"><DemoExperienceBar universe={universe} perspective={perspective} />{children}</div>
 );
 
+const returnToAccessCenter = () => {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('connexion', '1');
+  window.location.assign(url.toString());
+};
+
+const AccessExperienceBar = () => (
+  <header className="demo-experience-bar access-experience-bar">
+    <button onClick={returnToAccessCenter}><ArrowLeft size={17} /><span>Retour aux espaces</span></button>
+    <div><small>Centre d’accès Sártal</small><strong>Espace sélectionné</strong></div>
+    <b>ACCÈS</b>
+  </header>
+);
+
+const AccessExperienceFrame: React.FC<React.PropsWithChildren> = ({ children }) => (
+  <div className="access-experience-frame"><AccessExperienceBar />{children}</div>
+);
+
 export const App: React.FC = () => {
   const state = useStockState();
   const rawDb = state.db;
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demoMode = queryParams.get('demo');
   const pilotageMode = queryParams.get('pilotage');
+  const accessCenterOrigin = queryParams.get('origine') === 'connexion';
   const demoUniverse = demoMode !== 'portal' ? getDemoUniverse(demoMode) : undefined;
   const demoPerspective = getDemoPerspective(demoUniverse, queryParams.get('profil'));
   const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
@@ -138,6 +159,7 @@ export const App: React.FC = () => {
     try { return new Set(JSON.parse(localStorage.getItem('sartal_read_notifications') || '[]') as string[]); }
     catch { return new Set(); }
   });
+  const frameAccessExperience = (content: React.ReactNode) => accessCenterOrigin ? <AccessExperienceFrame>{content}</AccessExperienceFrame> : content;
 
   // Apply dark mode class
   useEffect(() => {
@@ -214,7 +236,7 @@ export const App: React.FC = () => {
   const guestReservationId = queryParams.get('sejour');
   if (guestReservationId !== null) {
     if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
-      return <Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone requireAccess /></main></Suspense>;
+      return <Suspense fallback={<AppLoading />}>{frameAccessExperience(<main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone requireAccess /></main>)}</Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÉJOUR" title="Ce lien de séjour n’est plus disponible" message="Demandez un nouveau lien privé à la réception pour retrouver votre chambre, vos services et votre folio." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
@@ -235,13 +257,13 @@ export const App: React.FC = () => {
   }
   if (publicClientMode !== null) {
     if (publicClientMode === 'restaurant' || publicClientMode === 'delivery') {
-      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone requireAccess /></main></Suspense>;
+      return <Suspense fallback={<AppLoading />}>{frameAccessExperience(<main className="sartal-public-client-app"><SartalClient state={state} initialMode={publicClientMode} standalone requireAccess /></main>)}</Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÁRTAL" title="Adresse client incorrecte" message="Le service demandé n’existe pas ou n’est plus actif. Utilisez le lien transmis par l’établissement." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
   if (publicEmployeeMode !== null) {
     if (publicEmployeeMode === '1') {
-      return <Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={state} /></main></Suspense>;
+      return <Suspense fallback={<AppLoading />}>{frameAccessExperience(<main className="sartal-public-employee-app"><EmployeeWorkspace state={state} /></main>)}</Suspense>;
     }
     return <PublicAccessError eyebrow="SÁRTAL ÉQUIPE" title="Poste employé introuvable" message="Ouvrez Sártal Équipe depuis le raccourci installé sur votre appareil ou contactez votre responsable." />;
   }
@@ -257,7 +279,7 @@ export const App: React.FC = () => {
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, section: 'Accueil' },
     { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, section: 'Accueil' },
 
-    { id: 'employees', label: 'Aperçu espace équipes', mobileLabel: 'Équipe', icon: <UsersRound size={18} />, section: 'Équipes' },
+    { id: 'employees', label: 'Équipes & affectations', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
 
     { id: 'answer', label: 'Parcours restaurant', mobileLabel: 'Restau', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, section: 'Restaurant' },
@@ -297,7 +319,7 @@ export const App: React.FC = () => {
   const canOpenView = (candidate: string) => allowedLinks.some(link => link.id === candidate);
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
-    { id: 'Équipes', label: 'Interfaces employés' },
+    { id: 'Équipes', label: 'Gestion des équipes' },
     { id: 'Restaurant', label: 'Parcours restaurant' },
     { id: 'Hôtel', label: 'Module Hôtel / PMS' },
     { id: 'Livraison', label: 'Parcours livraison' },
@@ -431,7 +453,7 @@ export const App: React.FC = () => {
       case 'client':
         return <CustomerExperienceCockpit state={experienceState} />;
       case 'employees':
-        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>{db.sartalBrandSettings.staffAppName}</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={experienceState} /></section>;
+        return <TeamManagement state={experienceState} />;
       case 'answer':
         return <ManagerAnswer state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'simulation':
@@ -488,7 +510,8 @@ export const App: React.FC = () => {
   return (
     <>
     {demoBackoffice && demoUniverse && demoPerspective && <DemoExperienceBar universe={demoUniverse} perspective={demoPerspective} />}
-    <div className={`app-container ${demoBackoffice ? 'demo-backoffice-app' : ''}`} style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
+    {accessCenterOrigin && !demoBackoffice && <AccessExperienceBar />}
+    <div className={`app-container ${demoBackoffice ? 'demo-backoffice-app' : ''} ${accessCenterOrigin && !demoBackoffice ? 'access-backoffice-app' : ''}`} style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
       
       {/* Sidebar Panel */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>

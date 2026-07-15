@@ -31,6 +31,7 @@ export const SartalAccessCenter: React.FC<SartalAccessCenterProps> = ({ state, e
     const url = new URL(window.location.href);
     url.search = '';
     if (key && value) url.searchParams.set(key, value);
+    if (!embedded && key && value) url.searchParams.set('origine', 'connexion');
     if (embedded) window.open(url.toString(), '_blank', 'noopener,noreferrer');
     else window.location.assign(url.toString());
   };
