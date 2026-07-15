@@ -1059,7 +1059,7 @@ const initialDB = (): DatabaseState => {
   ];
 
   const sartalHouseholds: SartalHousehold[] = [
-    { id: 'household-diop', name: 'Famille Diop', primaryCustomerId: 'customer-aminata', memberCustomerIds: ['customer-aminata', 'customer-awa'], sharedPoints: 2600, sharedPaymentAllowed: true }
+    { id: 'household-diop', name: 'Famille Diop', primaryCustomerId: 'customer-aminata', memberCustomerIds: ['customer-aminata', 'customer-awa'], sharedPoints: 2600, sharedPaymentAllowed: true, sharedCartItems: [{ productId: 'prod-riz-5kg', quantity: 1, addedByCustomerId: 'customer-aminata', addedAt: `${today}T09:20:00.000Z` }], sharedCartUpdatedAt: `${today}T09:20:00.000Z` }
   ];
 
   const sartalCorporateAccounts: SartalCorporateAccount[] = [
@@ -2054,7 +2054,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       deliveryInstructions: order.deliveryInstructions || customer?.addresses.find(address => address.isDefault)?.instructions,
       verificationCode: order.verificationCode || order.id.slice(-4).padStart(4, '0'),
       proofStatus: order.proofStatus || (order.status === 'delivered' ? 'code_verified' as const : 'pending' as const),
-      items: order.items.map(item => ({ ...item, substitutionPolicy: item.substitutionPolicy || (item.substitutionProductId ? 'replace' as const : 'contact' as const) }))
+      items: order.items.map(item => ({ ...item, substitutionPolicy: item.substitutionPolicy || (item.substitutionProductId ? 'replace' as const : 'contact' as const), substitutionStatus: item.substitutionStatus || (item.substitutionProductId ? 'proposed' as const : undefined), substitutionRequestedAt: item.substitutionRequestedAt || (item.substitutionProductId ? order.updatedAt : undefined) }))
     };
   });
 
@@ -2149,9 +2149,9 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
         { id: 'occasion-attention', label: 'Jus de gingembre d’accueil', assignedTo: 'Bar', completed: false }
       ] }
     ],
-    sartalHouseholds: state.sartalHouseholds || [
+    sartalHouseholds: (state.sartalHouseholds || [
       { id: 'household-diop', name: 'Famille Diop', primaryCustomerId: 'customer-aminata', memberCustomerIds: ['customer-aminata', 'customer-awa'], sharedPoints: 2600, sharedPaymentAllowed: true }
-    ],
+    ]).map(household => ({ ...household, sharedCartItems: household.sharedCartItems || (household.id === 'household-diop' ? [{ productId: 'prod-riz-5kg', quantity: 1, addedByCustomerId: 'customer-aminata', addedAt: new Date().toISOString() }] : []), sharedCartUpdatedAt: household.sharedCartUpdatedAt || new Date().toISOString() })),
     sartalCorporateAccounts: state.sartalCorporateAccounts || [
       { id: 'corporate-ndar', name: 'Ndar Distribution', contactName: 'Moussa Ndiaye', contactPhone: '+221 78 500 30 20', employeeCustomerIds: ['customer-moussa'], monthlyLimit: 500000, currentBalance: 81500, billingDay: 30, status: 'active', benefits: ['Facturation mensuelle', 'Livraisons prioritaires', 'Tarif entreprise'] }
     ],

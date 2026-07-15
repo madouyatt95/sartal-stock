@@ -2093,6 +2093,7 @@ export const useStockState = () => {
     addressId: string;
     items: Array<{ productId: string; quantity: number; substitutionPolicy: DeliveryOrder['items'][number]['substitutionPolicy'] }>;
     paymentType: PaymentType;
+    deliverySlot?: { id: string; label: string; feeDelta?: number; capacity?: number };
   }) => {
     const newDb = getDB();
     const customer = newDb.sartalCustomers.find(item => item.id === payload.customerId);
@@ -2100,6 +2101,7 @@ export const useStockState = () => {
     const channel = newDb.posList.find(item => item.type === 'online_grocery');
     const warehouse = newDb.warehouses.find(item => item.id === channel?.defaultWarehouseId);
     if (!customer || !address || !channel || !warehouse || payload.items.length === 0) throw new Error('Panier ou adresse invalide');
+    if (payload.deliverySlot?.capacity && newDb.deliveryOrders.filter(order => order.deliverySlotId === payload.deliverySlot?.id && !['cancelled', 'returned'].includes(order.status)).length >= payload.deliverySlot.capacity) throw new Error('Ce créneau vient d’être complet. Choisissez-en un autre.');
     const items = payload.items.map(item => {
       const pricing = newDb.posPricing.find(rule => rule.posId === channel.id && rule.productId === item.productId && rule.isAvailable);
       const stock = newDb.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === warehouse.id);
@@ -2108,16 +2110,17 @@ export const useStockState = () => {
     });
     const zoneFees: Record<string, { fee: number; minutes: number }> = { 'Point E / Fann': { fee: 1000, minutes: 45 }, 'Mermoz / Sacré-Coeur': { fee: 1200, minutes: 50 }, 'Ouakam / Almadies': { fee: 1500, minutes: 65 } };
     const delivery = zoneFees[address.zone] || { fee: 2000, minutes: 75 };
+    const deliveryFee = customer.deliveryPlusStatus === 'active' ? 0 : Math.max(0, delivery.fee + (payload.deliverySlot?.feeDelta || 0));
     const id = `CMD-${Date.now().toString().slice(-6)}`;
     const now = new Date().toISOString();
-    newDb.deliveryOrders.unshift({ id, customerId: customer.id, customerName: customer.fullName, phone: customer.phone, address: address.address, channelId: channel.id, warehouseId: warehouse.id, status: 'confirmed', paymentType: payload.paymentType, paymentStatus: payload.paymentType === 'cash' ? 'pending' : 'paid', items, deliveryFee: delivery.fee, zone: address.zone, estimatedMinutes: delivery.minutes, landmark: address.landmark, deliveryInstructions: address.instructions, verificationCode: id.slice(-4), proofStatus: 'pending', createdAt: now, updatedAt: now });
-    const orderTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + delivery.fee;
+    newDb.deliveryOrders.unshift({ id, customerId: customer.id, customerName: customer.fullName, phone: customer.phone, address: address.address, channelId: channel.id, warehouseId: warehouse.id, status: 'confirmed', paymentType: payload.paymentType, paymentStatus: payload.paymentType === 'cash' ? 'pending' : 'paid', items, deliveryFee, deliverySlotId: payload.deliverySlot?.id, deliverySlotLabel: payload.deliverySlot?.label, zone: address.zone, estimatedMinutes: delivery.minutes, landmark: address.landmark, deliveryInstructions: address.instructions, verificationCode: id.slice(-4), proofStatus: 'pending', createdAt: now, updatedAt: now });
+    const orderTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + deliveryFee;
     const earnedPoints = Math.floor(orderTotal / 500);
     customer.loyaltyPoints += earnedPoints;
     customer.totalSpend += orderTotal;
     customer.visits += 1;
     newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-${Date.now()}`, customerId: customer.id, type: 'earned', points: earnedPoints, label: 'Commande épicerie en ligne', referenceId: id, date: now });
-    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'delivery', referenceId: id, sender: 'team', senderName: 'Sártal Livraison', content: `Commande ${id} confirmée. Délai estimé : ${delivery.minutes} minutes.`, sentAt: now, status: 'sent' });
+    newDb.sartalCustomerMessages.push({ id: `message-${Date.now()}`, customerId: customer.id, context: 'delivery', referenceId: id, sender: 'team', senderName: 'Sártal Livraison', content: `Commande ${id} confirmée${payload.deliverySlot ? ` pour ${payload.deliverySlot.label}` : ''}.`, sentAt: now, status: 'sent' });
     saveDB(newDb);
     refresh();
     return id;
@@ -2132,6 +2135,89 @@ export const useStockState = () => {
     order.updatedAt = new Date().toISOString();
     saveDB(newDb);
     refresh();
+  };
+
+  const updateConfirmedDeliveryOrder = (orderId: string, customerId: string, payload: {
+    items: Array<{ productId: string; quantity: number; substitutionPolicy: DeliveryOrder['items'][number]['substitutionPolicy'] }>;
+    deliverySlot?: { id: string; label: string; feeDelta?: number; capacity?: number };
+  }) => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId && item.customerId === customerId);
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    const channel = newDb.posList.find(item => item.id === order?.channelId && item.type === 'online_grocery');
+    const warehouse = newDb.warehouses.find(item => item.id === order?.warehouseId);
+    if (!order || order.status !== 'confirmed' || !customer || !channel || !warehouse || payload.items.length === 0) throw new Error('Cette commande est déjà en préparation et ne peut plus être modifiée');
+    if (payload.deliverySlot?.capacity && newDb.deliveryOrders.filter(entry => entry.id !== order.id && entry.deliverySlotId === payload.deliverySlot?.id && !['cancelled', 'returned'].includes(entry.status)).length >= payload.deliverySlot.capacity) throw new Error('Ce créneau vient d’être complet. Choisissez-en un autre.');
+    const items = payload.items.map(item => {
+      const pricing = newDb.posPricing.find(rule => rule.posId === channel.id && rule.productId === item.productId && rule.isAvailable);
+      const stock = newDb.stocks.find(entry => entry.productId === item.productId && entry.warehouseId === warehouse.id);
+      if (!pricing || !stock || item.quantity <= 0 || stock.quantityAvailable - stock.quantityReserved < item.quantity) throw new Error('Un produit modifié n’est plus disponible');
+      return { productId: item.productId, quantity: item.quantity, salePrice: pricing.salePrice, substitutionPolicy: item.substitutionPolicy };
+    });
+    const zoneFees: Record<string, number> = { 'Point E / Fann': 1000, 'Mermoz / Sacré-Coeur': 1200, 'Ouakam / Almadies': 1500 };
+    const nextFee = customer.deliveryPlusStatus === 'active' ? 0 : Math.max(0, (zoneFees[order.zone || ''] || 2000) + (payload.deliverySlot?.feeDelta || 0));
+    const previousTotal = order.items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + order.deliveryFee;
+    const nextTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + nextFee;
+    const adjustment = nextTotal - previousTotal;
+    order.items = items;
+    order.deliveryFee = nextFee;
+    order.deliverySlotId = payload.deliverySlot?.id;
+    order.deliverySlotLabel = payload.deliverySlot?.label;
+    order.paymentAdjustment = (order.paymentAdjustment || 0) + adjustment;
+    order.paymentStatus = order.paymentType === 'cash' ? 'pending' : adjustment === 0 ? order.paymentStatus : 'pending';
+    order.updatedAt = new Date().toISOString();
+    customer.totalSpend = Math.max(0, customer.totalSpend + adjustment);
+    const pointAdjustment = Math.floor(nextTotal / 500) - Math.floor(previousTotal / 500);
+    if (pointAdjustment !== 0) {
+      customer.loyaltyPoints = Math.max(0, customer.loyaltyPoints + pointAdjustment);
+      newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-edit-${Date.now()}`, customerId, type: pointAdjustment > 0 ? 'earned' : 'redeemed', points: Math.abs(pointAdjustment), label: `Ajustement commande ${order.id}`, referenceId: order.id, date: order.updatedAt });
+    }
+    newDb.sartalCustomerMessages.push({ id: `message-edit-${Date.now()}`, customerId, context: 'delivery', referenceId: order.id, sender: 'team', senderName: 'Sártal Livraison', content: adjustment === 0 ? 'Vos modifications sont enregistrées, sans changement de montant.' : `Vos modifications sont enregistrées. Ajustement : ${adjustment > 0 ? '+' : ''}${adjustment.toLocaleString('fr-FR')} FCFA.`, sentAt: order.updatedAt, status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return adjustment;
+  };
+
+  const decideDeliverySubstitution = (orderId: string, customerId: string, productId: string, decision: 'approved' | 'rejected') => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId && item.customerId === customerId && item.status === 'confirmed');
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    const line = order?.items.find(item => item.productId === productId || item.originalProductId === productId);
+    if (!order || !customer || !line?.substitutionProductId || (line.substitutionStatus && line.substitutionStatus !== 'proposed')) throw new Error('Cette proposition n’est plus disponible');
+    const now = new Date().toISOString();
+    if (decision === 'approved') {
+      const pricing = newDb.posPricing.find(item => item.posId === order.channelId && item.productId === line.substitutionProductId && item.isAvailable);
+      const stock = newDb.stocks.find(item => item.productId === line.substitutionProductId && item.warehouseId === order.warehouseId);
+      if (!pricing || !stock || stock.quantityAvailable - stock.quantityReserved < line.quantity) throw new Error('Le produit proposé n’est plus disponible');
+      const previousLineTotal = line.salePrice * line.quantity;
+      const originalProductId = line.originalProductId || line.productId;
+      line.productId = line.substitutionProductId;
+      line.originalProductId = originalProductId;
+      line.salePrice = pricing.salePrice;
+      line.substitutionStatus = 'approved';
+      const adjustment = line.salePrice * line.quantity - previousLineTotal;
+      order.paymentAdjustment = (order.paymentAdjustment || 0) + adjustment;
+      if (adjustment !== 0 && order.paymentType !== 'cash') order.paymentStatus = 'pending';
+      customer.totalSpend = Math.max(0, customer.totalSpend + adjustment);
+      const nextOrderTotal = order.items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0) + order.deliveryFee;
+      const previousOrderTotal = nextOrderTotal - adjustment;
+      const pointAdjustment = Math.floor(nextOrderTotal / 500) - Math.floor(previousOrderTotal / 500);
+      if (pointAdjustment !== 0) {
+        customer.loyaltyPoints = Math.max(0, customer.loyaltyPoints + pointAdjustment);
+        newDb.sartalLoyaltyTransactions.unshift({ id: `loyalty-substitution-${Date.now()}`, customerId, type: pointAdjustment > 0 ? 'earned' : 'redeemed', points: Math.abs(pointAdjustment), label: `Substitution commande ${order.id}`, referenceId: order.id, date: now });
+      }
+    } else {
+      line.substitutionStatus = 'rejected';
+      line.substitutionPolicy = 'refund';
+    }
+    line.substitutionRequestedAt = line.substitutionRequestedAt || now;
+    order.updatedAt = now;
+    const originalName = newDb.products.find(item => item.id === (line.originalProductId || productId))?.name || 'article';
+    const replacementName = newDb.products.find(item => item.id === line.substitutionProductId)?.name || 'équivalent';
+    newDb.sartalCustomerMessages.push({ id: `message-substitution-${Date.now()}`, customerId, context: 'delivery', referenceId: order.id, sender: 'team', senderName: 'Sártal Livraison', content: decision === 'approved' ? `Remplacement validé : ${originalName} par ${replacementName}.` : `Remplacement refusé pour ${originalName}. Cet article ne sera pas facturé s’il manque.`, sentAt: now, status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return decision;
   };
 
   const reorderDeliveryOrder = (orderId: string) => {
@@ -2478,6 +2564,40 @@ export const useStockState = () => {
     refresh();
   };
 
+  const saveSartalHouseholdCart = (householdId: string, customerId: string, items: Array<{ productId: string; quantity: number }>) => {
+    const newDb = getDB();
+    const household = newDb.sartalHouseholds.find(item => item.id === householdId);
+    if (!household || !household.memberCustomerIds.includes(customerId)) throw new Error('Panier familial inaccessible');
+    const now = new Date().toISOString();
+    const otherMembersItems = (household.sharedCartItems || []).filter(item => item.addedByCustomerId !== customerId);
+    const customerItems = items
+      .filter(item => item.quantity > 0 && newDb.products.some(product => product.id === item.productId))
+      .map(item => ({ ...item, addedByCustomerId: customerId, addedAt: now }));
+    household.sharedCartItems = [...otherMembersItems, ...customerItems];
+    household.sharedCartUpdatedAt = now;
+    saveDB(newDb);
+    refresh();
+    return household.sharedCartItems.length;
+  };
+
+  const toggleSartalDeliveryPlus = (customerId: string) => {
+    const newDb = getDB();
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    if (!customer) throw new Error('Client introuvable');
+    const now = new Date();
+    const active = customer.deliveryPlusStatus !== 'active';
+    customer.deliveryPlusStatus = active ? 'active' : 'paused';
+    customer.deliveryPlusMonthlyFee = 3500;
+    if (active) {
+      customer.deliveryPlusJoinedAt = customer.deliveryPlusJoinedAt || now.toISOString();
+      customer.deliveryPlusRenewsAt = new Date(now.getTime() + 30 * 86400000).toISOString();
+    }
+    newDb.sartalCustomerMessages.push({ id: `message-delivery-plus-${Date.now()}`, customerId, context: 'delivery', sender: 'team', senderName: 'Sártal Livraison+', content: active ? 'Livraison+ est active : livraisons offertes et créneaux prioritaires.' : 'Livraison+ est en pause. Vos avantages restent disponibles jusqu’à la fin de la période.', sentAt: now.toISOString(), status: 'sent' });
+    saveDB(newDb);
+    refresh();
+    return customer.deliveryPlusStatus;
+  };
+
   const chargeSartalCorporateAccount = (accountId: string, customerId: string, amount: number) => {
     const newDb = getDB();
     const account = newDb.sartalCorporateAccounts.find(item => item.id === accountId && item.status === 'active');
@@ -2663,6 +2783,8 @@ export const useStockState = () => {
     addRestaurantGuestOrderPayment,
     createDeliveryCustomerOrder,
     updateDeliverySubstitutionPolicy,
+    updateConfirmedDeliveryOrder,
+    decideDeliverySubstitution,
     reorderDeliveryOrder,
     sendSartalCustomerMessage,
     submitSartalCustomerFeedback,
@@ -2687,6 +2809,8 @@ export const useStockState = () => {
     applySartalRecoveryPlaybook,
     escalateOverdueSartalRequests,
     transferSartalHouseholdPoints,
+    saveSartalHouseholdCart,
+    toggleSartalDeliveryPlus,
     chargeSartalCorporateAccount,
     updateSartalBrandSettings,
     toggleLowBandwidthMode,

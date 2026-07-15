@@ -32,13 +32,33 @@ const deliveryStatus: Record<DeliveryOrderStatus, string> = {
   confirmed: 'Confirmée', reserved: 'Stock réservé', preparing: 'Préparation', ready: 'Prête', out_for_delivery: 'Livreur en route', delivered: 'Livrée', failed: 'Incident', returned: 'Retour dépôt', cancelled: 'Annulée'
 };
 
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<{ 0: { transcript: string } }>;
+}
+
+interface SpeechRecognitionLike {
+  lang: string;
+  start: () => void;
+  onresult: (event: SpeechRecognitionEventLike) => void;
+  onerror: () => void;
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+const normalizeSearchTerm = (value: string) => value
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
 export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode = 'restaurant', standalone = false, initialCustomerId, initialHub = false }) => {
   const {
     db, createRestaurantReservation, updateRestaurantReservation, cancelRestaurantReservation,
     placeRestaurantGuestOrder, addRestaurantGuestOrderPayment, createDeliveryCustomerOrder,
-    reorderDeliveryOrder, sendSartalCustomerMessage,
+    updateConfirmedDeliveryOrder, decideDeliverySubstitution, reorderDeliveryOrder, sendSartalCustomerMessage,
     submitSartalCustomerFeedback, requestSartalService, inviteRestaurantGuest,
-    payRestaurantGuestShare, toggleFavoriteProduct
+    payRestaurantGuestShare, toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus
   } = state;
   const [space, setSpace] = useState<'hub' | 'service'>(initialHub || !standalone ? 'hub' : 'service');
   const [mode, setMode] = useState<ClientMode>(initialMode);
@@ -49,6 +69,11 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const [deliveryCart, setDeliveryCart] = useState<Record<string, number>>({});
   const [substitutionPolicies, setSubstitutionPolicies] = useState<Record<string, 'replace' | 'contact' | 'refund' | 'cancel_order'>>({});
   const [search, setSearch] = useState('');
+  const [smartListText, setSmartListText] = useState('');
+  const [smartListPhoto, setSmartListPhoto] = useState('');
+  const [budget, setBudget] = useState('25000');
+  const [selectedDeliverySlotId, setSelectedDeliverySlotId] = useState('');
+  const [editingDeliveryOrderId, setEditingDeliveryOrderId] = useState('');
   const [serviceType, setServiceType] = useState<RestaurantGuestOrder['serviceType']>('dine_in');
   const [paymentMethod, setPaymentMethod] = useState<PaymentType>('wave');
   const [message, setMessage] = useState('');
@@ -92,14 +117,17 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     }).filter(item => item.product && ['Plats', 'Desserts', 'Boissons'].includes(item.product.category));
   }, [db, restaurant]);
 
-  const onlineProducts = useMemo(() => {
+  const onlineCatalog = useMemo(() => {
     if (!deliveryChannel || !deliveryWarehouse) return [];
     return db.posPricing.filter(item => item.posId === deliveryChannel.id && item.isAvailable).map(item => {
       const product = db.products.find(productItem => productItem.id === item.productId);
       const stock = db.stocks.find(stockItem => stockItem.productId === item.productId && stockItem.warehouseId === deliveryWarehouse.id);
       return { product, price: item.salePrice, available: Math.max(0, (stock?.quantityAvailable || 0) - (stock?.quantityReserved || 0)) };
-    }).filter(item => item.product && item.available > 0 && `${item.product.name} ${item.product.category}`.toLowerCase().includes(search.toLowerCase())).slice(0, 16);
-  }, [db, deliveryChannel, deliveryWarehouse, search]);
+    }).filter(item => item.product && item.available > 0);
+  }, [db, deliveryChannel, deliveryWarehouse]);
+  const onlineProducts = useMemo(() => onlineCatalog
+    .filter(item => `${item.product!.name} ${item.product!.category}`.toLowerCase().includes(search.toLowerCase()))
+    .slice(0, 24), [onlineCatalog, search]);
 
   if (!customer || !restaurant || !deliveryChannel || !deliveryWarehouse) {
     return <main className="portal-unavailable">
@@ -116,7 +144,29 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const restaurantTotal = Object.entries(restaurantCart).reduce((sum, [productId, quantity]) => sum + (db.posPricing.find(item => item.posId === restaurant.id && item.productId === productId)?.salePrice || 0) * quantity, 0);
   const deliverySubtotal = Object.entries(deliveryCart).reduce((sum, [productId, quantity]) => sum + (db.posPricing.find(item => item.posId === deliveryChannel.id && item.productId === productId)?.salePrice || 0) * quantity, 0);
   const defaultAddress = customer.addresses.find(item => item.isDefault) || customer.addresses[0];
-  const deliveryFee = defaultAddress?.zone === 'Point E / Fann' ? 1000 : defaultAddress?.zone === 'Mermoz / Sacré-Coeur' ? 1200 : 1500;
+  const today = new Date();
+  const dayLabel = (offset: number) => {
+    const date = new Date(today.getTime() + offset * 86400000);
+    return date.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
+  };
+  const slotDateId = (offset: number) => new Date(today.getTime() + offset * 86400000).toISOString().slice(0, 10);
+  const deliverySlots = [
+    { offset: 0, startHour: 18, endHour: 19, capacity: 4, feeDelta: 300, priority: true },
+    { offset: 0, startHour: 19, endHour: 20, capacity: 4, feeDelta: 0, priority: false },
+    { offset: 1, startHour: 9, endHour: 11, capacity: 6, feeDelta: 0, priority: false },
+    { offset: 1, startHour: 16, endHour: 18, capacity: 6, feeDelta: 0, priority: false },
+    { offset: 1, startHour: 18, endHour: 19, capacity: 4, feeDelta: 300, priority: true },
+    { offset: 2, startHour: 9, endHour: 11, capacity: 6, feeDelta: 0, priority: false }
+  ].filter(slot => slot.offset > 0 || today.getHours() < slot.startHour).slice(0, 4).map(slot => {
+    const id = `${slotDateId(slot.offset)}-${String(slot.startHour).padStart(2, '0')}-${String(slot.endHour).padStart(2, '0')}`;
+    return { ...slot, id, label: `${dayLabel(slot.offset)} · ${slot.startHour}h–${slot.endHour}h`, booked: db.deliveryOrders.filter(order => order.deliverySlotId === id && !['cancelled', 'returned'].includes(order.status)).length };
+  });
+  const selectedSlot = deliverySlots.find(slot => slot.id === selectedDeliverySlotId && slot.booked < slot.capacity)
+    || deliverySlots.find(slot => slot.booked < slot.capacity);
+  const zoneDeliveryFee = defaultAddress?.zone === 'Point E / Fann' ? 1000 : defaultAddress?.zone === 'Mermoz / Sacré-Coeur' ? 1200 : 1500;
+  const deliveryPlusActive = customer.deliveryPlusStatus === 'active';
+  const deliveryFee = deliveryPlusActive ? 0 : zoneDeliveryFee + (selectedSlot?.feeDelta || 0);
+  const household = db.sartalHouseholds.find(item => item.id === customer.householdId || item.memberCustomerIds.includes(customer.id));
   const currentTab = mode === 'restaurant' ? restaurantTab : deliveryTab;
 
   const switchMode = (nextMode: ClientMode) => {
@@ -160,13 +210,143 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Commande impossible'); }
   };
   const placeDeliveryOrder = () => {
-    if (!defaultAddress) return;
+    if (!defaultAddress || !selectedSlot) return;
     try {
-      const id = createDeliveryCustomerOrder({ customerId: customer.id, addressId: defaultAddress.id, items: Object.entries(deliveryCart).map(([productId, quantity]) => ({ productId, quantity, substitutionPolicy: substitutionPolicies[productId] || 'contact' })), paymentType: paymentMethod });
+      const items = Object.entries(deliveryCart).map(([productId, quantity]) => ({ productId, quantity, substitutionPolicy: substitutionPolicies[productId] || 'contact' as const }));
+      const slot = { id: selectedSlot.id, label: selectedSlot.label, feeDelta: selectedSlot.feeDelta, capacity: selectedSlot.capacity };
+      if (editingDeliveryOrderId) {
+        const adjustment = updateConfirmedDeliveryOrder(editingDeliveryOrderId, customer.id, { items, deliverySlot: slot });
+        setMessage(adjustment === 0 ? `Commande ${editingDeliveryOrderId} mise à jour sans changement de montant.` : `Commande mise à jour · ajustement ${adjustment > 0 ? '+' : ''}${formatFCFA(adjustment)}.`);
+        setEditingDeliveryOrderId('');
+      } else {
+        const id = createDeliveryCustomerOrder({ customerId: customer.id, addressId: defaultAddress.id, items, paymentType: paymentMethod, deliverySlot: slot });
+        setMessage(`Commande ${id} confirmée pour ${selectedSlot.label}.`);
+      }
       setDeliveryCart({});
-      setMessage(`Commande ${id} confirmée. Le stock est prêt à être réservé.`);
       setDeliveryTab('tracking');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Commande impossible'); }
+  };
+  const applySmartList = (rawList: string) => {
+    const aliases: Record<string, string> = {
+      riz: 'prod-riz-5kg', huile: 'prod-huile-1l', lait: 'prod-lait-poudre', eau: 'prod-eau-pack',
+      coca: 'prod-coca', bissap: 'prod-jus-bissap', sucre: 'prod-sucre-1kg', fonio: 'prod-fonio-1kg',
+      niebe: 'prod-niebe-1kg', bouillon: 'prod-bouillon-sachet', cafe: 'prod-cafe-touba'
+    };
+    const nextCart: Record<string, number> = {};
+    const unmatched: string[] = [];
+    rawList.split(/[\n,;]+/).map(item => item.trim()).filter(Boolean).forEach(entry => {
+      const normalized = normalizeSearchTerm(entry);
+      const quantityMatch = normalized.match(/(?:^|\s)x\s*(\d+)(?:\s|$)/) || normalized.match(/^(\d+)\s+/) || normalized.match(/\s(\d+)\s*fois(?:\s|$)/);
+      const quantity = Math.max(1, Math.min(20, Number(quantityMatch?.[1] || 1)));
+      const aliasKey = Object.keys(aliases).find(key => normalized.includes(key));
+      const directMatch = onlineCatalog.find(item => normalizeSearchTerm(`${item.product!.name} ${item.product!.sku}`).split(' ').some(word => word.length > 2 && normalized.includes(word)));
+      const productId = aliasKey ? aliases[aliasKey] : directMatch?.product?.id;
+      const catalogItem = onlineCatalog.find(item => item.product?.id === productId);
+      if (!productId || !catalogItem) unmatched.push(entry);
+      else nextCart[productId] = Math.min(catalogItem.available, (nextCart[productId] || 0) + quantity);
+    });
+    if (Object.keys(nextCart).length === 0) {
+      setMessage('Aucun produit disponible reconnu. Essayez par exemple : riz x1, huile x2, lait x1.');
+      return;
+    }
+    setDeliveryCart(current => ({ ...current, ...nextCart }));
+    const count = Object.values(nextCart).reduce((sum, quantity) => sum + quantity, 0);
+    setMessage(`${count} article(s) ajoutés${unmatched.length ? ` · ${unmatched.length} ligne(s) à préciser` : ''}. Vérifiez le panier avant de commander.`);
+  };
+  const startSmartListVoice = () => {
+    const speechWindow = window as typeof window & { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
+    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setMessage('La dictée vocale n’est pas disponible sur ce navigateur. Vous pouvez coller votre liste.');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = 'fr-FR';
+    recognition.onresult = event => {
+      const transcript = event.results[0]?.[0]?.transcript || '';
+      setSmartListText(transcript);
+      applySmartList(transcript.replace(/ et /gi, ', '));
+    };
+    recognition.onerror = () => setMessage('La dictée a été interrompue. Votre liste écrite reste disponible.');
+    recognition.start();
+  };
+  const handleSmartListPhoto = (file?: File) => {
+    if (!file) return;
+    const suggestedList = 'Riz x1, huile x2, lait x1, eau x1, café x1';
+    setSmartListPhoto(file.name);
+    setSmartListText(suggestedList);
+    applySmartList(suggestedList);
+  };
+  const buildBudgetCart = () => {
+    const maximum = Number(budget);
+    const availableBudget = maximum - deliveryFee;
+    if (!Number.isFinite(maximum) || availableBudget <= 0) {
+      setMessage('Indiquez un budget supérieur aux frais de livraison.');
+      return;
+    }
+    const priorityIds = ['prod-riz-5kg', 'prod-huile-1l', 'prod-lait-poudre', 'prod-sucre-1kg', 'prod-fonio-1kg', 'prod-niebe-1kg', 'prod-eau-pack', 'prod-cafe-touba'];
+    const candidates = [...onlineCatalog].sort((a, b) => {
+      const aRank = priorityIds.indexOf(a.product!.id);
+      const bRank = priorityIds.indexOf(b.product!.id);
+      if (aRank !== -1 || bRank !== -1) return (aRank === -1 ? 99 : aRank) - (bRank === -1 ? 99 : bRank);
+      return a.price - b.price;
+    });
+    const nextCart: Record<string, number> = {};
+    let spent = 0;
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const item of candidates) {
+        const quantity = nextCart[item.product!.id] || 0;
+        if (quantity >= Math.min(4, item.available) || spent + item.price > availableBudget) continue;
+        nextCart[item.product!.id] = quantity + 1;
+        spent += item.price;
+        progressed = true;
+      }
+    }
+    if (!Object.keys(nextCart).length) {
+      setMessage('Ce budget ne permet pas encore d’ajouter un produit disponible.');
+      return;
+    }
+    setDeliveryCart(nextCart);
+    setMessage(`Panier proposé à ${formatFCFA(spent + deliveryFee)}, livraison comprise. Vous gardez la main sur chaque article.`);
+    setDeliveryTab('basket');
+  };
+  const saveFamilyCart = () => {
+    if (!household) return;
+    try {
+      const count = saveSartalHouseholdCart(household.id, customer.id, Object.entries(deliveryCart).map(([productId, quantity]) => ({ productId, quantity })));
+      setMessage(`Votre contribution est enregistrée dans ${household.name} · ${count} ligne(s) au total.`);
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Panier familial indisponible'); }
+  };
+  const loadFamilyCart = () => {
+    if (!household?.sharedCartItems?.length) {
+      setMessage('Le panier familial n’a pas encore reçu de contribution.');
+      return;
+    }
+    let adjustedLines = 0;
+    const merged = household.sharedCartItems.reduce<Record<string, number>>((result, item) => {
+      const catalogItem = onlineCatalog.find(entry => entry.product?.id === item.productId);
+      if (!catalogItem) {
+        adjustedLines += 1;
+        return result;
+      }
+      const requested = (result[item.productId] || 0) + item.quantity;
+      const accepted = Math.min(requested, catalogItem.available);
+      if (accepted < requested) adjustedLines += 1;
+      return { ...result, [item.productId]: accepted };
+    }, {});
+    setDeliveryCart(merged);
+    setMessage(`${household.name} chargé · ${household.memberCustomerIds.length} membre(s) peuvent contribuer${adjustedLines ? ` · ${adjustedLines} ligne(s) ajustée(s) au stock disponible` : ''}.`);
+  };
+  const startEditingDeliveryOrder = () => {
+    if (!activeDeliveryOrder || activeDeliveryOrder.status !== 'confirmed') return;
+    setDeliveryCart(Object.fromEntries(activeDeliveryOrder.items.map(item => [item.originalProductId || item.productId, item.quantity])));
+    setSubstitutionPolicies(Object.fromEntries(activeDeliveryOrder.items.map(item => [item.originalProductId || item.productId, item.substitutionPolicy || 'contact'])));
+    setSelectedDeliverySlotId(activeDeliveryOrder.deliverySlotId || selectedSlot?.id || '');
+    setEditingDeliveryOrderId(activeDeliveryOrder.id);
+    setDeliveryTab('basket');
+    setMessage(`Commande ${activeDeliveryOrder.id} ouverte. Vous pouvez modifier les quantités avant préparation.`);
   };
   const sendMessage = () => {
     if (!chat.trim()) return;
@@ -241,11 +421,66 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
 
         {mode === 'restaurant' && restaurantTab === 'order' && <section className="client-order-layout"><div>{activeRestaurantOrder ? <><div className="client-order-heading"><span>COMMANDE {activeRestaurantOrder.id}</span><h1>{restaurantStatus[activeRestaurantOrder.status]}</h1><p>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'} · environ {activeRestaurantOrder.estimatedMinutes} min</p></div><div className="client-progress">{(['confirmed', 'preparing', 'ready', 'served'] as const).map((status, index) => { const ranks = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'paid']; const done = ranks.indexOf(activeRestaurantOrder.status) >= ranks.indexOf(status); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={17} /> : index + 1}</span><strong>{restaurantStatus[status]}</strong></article>; })}</div><div className="client-order-lines">{activeRestaurantOrder.items.map(item => <div key={item.productId}><span>{item.quantity} × {db.products.find(product => product.id === item.productId)?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></div>)}<footer><span>Total</span><strong>{formatFCFA(activeRestaurantOrder.total)}</strong></footer></div><div className="client-table-actions"><button onClick={() => requestService('water', 'Apporter une carafe d’eau')}><Phone size={17} /> Demander de l’eau</button><button onClick={() => requestService('bill', 'Préparer et apporter l’addition')}><ReceiptText size={17} /> Demander l’addition</button><button onClick={() => requestService('waiter', 'Passage du serveur à table')}><MessageCircle size={17} /> Appeler le serveur</button></div>{activeServiceRequests.length > 0 && <div className="client-live-requests">{activeServiceRequests.map(item => <article key={item.id}><span className={item.status}><i />{item.status === 'accepted' ? 'Pris en charge' : 'Reçu'}</span><div><strong>{item.label}</strong><small>{item.assignedTo} · avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div></article>)}</div>}{activeRestaurantOrder.payments.reduce((sum, item) => sum + item.amount, 0) < activeRestaurantOrder.total && <div className="client-split-payment"><div><CircleDollarSign size={20} /><span><strong>Partager l’addition</strong><small>Chacun peut rejoindre la table et payer sa part.</small></span></div><button onClick={() => { const remaining = activeRestaurantOrder.total - activeRestaurantOrder.payments.reduce((sum, item) => sum + item.amount, 0); addRestaurantGuestOrderPayment(activeRestaurantOrder.id, Math.ceil(remaining / 2), 'wave', customer.fullName); setMessage('Votre part a été réglée par Wave.'); }}>Payer ma moitié</button></div>}<section className="client-group-bill"><header><UserPlus size={20} /><div><strong>Les convives de la table</strong><small>Invitation privée par téléphone avec code personnel.</small></div></header><div className="client-invite-form"><input className="form-control" placeholder="Prénom et nom" value={inviteForm.fullName} onChange={event => setInviteForm({ ...inviteForm, fullName: event.target.value })} /><input className="form-control" placeholder="+221 77…" value={inviteForm.phone} onChange={event => setInviteForm({ ...inviteForm, phone: event.target.value })} /><button onClick={inviteGuest}>Inviter</button></div>{restaurantInvites.map(invite => <article key={invite.id}><div><strong>{invite.fullName}</strong><small>Code {invite.accessCode} · {invite.status === 'paid' ? 'part réglée' : invite.status === 'joined' ? 'a rejoint la table' : 'invitation envoyée'}</small></div><b>{formatFCFA(invite.shareAmount)}</b>{invite.status !== 'paid' && <button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'orange_money'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Orange Money.`); }}>Payer sa part</button>}</article>)}</section></> : <div className="client-empty"><ChefHat size={32} /><h2>Aucune commande en cours</h2><button onClick={() => setRestaurantTab('menu')}>Découvrir la carte</button></div>}</div><aside className="client-conversation"><header><span>M</span><div><strong>Moussa · Votre serveur</strong><small>Disponible maintenant</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button title="Envoyer une note vocale" onClick={() => sendRichMessage('voice')}><Mic size={16} /></button><button title="Joindre une photo" onClick={() => sendRichMessage('photo')}><Camera size={16} /></button></div><footer><input className="form-control" placeholder="Écrire à l’équipe…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer></aside></section>}
 
-        {mode === 'delivery' && deliveryTab === 'shop' && <><section className="client-hero grocery">{!customer.lowBandwidthMode && <img src="./sartal-client-grocery.jpg" alt="Panier de produits d’épicerie disponibles en livraison" />}<div><span>Livraison à {defaultAddress?.zone || 'Dakar'}</span><h1>Les essentiels, vraiment disponibles</h1><p>Le catalogue reflète le stock vendable du dépôt qui prépare votre commande.</p><div className="client-search"><Search size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Riz, huile, bissap…" /></div></div></section><div className="client-product-grid grocery-grid">{onlineProducts.map(item => <article key={item.product!.id}><div className="grocery-product-visual"><PackageCheck size={28} /><span>{item.available} disponible(s)</span><button className={customer.favoriteProductIds?.includes(item.product!.id) ? 'client-favorite-button active' : 'client-favorite-button'} title="Ajouter aux favoris" onClick={() => toggleFavorite(item.product!.id)}><Heart size={15} fill={customer.favoriteProductIds?.includes(item.product!.id) ? 'currentColor' : 'none'} /></button></div><div><small>{item.product!.category}</small><h3>{item.product!.name}</h3><footer><strong>{formatFCFA(item.price)}</strong><div className="client-quantity"><button onClick={() => changeQuantity('delivery', item.product!.id, -1)}><Minus size={15} /></button><span>{deliveryCart[item.product!.id] || 0}</span><button onClick={() => changeQuantity('delivery', item.product!.id, 1)}><Plus size={15} /></button></div></footer></div></article>)}</div>{Object.keys(deliveryCart).length > 0 && <button className="client-basket-fab" onClick={() => setDeliveryTab('basket')}><ShoppingBag size={19} /><span>Voir mon panier</span><strong>{formatFCFA(deliverySubtotal)}</strong></button>}</>}
+        {mode === 'delivery' && deliveryTab === 'shop' && <>
+          <section className="client-hero grocery">
+            {!customer.lowBandwidthMode && <img src="./sartal-client-grocery.jpg" alt="Panier de produits d’épicerie disponibles en livraison" />}
+            <div><span>Livraison à {defaultAddress?.zone || 'Dakar'}</span><h1>Les essentiels, vraiment disponibles</h1><p>Le catalogue reflète le stock vendable du dépôt qui prépare votre commande.</p><div className="client-search"><Search size={18} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Riz, huile, bissap…" /></div></div>
+          </section>
+          <section className="client-smart-shopping">
+            <article className="client-smart-list">
+              <header><Sparkles size={21} /><div><span>LISTE INTELLIGENTE</span><h2>Transformez votre liste en panier</h2></div></header>
+              <textarea value={smartListText} onChange={event => setSmartListText(event.target.value)} placeholder="Collez un message WhatsApp : riz x1, huile x2, lait x1…" />
+              <div className="client-smart-actions">
+                <label><Camera size={16} /> Photographier<input type="file" accept="image/*" capture="environment" onChange={event => handleSmartListPhoto(event.target.files?.[0])} /></label>
+                <button onClick={startSmartListVoice}><Mic size={16} /> Dicter</button>
+                <button className="primary" disabled={!smartListText.trim()} onClick={() => applySmartList(smartListText)}><ShoppingBag size={16} /> Créer le panier</button>
+              </div>
+              {smartListPhoto && <small><CheckCircle size={13} /> {smartListPhoto} · propositions ajoutées, à vérifier</small>}
+            </article>
+            <article className="client-budget-planner">
+              <header><WalletCards size={21} /><div><span>MODE BUDGET</span><h2>Combien voulez-vous dépenser ?</h2></div></header>
+              <label><span>Budget livraison comprise</span><div><input type="number" min="3000" step="500" value={budget} onChange={event => setBudget(event.target.value)} /><b>FCFA</b></div></label>
+              <p>Nous proposons un panier d’essentiels disponibles sans dépasser votre montant. Chaque quantité reste modifiable.</p>
+              <button onClick={buildBudgetCart}>Composer mon panier <ArrowRight size={16} /></button>
+            </article>
+          </section>
+          <div className="client-product-grid grocery-grid">{onlineProducts.map(item => <article key={item.product!.id}><div className="grocery-product-visual"><PackageCheck size={28} /><span>{item.available} disponible(s)</span><button className={customer.favoriteProductIds?.includes(item.product!.id) ? 'client-favorite-button active' : 'client-favorite-button'} title="Ajouter aux favoris" onClick={() => toggleFavorite(item.product!.id)}><Heart size={15} fill={customer.favoriteProductIds?.includes(item.product!.id) ? 'currentColor' : 'none'} /></button></div><div><small>{item.product!.category}</small><h3>{item.product!.name}</h3><footer><strong>{formatFCFA(item.price)}</strong><div className="client-quantity"><button onClick={() => changeQuantity('delivery', item.product!.id, -1)}><Minus size={15} /></button><span>{deliveryCart[item.product!.id] || 0}</span><button onClick={() => changeQuantity('delivery', item.product!.id, 1)}><Plus size={15} /></button></div></footer></div></article>)}</div>
+          {Object.keys(deliveryCart).length > 0 && <button className="client-basket-fab" onClick={() => setDeliveryTab('basket')}><ShoppingBag size={19} /><span>Voir mon panier</span><strong>{formatFCFA(deliverySubtotal)}</strong></button>}
+        </>}
 
-        {mode === 'delivery' && deliveryTab === 'basket' && <section className="client-checkout-layout"><div className="client-basket-panel"><span>MON PANIER</span><h1>Vérifier avant de commander</h1>{Object.entries(deliveryCart).map(([productId, quantity]) => { const product = db.products.find(item => item.id === productId); const price = db.posPricing.find(item => item.posId === deliveryChannel.id && item.productId === productId)?.salePrice || 0; return <article key={productId}><div><strong>{product?.name}</strong><small>{quantity} × {formatFCFA(price)}</small></div><div className="client-quantity"><button onClick={() => changeQuantity('delivery', productId, -1)}><Minus size={15} /></button><span>{quantity}</span><button onClick={() => changeQuantity('delivery', productId, 1)}><Plus size={15} /></button></div><label>Si indisponible<select value={substitutionPolicies[productId] || 'contact'} onChange={event => setSubstitutionPolicies({ ...substitutionPolicies, [productId]: event.target.value as typeof substitutionPolicies[string] })}><option value="replace">Remplacer par un équivalent</option><option value="contact">Me contacter</option><option value="refund">Rembourser cet article</option><option value="cancel_order">Annuler toute la commande</option></select></label></article>; })}{Object.keys(deliveryCart).length === 0 && <div className="client-empty"><ShoppingBag size={30} /><h2>Votre panier est vide</h2><button onClick={() => setDeliveryTab('shop')}>Retour à la boutique</button></div>}</div><aside className="client-delivery-summary"><div className="client-address"><MapPin size={21} /><div><span>Livrer à</span><strong>{defaultAddress?.label} · {defaultAddress?.address}</strong><small>{defaultAddress?.landmark}</small><small>{defaultAddress?.instructions}</small></div></div><div className="client-summary-lines"><span>Sous-total <b>{formatFCFA(deliverySubtotal)}</b></span><span>Livraison · {defaultAddress?.zone} <b>{formatFCFA(deliveryFee)}</b></span><strong>Total <b>{formatFCFA(deliverySubtotal + deliveryFee)}</b></strong></div><div className="client-payment-methods">{(['wave', 'orange_money', 'cash'] as const).map(method => <button key={method} className={paymentMethod === method ? 'active' : ''} onClick={() => setPaymentMethod(method)}><WalletCards size={16} /> {PAYMENT_TYPE_LABELS[method]}</button>)}</div><button className="btn btn-primary" disabled={deliverySubtotal <= 0} onClick={placeDeliveryOrder}>Confirmer la commande <ArrowRight size={17} /></button><small>Livraison estimée en {defaultAddress?.zone === 'Point E / Fann' ? 45 : 60} min. Aucun produit indisponible ne sera facturé.</small></aside></section>}
+        {mode === 'delivery' && deliveryTab === 'basket' && <section className="client-checkout-layout">
+          <div className="client-basket-panel">
+            {editingDeliveryOrderId && <div className="client-editing-order"><ReceiptText size={19} /><div><strong>Modification de {editingDeliveryOrderId}</strong><small>Possible jusqu’au début de la préparation. Le nouveau montant sera recalculé.</small></div><button onClick={() => { setEditingDeliveryOrderId(''); setDeliveryCart({}); setDeliveryTab('tracking'); }}>Annuler</button></div>}
+            <span>MON PANIER</span><h1>{editingDeliveryOrderId ? 'Modifier ma commande' : 'Vérifier avant de commander'}</h1>
+            {Object.entries(deliveryCart).map(([productId, quantity]) => { const product = db.products.find(item => item.id === productId); const price = db.posPricing.find(item => item.posId === deliveryChannel.id && item.productId === productId)?.salePrice || 0; return <article key={productId}><div><strong>{product?.name}</strong><small>{quantity} × {formatFCFA(price)}</small></div><div className="client-quantity"><button onClick={() => changeQuantity('delivery', productId, -1)}><Minus size={15} /></button><span>{quantity}</span><button onClick={() => changeQuantity('delivery', productId, 1)}><Plus size={15} /></button></div><label>Si indisponible<select value={substitutionPolicies[productId] || 'contact'} onChange={event => setSubstitutionPolicies({ ...substitutionPolicies, [productId]: event.target.value as typeof substitutionPolicies[string] })}><option value="replace">Remplacer par un équivalent</option><option value="contact">Me contacter</option><option value="refund">Rembourser cet article</option><option value="cancel_order">Annuler toute la commande</option></select></label></article>; })}
+            {Object.keys(deliveryCart).length === 0 && <div className="client-empty"><ShoppingBag size={30} /><h2>Votre panier est vide</h2><button onClick={() => setDeliveryTab('shop')}>Retour à la boutique</button></div>}
+            {household && <section className="client-family-cart"><header><UserPlus size={20} /><div><span>PANIER PARTAGÉ</span><h2>{household.name}</h2></div><b>{household.memberCustomerIds.length} membres</b></header><p>Chacun ajoute ses produits. Le panier final regroupe les contributions sans écraser celles des autres.</p>{household.sharedCartItems?.length ? <div className="client-family-contributions">{household.memberCustomerIds.map(memberId => { const member = db.sartalCustomers.find(item => item.id === memberId); const lines = household.sharedCartItems?.filter(item => item.addedByCustomerId === memberId).length || 0; return <span key={memberId}><i>{member?.fullName.split(' ').map(part => part[0]).join('').slice(0, 2)}</i><strong>{member?.fullName}</strong><small>{lines} ligne(s)</small></span>; })}</div> : <small>Aucune contribution partagée pour le moment.</small>}<footer><button disabled={!Object.keys(deliveryCart).length} onClick={saveFamilyCart}>Ajouter ma contribution</button><button disabled={!household.sharedCartItems?.length} onClick={loadFamilyCart}>Charger le panier famille</button><button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Rejoins le panier ${household.name} dans Mon Sártal pour ajouter tes courses.`)}`, '_blank', 'noopener,noreferrer')}><MessageCircle size={15} /> Inviter par WhatsApp</button></footer></section>}
+          </div>
+          <aside className="client-delivery-summary">
+            <section className={`client-delivery-plus ${deliveryPlusActive ? 'active' : ''}`}><div><Gift size={21} /><span><strong>Livraison+</strong><small>{deliveryPlusActive ? `Actif · renouvellement ${customer.deliveryPlusRenewsAt ? formatDate(customer.deliveryPlusRenewsAt) : 'dans 30 jours'}` : 'Livraisons offertes et créneaux prioritaires'}</small></span></div><b>{deliveryPlusActive ? '0 FCFA' : '3 500 FCFA/mois'}</b><button onClick={() => { const status = toggleSartalDeliveryPlus(customer.id); setMessage(status === 'active' ? 'Livraison+ activée. Les frais de ce panier passent à 0 FCFA.' : 'Livraison+ est désormais en pause.'); }}>{deliveryPlusActive ? 'Mettre en pause' : 'Activer Livraison+'}</button></section>
+            <div className="client-address"><MapPin size={21} /><div><span>Livrer à</span><strong>{defaultAddress?.label} · {defaultAddress?.address}</strong><small>{defaultAddress?.landmark}</small><small>{defaultAddress?.instructions}</small></div></div>
+            <section className="client-slot-picker"><header><Clock3 size={18} /><div><strong>Choisir un créneau réel</strong><small>Les places se mettent à jour selon les commandes.</small></div></header><div>{deliverySlots.map(slot => { const full = slot.booked >= slot.capacity; return <button key={slot.id} disabled={full} className={selectedSlot?.id === slot.id ? 'active' : ''} onClick={() => setSelectedDeliverySlotId(slot.id)}><strong>{slot.label}</strong><small>{full ? 'Complet' : `${slot.capacity - slot.booked} place(s)`}{slot.priority ? ' · prioritaire' : ''}</small>{slot.feeDelta > 0 && !deliveryPlusActive ? <b>+{formatFCFA(slot.feeDelta)}</b> : null}</button>; })}</div></section>
+            <div className="client-summary-lines"><span>Sous-total <b>{formatFCFA(deliverySubtotal)}</b></span><span>Livraison · {defaultAddress?.zone} <b>{deliveryPlusActive ? 'Offerte' : formatFCFA(deliveryFee)}</b></span><strong>Total <b>{formatFCFA(deliverySubtotal + deliveryFee)}</b></strong></div>
+            <div className="client-payment-methods">{(['wave', 'orange_money', 'cash'] as const).map(method => <button key={method} className={paymentMethod === method ? 'active' : ''} onClick={() => setPaymentMethod(method)}><WalletCards size={16} /> {PAYMENT_TYPE_LABELS[method]}</button>)}</div>
+            <button className="btn btn-primary" disabled={deliverySubtotal <= 0 || !selectedSlot} onClick={placeDeliveryOrder}>{editingDeliveryOrderId ? 'Enregistrer les modifications' : 'Confirmer la commande'} <ArrowRight size={17} /></button>
+            <small>{selectedSlot ? `Livraison prévue ${selectedSlot.label}.` : 'Aucun créneau disponible.'} Aucun produit indisponible ne sera facturé.</small>
+          </aside>
+        </section>}
 
-        {mode === 'delivery' && deliveryTab === 'tracking' && <section className="client-tracking-layout">{activeDeliveryOrder ? <><div className="client-delivery-map"><div className="map-road road-one" /><div className="map-road road-two" /><span className="map-origin"><Store size={18} /></span><span className="map-driver"><Truck size={18} /></span><span className="map-destination"><MapPin size={18} /></span><div className="map-status"><span>{deliveryStatus[activeDeliveryOrder.status]}</span><strong>{activeDeliveryOrder.estimatedMinutes || 45} min estimées</strong></div></div><div className="client-tracking-detail"><span>{activeDeliveryOrder.id}</span><h1>{deliveryStatus[activeDeliveryOrder.status]}</h1><p>{activeDeliveryOrder.address} · {activeDeliveryOrder.landmark}</p><div className="client-progress vertical">{[['confirmed', 'Commande reçue'], ['preparing', 'Préparation et contrôle'], ['out_for_delivery', 'Livreur en route'], ['delivered', 'Livraison confirmée']].map(([status, label]) => { const ranks: DeliveryOrderStatus[] = ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'delivered']; const done = ranks.indexOf(activeDeliveryOrder.status) >= ranks.indexOf(status as DeliveryOrderStatus); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={16} /> : null}</span><div><strong>{label}</strong><small>{status === 'out_for_delivery' ? activeDeliveryOrder.driverName || 'Livreur à affecter' : status === 'delivered' ? `Code ${activeDeliveryOrder.verificationCode}` : 'Mise à jour automatique'}</small></div></article>; })}</div>{activeDeliveryOrder.proofStatus === 'photo_confirmed' ? <div className="client-proof-confirmation"><CheckCircle size={19} /><span><strong>Remise certifiée</strong><small>Code, signature et photo confirmés{activeDeliveryOrder.proofCompletedAt ? ` · ${new Date(activeDeliveryOrder.proofCompletedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}</small></span></div> : activeDeliveryOrder.status === 'out_for_delivery' ? <div className="client-proof-confirmation pending"><PackageCheck size={19} /><span><strong>Votre code de remise : {activeDeliveryOrder.verificationCode}</strong><small>Communiquez-le au livreur uniquement lorsque la commande est devant vous.</small></span></div> : null}{activeDeliveryOrder.driverName && <div className="client-driver"><span>{activeDeliveryOrder.driverName.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{activeDeliveryOrder.driverName}</strong><small>Votre livreur · {activeDeliveryOrder.driverPhone}</small></div><button onClick={() => setDeliveryTab('help')}><Phone size={17} /></button></div>}{['delivered', 'returned'].includes(activeDeliveryOrder.status) && <button className="btn btn-secondary" onClick={() => { const id = reorderDeliveryOrder(activeDeliveryOrder.id); setMessage(`Votre panier a été recréé dans la commande ${id}.`); }}>Recommander ce panier</button>}</div></> : <div className="client-empty"><Truck size={34} /><h2>Aucune livraison à suivre</h2><button onClick={() => setDeliveryTab('shop')}>Découvrir la boutique</button></div>}</section>}
+        {mode === 'delivery' && deliveryTab === 'tracking' && <section className="client-tracking-layout">{activeDeliveryOrder ? <>
+          <div className="client-delivery-map"><div className="map-road road-one" /><div className="map-road road-two" /><span className="map-origin"><Store size={18} /></span><span className="map-driver"><Truck size={18} /></span><span className="map-destination"><MapPin size={18} /></span><div className="map-status"><span>{deliveryStatus[activeDeliveryOrder.status]}</span><strong>{activeDeliveryOrder.deliverySlotLabel || `${activeDeliveryOrder.estimatedMinutes || 45} min estimées`}</strong></div></div>
+          <div className="client-tracking-detail">
+            <span>{activeDeliveryOrder.id}</span><h1>{deliveryStatus[activeDeliveryOrder.status]}</h1><p>{activeDeliveryOrder.address} · {activeDeliveryOrder.landmark}</p>
+            {activeDeliveryOrder.deliverySlotLabel && <div className="client-order-slot"><Clock3 size={17} /><span><small>Créneau réservé</small><strong>{activeDeliveryOrder.deliverySlotLabel}</strong></span></div>}
+            {activeDeliveryOrder.status === 'confirmed' && <button className="client-edit-order-button" onClick={startEditingDeliveryOrder}><ReceiptText size={17} /><span><strong>Modifier ma commande</strong><small>Articles, quantités ou créneau · avant préparation</small></span><ArrowRight size={16} /></button>}
+            {activeDeliveryOrder.items.filter(item => item.substitutionProductId && (!item.substitutionStatus || item.substitutionStatus === 'proposed')).map(item => { const original = db.products.find(product => product.id === item.productId); const replacement = db.products.find(product => product.id === item.substitutionProductId); const replacementPrice = db.posPricing.find(price => price.posId === activeDeliveryOrder.channelId && price.productId === item.substitutionProductId)?.salePrice || item.salePrice; const difference = (replacementPrice - item.salePrice) * item.quantity; return <section className="client-substitution-live" key={item.productId}><header><PackageCheck size={20} /><div><span>VOTRE CHOIX EST ATTENDU</span><h2>Un remplacement est proposé</h2></div></header><div><article><small>Article commandé</small><strong>{item.quantity} × {original?.name}</strong><b>{formatFCFA(item.salePrice * item.quantity)}</b></article><ArrowRight size={18} /><article><small>Produit disponible</small><strong>{item.quantity} × {replacement?.name}</strong><b>{formatFCFA(replacementPrice * item.quantity)}{difference !== 0 ? ` · ${difference > 0 ? '+' : ''}${formatFCFA(difference)}` : ''}</b></article></div><p>Votre commande reste en attente de cette décision. Aucun remplacement ne sera imposé.</p><footer><button onClick={() => { decideDeliverySubstitution(activeDeliveryOrder.id, customer.id, item.productId, 'rejected'); setMessage('Remplacement refusé. L’article manquant ne sera pas facturé.'); }}>Refuser</button><button className="primary" onClick={() => { decideDeliverySubstitution(activeDeliveryOrder.id, customer.id, item.productId, 'approved'); setMessage('Remplacement confirmé et montant mis à jour.'); }}>Accepter le remplacement</button></footer></section>; })}
+            {activeDeliveryOrder.paymentAdjustment !== undefined && activeDeliveryOrder.paymentAdjustment !== 0 && <div className="client-payment-adjustment"><WalletCards size={17} /><span><strong>Ajustement de paiement {activeDeliveryOrder.paymentAdjustment > 0 ? '+' : ''}{formatFCFA(activeDeliveryOrder.paymentAdjustment)}</strong><small>{activeDeliveryOrder.paymentStatus === 'pending' ? 'Validation du nouveau montant en attente' : 'Montant régularisé'}</small></span></div>}
+            <div className="client-progress vertical">{[['confirmed', 'Commande reçue'], ['preparing', 'Préparation et contrôle'], ['out_for_delivery', 'Livreur en route'], ['delivered', 'Livraison confirmée']].map(([status, label]) => { const ranks: DeliveryOrderStatus[] = ['confirmed', 'reserved', 'preparing', 'ready', 'out_for_delivery', 'delivered']; const done = ranks.indexOf(activeDeliveryOrder.status) >= ranks.indexOf(status as DeliveryOrderStatus); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={16} /> : null}</span><div><strong>{label}</strong><small>{status === 'out_for_delivery' ? activeDeliveryOrder.driverName || 'Livreur à affecter' : status === 'delivered' ? `Code ${activeDeliveryOrder.verificationCode}` : 'Mise à jour automatique'}</small></div></article>; })}</div>
+            {activeDeliveryOrder.proofStatus === 'photo_confirmed' ? <div className="client-proof-confirmation"><CheckCircle size={19} /><span><strong>Remise certifiée</strong><small>Code, signature et photo confirmés{activeDeliveryOrder.proofCompletedAt ? ` · ${new Date(activeDeliveryOrder.proofCompletedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}</small></span></div> : activeDeliveryOrder.status === 'out_for_delivery' ? <div className="client-proof-confirmation pending"><PackageCheck size={19} /><span><strong>Votre code de remise : {activeDeliveryOrder.verificationCode}</strong><small>Communiquez-le au livreur uniquement lorsque la commande est devant vous.</small></span></div> : null}
+            {activeDeliveryOrder.driverName && <div className="client-driver"><span>{activeDeliveryOrder.driverName.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{activeDeliveryOrder.driverName}</strong><small>Votre livreur · {activeDeliveryOrder.driverPhone}</small></div><button onClick={() => setDeliveryTab('help')}><Phone size={17} /></button></div>}
+            {['delivered', 'returned'].includes(activeDeliveryOrder.status) && <button className="btn btn-secondary" onClick={() => { const id = reorderDeliveryOrder(activeDeliveryOrder.id); setMessage(`Votre panier a été recréé dans la commande ${id}.`); }}>Recommander ce panier</button>}
+          </div>
+        </> : <div className="client-empty"><Truck size={34} /><h2>Aucune livraison à suivre</h2><button onClick={() => setDeliveryTab('shop')}>Découvrir la boutique</button></div>}</section>}
 
         {mode === 'delivery' && deliveryTab === 'help' && <section className="client-help-layout"><div className="client-conversation"><header><span>F</span><div><strong>Fatou · Service client</strong><small>Réponse moyenne : 4 min</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button onClick={() => sendRichMessage('voice')}><Mic size={16} /> Note vocale</button><button onClick={() => sendRichMessage('photo')}><Camera size={16} /> Photo</button><button onClick={() => requestService('delivery_help', 'Être rappelé par le service livraison')}><Phone size={16} /> Me rappeler</button></div><footer><input className="form-control" placeholder="Écrire au service client…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer>{activeServiceRequests.map(item => <div className="client-help-request" key={item.id}><Clock3 size={16} /><span><strong>{item.label}</strong><small>{item.assignedTo} · réponse promise avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></span></div>)}</div><div className="client-feedback-panel">{activeFeedback ? <><HeartHandshake size={25} /><span className={`client-recovery-status ${activeFeedback.recoveryStatus}`}>{activeFeedback.recoveryStatus === 'open' ? 'Suivi prioritaire en cours' : 'Situation résolue'}</span><h2>{activeFeedback.assignedTo || 'Relation client'}</h2><p>{activeFeedback.recoveryStatus === 'open' ? `Vous recontacte avant ${activeFeedback.promisedAt ? new Date(activeFeedback.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'quelques minutes'}.` : activeFeedback.solution}</p>{activeFeedback.compensationPoints ? <strong>+{activeFeedback.compensationPoints} points offerts</strong> : null}<small>Votre dossier reste lié à la commande {activeFeedback.referenceId}.</small></> : <><HeartHandshake size={25} /><h2>Tout s’est bien passé ?</h2><p>Un problème signalé est suivi jusqu’à sa résolution.</p><div className="client-rating">{[1, 2, 3, 4, 5].map(score => <button className={feedbackScore >= score ? 'active' : ''} key={score} onClick={() => setFeedbackScore(score)}><Star size={22} /></button>)}</div><textarea className="form-control" placeholder="Article manquant, endommagé, retard…" value={feedbackNote} onChange={event => setFeedbackNote(event.target.value)} /><button className="btn btn-primary" disabled={!activeDeliveryOrder} onClick={sendFeedback}>Envoyer mon retour</button></>}</div></section>}
 

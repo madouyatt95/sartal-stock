@@ -280,8 +280,11 @@ export interface DeliveryOrderItem {
   productId: string;
   quantity: number;
   salePrice: number;
+  originalProductId?: string;
   substitutionProductId?: string;
   substitutionPolicy?: 'replace' | 'contact' | 'refund' | 'cancel_order';
+  substitutionStatus?: 'proposed' | 'approved' | 'rejected';
+  substitutionRequestedAt?: string;
   note?: string;
 }
 
@@ -298,6 +301,9 @@ export interface DeliveryOrder {
   paymentStatus: DeliveryPaymentStatus;
   items: DeliveryOrderItem[];
   deliveryFee: number;
+  deliverySlotId?: string;
+  deliverySlotLabel?: string;
+  paymentAdjustment?: number;
   zone?: string;
   estimatedMinutes?: number;
   driverName?: string;
@@ -351,6 +357,10 @@ export interface SartalCustomer {
   lowBandwidthMode?: boolean;
   householdId?: string;
   corporateAccountId?: string;
+  deliveryPlusStatus?: 'active' | 'paused';
+  deliveryPlusRenewsAt?: string;
+  deliveryPlusJoinedAt?: string;
+  deliveryPlusMonthlyFee?: number;
   loyaltyPoints: number;
   loyaltyTier: 'welcome' | 'teranga' | 'signature';
   visits: number;
@@ -518,6 +528,13 @@ export interface SartalHousehold {
   memberCustomerIds: string[];
   sharedPoints: number;
   sharedPaymentAllowed: boolean;
+  sharedCartItems?: Array<{
+    productId: string;
+    quantity: number;
+    addedByCustomerId: string;
+    addedAt: string;
+  }>;
+  sharedCartUpdatedAt?: string;
 }
 
 export interface SartalCorporateAccount {

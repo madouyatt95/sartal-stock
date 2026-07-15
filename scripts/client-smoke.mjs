@@ -41,6 +41,7 @@ try {
   const deliveryHtml = renderToStaticMarkup(React.createElement(StateHarness, { mode: 'delivery' }));
   ['Mon Sártal', 'Boutique', 'Panier', 'Suivi', 'Aide'].forEach(marker => assert(deliveryHtml.includes(marker), `Parcours livraison incomplet : ${marker}`));
   assert(deliveryHtml.includes('Les essentiels, vraiment disponibles'), 'Promesse de stock réel absente de la boutique');
+  ['LISTE INTELLIGENTE', 'MODE BUDGET'].forEach(marker => assert(deliveryHtml.includes(marker), `Assistant d’achat absent : ${marker}`));
 
   const hubHtml = renderToStaticMarkup(React.createElement(SartalClient, { state, initialMode: 'restaurant', initialCustomerId: 'customer-aminata', initialHub: true, standalone: true }));
   ['Mon Sártal', 'Aujourd', 'Passeport', 'Portefeuille', 'Mon histoire', 'Entrer sans mot de passe', 'Ma journée Sártal', 'Mes favoris', 'Commande récurrente'].forEach(marker => assert(hubHtml.includes(marker), `Espace client universel incomplet : ${marker}`));
@@ -57,6 +58,7 @@ try {
   assert(appSource.includes('if (!accessCustomer)'), 'un jeton orphelin ne doit jamais ouvrir le profil d’un autre client');
   const clientSource = readFileSync(new URL('../src/views/SartalClient.tsx', import.meta.url), 'utf8');
   assert(!clientSource.includes('|| db.sartalCustomers[0]'), 'un profil absent ne doit jamais retomber sur le premier client');
+  ['PANIER PARTAGÉ', 'Choisir un créneau réel', 'Modifier ma commande', 'VOTRE CHOIX EST ATTENDU', 'Livraison+'].forEach(marker => assert(clientSource.includes(marker), `Expérience livraison incomplète : ${marker}`));
 
   let db = getDB();
   ['sartalJourneyItems', 'sartalOccasionPlans', 'sartalHouseholds', 'sartalCorporateAccounts', 'sartalRecurringOrders', 'restaurantWaitlist', 'sartalRecoveryPlaybooks', 'sartalOfflineActions', 'sartalDemoRuns'].forEach(collection => assert(Array.isArray(db[collection]), `Collection expérience absente : ${collection}`));
@@ -85,6 +87,11 @@ try {
   const householdPointsBefore = household.sharedPoints;
   state.transferSartalHouseholdPoints(household.id, customer.id, 500);
   assert(getDB().sartalHouseholds.find(item => item.id === household.id).sharedPoints === householdPointsBefore - 500, 'Points famille non transférés');
+  state.saveSartalHouseholdCart(household.id, customer.id, [{ productId: 'prod-huile-1l', quantity: 2 }]);
+  const sharedCart = getDB().sartalHouseholds.find(item => item.id === household.id).sharedCartItems;
+  assert(sharedCart.some(item => item.addedByCustomerId === 'customer-aminata') && sharedCart.some(item => item.addedByCustomerId === customer.id && item.quantity === 2), 'Contributions du panier familial non conservées');
+  assert(state.toggleSartalDeliveryPlus(customer.id) === 'active', 'Livraison+ non activée');
+  assert(getDB().sartalCustomers.find(item => item.id === customer.id).deliveryPlusRenewsAt, 'Renouvellement Livraison+ absent');
   const company = getDB().sartalCorporateAccounts.find(item => item.id === 'corporate-ndar');
   const companyBalanceBefore = company.currentBalance;
   state.chargeSartalCorporateAccount(company.id, 'customer-moussa', 10000);
@@ -160,14 +167,36 @@ try {
   assert(getDB().sartalCustomers.find(item => item.id === customer.id).loyaltyPoints === pointsBeforeRedemption - 500, 'Utilisation des points non appliquée');
 
   const address = customer.addresses.find(item => item.isDefault);
-  const deliveryOrderId = state.createDeliveryCustomerOrder({ customerId: customer.id, addressId: address.id, items: [{ productId: 'prod-riz-5kg', quantity: 1, substitutionPolicy: 'contact' }], paymentType: 'orange_money' });
+  const firstSlot = { id: 'slot-test-18-19', label: 'mer. 15 juil. · 18h–19h', feeDelta: 300, capacity: 1 };
+  const secondSlot = { id: 'slot-test-19-20', label: 'mer. 15 juil. · 19h–20h', feeDelta: 0, capacity: 1 };
+  const deliveryOrderId = state.createDeliveryCustomerOrder({ customerId: customer.id, addressId: address.id, items: [{ productId: 'prod-riz-5kg', quantity: 1, substitutionPolicy: 'contact' }, { productId: 'prod-coca', quantity: 1, substitutionPolicy: 'contact' }], paymentType: 'orange_money', deliverySlot: firstSlot });
   state.updateDeliverySubstitutionPolicy(deliveryOrderId, 'prod-riz-5kg', 'refund');
+  const editAdjustment = state.updateConfirmedDeliveryOrder(deliveryOrderId, customer.id, { items: [{ productId: 'prod-riz-5kg', quantity: 2, substitutionPolicy: 'refund' }, { productId: 'prod-coca', quantity: 1, substitutionPolicy: 'contact' }], deliverySlot: secondSlot });
+  assert(editAdjustment === 4500, 'Ajustement de commande incorrect');
+  const substitutionDb = getDB();
+  const substitutionOrder = substitutionDb.deliveryOrders.find(item => item.id === deliveryOrderId);
+  const cocaLine = substitutionOrder.items.find(item => item.productId === 'prod-coca');
+  cocaLine.substitutionProductId = 'prod-jus-bissap';
+  cocaLine.substitutionStatus = 'proposed';
+  saveDB(substitutionDb);
+  state.decideDeliverySubstitution(deliveryOrderId, customer.id, 'prod-coca', 'approved');
   db = getDB();
   const deliveryOrder = db.deliveryOrders.find(item => item.id === deliveryOrderId);
-  assert(deliveryOrder.status === 'confirmed' && deliveryOrder.paymentStatus === 'paid', 'Commande en ligne non confirmée ou non payée');
+  assert(deliveryOrder.status === 'confirmed' && deliveryOrder.paymentStatus === 'pending', 'Commande modifiée non confirmée ou paiement non réajusté');
   assert(deliveryOrder.items[0].substitutionPolicy === 'refund', 'Choix de substitution non conservé');
+  assert(deliveryOrder.deliveryFee === 0 && deliveryOrder.deliverySlotId === secondSlot.id, 'Avantage Livraison+ ou créneau non conservé');
+  assert(deliveryOrder.items.some(item => item.productId === 'prod-jus-bissap' && item.originalProductId === 'prod-coca' && item.substitutionStatus === 'approved'), 'Substitution client non appliquée');
+  let duplicateDecisionBlocked = false;
+  try { state.decideDeliverySubstitution(deliveryOrderId, customer.id, 'prod-coca', 'rejected'); } catch { duplicateDecisionBlocked = true; }
+  assert(duplicateDecisionBlocked, 'Une substitution déjà décidée ne doit pas être rejouée');
+  let fullSlotBlocked = false;
+  try { state.createDeliveryCustomerOrder({ customerId: customer.id, addressId: address.id, items: [{ productId: 'prod-huile-1l', quantity: 1, substitutionPolicy: 'contact' }], paymentType: 'wave', deliverySlot: secondSlot }); } catch { fullSlotBlocked = true; }
+  assert(fullSlotBlocked, 'Un créneau complet ne doit pas accepter une commande supplémentaire');
   assert(deliveryOrder.landmark && deliveryOrder.verificationCode, 'Adresse locale ou preuve de livraison absente');
   assert(state.reserveDeliveryOrder(deliveryOrderId).success, 'Réservation stock livraison impossible');
+  let editBlocked = false;
+  try { state.updateConfirmedDeliveryOrder(deliveryOrderId, customer.id, { items: [{ productId: 'prod-riz-5kg', quantity: 1, substitutionPolicy: 'contact' }] }); } catch { editBlocked = true; }
+  assert(editBlocked, 'Une commande réservée ne doit plus être modifiable par le client');
   assert(state.startDeliveryPreparation(deliveryOrderId).success, 'Préparation livraison impossible');
   assert(state.markDeliveryReady(deliveryOrderId).success, 'Commande livraison non marquée prête');
   assert(state.dispatchDeliveryOrder(deliveryOrderId).success, 'Départ livreur impossible');
@@ -191,7 +220,7 @@ try {
   state.cancelRestaurantReservation(reservationId);
   assert(getDB().restaurantReservations.find(item => item.id === reservationId).status === 'cancelled', 'Annulation autonome de réservation non enregistrée');
 
-  console.log('Sártal Client smoke test: 13 axes premium et 55 contrôles fonctionnels validés.');
+  console.log('Sártal Client smoke test: 20 axes premium et 68 contrôles fonctionnels validés.');
 } finally {
   await server.close();
 }

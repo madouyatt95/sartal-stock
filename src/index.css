@@ -10365,6 +10365,198 @@ button, input, select, textarea {
 .staff-customer-timeline > div > i { width: 9px; height: 9px; margin-top: 0.25rem; border-radius: 50%; background: #7a918c; }
 .staff-customer-timeline > div.restaurant > i { background: #e26d55; }
 .staff-customer-timeline > div.delivery > i { background: #159b72; }
+
+/* Online shopping customer experience */
+.client-smart-shopping {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+  gap: 0.75rem;
+  margin: 0.8rem 0;
+}
+
+.client-smart-list,
+.client-budget-planner {
+  display: grid;
+  align-content: start;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid #d5e4e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.client-smart-list > header,
+.client-budget-planner > header,
+.client-family-cart > header,
+.client-substitution-live > header,
+.client-slot-picker > header {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #147568;
+}
+
+.client-smart-list header > div,
+.client-budget-planner header > div,
+.client-family-cart header > div,
+.client-substitution-live header > div,
+.client-slot-picker header > div { display: grid; gap: 0.08rem; }
+.client-smart-list header span,
+.client-budget-planner header span,
+.client-family-cart header span,
+.client-substitution-live header span { color: #147568; font-size: 0.64rem; font-weight: 900; }
+.client-smart-list h2,
+.client-budget-planner h2,
+.client-family-cart h2,
+.client-substitution-live h2 { margin: 0; color: #173532; font-size: 0.92rem; }
+
+.client-smart-list textarea {
+  min-height: 92px;
+  width: 100%;
+  resize: vertical;
+  padding: 0.7rem;
+  border: 1px solid #bdd3ce;
+  border-radius: 6px;
+  color: #173532;
+  font: inherit;
+  line-height: 1.45;
+}
+
+.client-smart-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.client-smart-actions > button,
+.client-smart-actions > label,
+.client-budget-planner > button,
+.client-family-cart footer button,
+.client-delivery-plus button,
+.client-edit-order-button,
+.client-substitution-live footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 38px;
+  padding: 0.48rem 0.65rem;
+  border: 1px solid #c7d9d5;
+  border-radius: 5px;
+  background: #f5f9f8;
+  color: #315d56;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.client-smart-actions > label input { display: none; }
+.client-smart-actions > .primary,
+.client-budget-planner > button,
+.client-substitution-live footer .primary { border-color: #126f63; background: #126f63; color: #fff; }
+.client-smart-list > small { display: flex; align-items: center; gap: 0.3rem; color: #5d746f; font-size: 0.67rem; }
+
+.client-budget-planner { border-top: 4px solid #efb947; background: #fffbf1; }
+.client-budget-planner > label { display: grid; gap: 0.3rem; color: #6d725e; font-size: 0.68rem; font-weight: 800; }
+.client-budget-planner > label > div { display: grid; grid-template-columns: 1fr auto; align-items: center; overflow: hidden; border: 1px solid #dccb9e; border-radius: 6px; background: #fff; }
+.client-budget-planner input { min-width: 0; padding: 0.75rem; border: 0; color: #173532; font-size: 1rem; font-weight: 850; }
+.client-budget-planner label b { padding-right: 0.75rem; color: #8b6519; font-size: 0.68rem; }
+.client-budget-planner p { margin: 0; color: #6b756c; font-size: 0.7rem; line-height: 1.45; }
+
+.client-editing-order {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border-left: 4px solid #d89b2f;
+  background: #fff8e7;
+  color: #9a6816;
+}
+.client-editing-order > div { display: grid; gap: 0.1rem; }
+.client-editing-order strong { color: #563e17; font-size: 0.74rem; }
+.client-editing-order small { color: #806a43; font-size: 0.65rem; }
+.client-editing-order button { padding: 0.4rem 0.55rem; border: 0; border-radius: 4px; background: #fff; color: #865a0f; font-size: 0.66rem; font-weight: 800; }
+
+.client-family-cart { display: grid; gap: 0.6rem; margin-top: 0.7rem; padding: 0.8rem; border: 1px solid #cfe0dc; border-radius: 7px; background: #f4f9f7; }
+.client-family-cart header > b { margin-left: auto; padding: 0.3rem 0.45rem; border-radius: 4px; background: #e1f1ed; color: #176f64; font-size: 0.64rem; }
+.client-family-cart > p { margin: 0; color: #617570; font-size: 0.69rem; line-height: 1.45; }
+.client-family-cart > small { color: #71817e; font-size: 0.67rem; }
+.client-family-contributions { display: flex; gap: 0.45rem; overflow-x: auto; }
+.client-family-contributions > span { min-width: 145px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 0.15rem 0.4rem; padding: 0.45rem; background: #fff; }
+.client-family-contributions i { grid-row: 1 / 3; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #176f64; color: #fff; font-size: 0.62rem; font-style: normal; font-weight: 850; }
+.client-family-contributions strong { font-size: 0.67rem; }
+.client-family-contributions small { color: #70817d; font-size: 0.61rem; }
+.client-family-cart footer { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.client-family-cart footer button { flex: 1 1 150px; }
+
+.client-delivery-plus { display: grid; grid-template-columns: 1fr auto; gap: 0.5rem; padding: 0.75rem; border: 1px solid #e0c878; border-radius: 7px; background: #fff8dc; }
+.client-delivery-plus > div { display: flex; align-items: center; gap: 0.45rem; color: #9a6d12; }
+.client-delivery-plus span { display: grid; gap: 0.08rem; }
+.client-delivery-plus strong { color: #4f3e19; font-size: 0.74rem; }
+.client-delivery-plus small { color: #766641; font-size: 0.62rem; }
+.client-delivery-plus > b { align-self: center; color: #8b6519; font-size: 0.68rem; }
+.client-delivery-plus button { grid-column: 1 / -1; width: 100%; border-color: #dfbd55; background: #fff; color: #79550d; }
+.client-delivery-plus.active { border-color: #9acfc5; background: #eaf7f3; }
+.client-delivery-plus.active > div { color: #167568; }
+
+.client-slot-picker { display: grid; gap: 0.5rem; }
+.client-slot-picker header strong { color: #294b45; font-size: 0.72rem; }
+.client-slot-picker header small { color: #73837f; font-size: 0.62rem; }
+.client-slot-picker > div { display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; }
+.client-slot-picker > div > button { position: relative; display: grid; gap: 0.12rem; min-height: 58px; padding: 0.5rem; border: 1px solid #d1dfdc; border-radius: 5px; background: #f7faf9; color: #34534d; text-align: left; }
+.client-slot-picker > div > button.active { border-color: #147568; background: #e8f5f1; box-shadow: inset 0 0 0 1px #147568; }
+.client-slot-picker button:disabled { opacity: 0.48; }
+.client-slot-picker button strong { font-size: 0.66rem; }
+.client-slot-picker button small { color: #73847f; font-size: 0.59rem; }
+.client-slot-picker button b { color: #9a6810; font-size: 0.58rem; }
+
+.client-order-slot,
+.client-payment-adjustment { display: flex; align-items: center; gap: 0.5rem; margin: 0.65rem 0; padding: 0.6rem; background: #eef7f4; color: #167568; }
+.client-order-slot span,
+.client-payment-adjustment span { display: grid; gap: 0.08rem; }
+.client-order-slot small,
+.client-payment-adjustment small { color: #6c7e79; font-size: 0.62rem; }
+.client-order-slot strong,
+.client-payment-adjustment strong { color: #294a44; font-size: 0.7rem; }
+.client-edit-order-button { width: 100%; justify-content: flex-start; margin-bottom: 0.7rem; background: #fff; text-align: left; }
+.client-edit-order-button > span { display: grid; flex: 1; gap: 0.08rem; }
+.client-edit-order-button strong { color: #294a44; font-size: 0.7rem; }
+.client-edit-order-button small { color: #70817d; font-size: 0.61rem; }
+
+.client-substitution-live { display: grid; gap: 0.65rem; margin: 0.7rem 0; padding: 0.8rem; border: 1px solid #dfc275; border-top: 4px solid #e3a936; border-radius: 7px; background: #fffbef; }
+.client-substitution-live > div { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 0.45rem; }
+.client-substitution-live article { display: grid; gap: 0.14rem; min-width: 0; padding: 0.55rem; background: #fff; }
+.client-substitution-live article small { color: #7d7b6e; font-size: 0.6rem; }
+.client-substitution-live article strong { color: #354942; font-size: 0.68rem; }
+.client-substitution-live article b { color: #8b6317; font-size: 0.64rem; }
+.client-substitution-live > p { margin: 0; color: #716b57; font-size: 0.66rem; line-height: 1.4; }
+.client-substitution-live footer { display: flex; gap: 0.4rem; }
+.client-substitution-live footer button { flex: 1; }
+.client-payment-adjustment { background: #fff4d8; color: #9b6b12; }
+
+@media (max-width: 760px) {
+  .client-smart-shopping { grid-template-columns: 1fr; }
+  .client-smart-list,
+  .client-budget-planner { padding: 0.75rem; }
+  .client-smart-actions > button,
+  .client-smart-actions > label { flex: 1 1 110px; }
+  .client-family-cart footer button { min-height: 42px; }
+}
+
+@media (max-width: 430px) {
+  .client-smart-shopping { margin: 0.55rem 0; }
+  .client-smart-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .client-smart-actions > .primary { grid-column: 1 / -1; }
+  .client-editing-order { grid-template-columns: auto 1fr; }
+  .client-editing-order button { grid-column: 1 / -1; width: 100%; }
+  .client-slot-picker > div { grid-template-columns: 1fr; }
+  .client-slot-picker button strong { font-size: 0.72rem; }
+  .client-slot-picker button small,
+  .client-slot-picker button b,
+  .client-delivery-plus small,
+  .client-smart-list > small { font-size: 0.66rem; }
+  .client-family-cart > p,
+  .client-budget-planner p { font-size: 0.72rem; }
+  .client-substitution-live > div { grid-template-columns: 1fr; }
+  .client-substitution-live > div > svg { justify-self: center; transform: rotate(90deg); }
+  .client-substitution-live footer { flex-direction: column-reverse; }
+  .client-substitution-live footer button { width: 100%; }
+}
 .staff-customer-timeline > div.hotel > i { background: #3975dc; }
 .staff-customer-timeline > div.alert > i { background: #c74640; }
 .staff-customer-timeline span { display: grid; gap: 0.1rem; min-width: 0; }
