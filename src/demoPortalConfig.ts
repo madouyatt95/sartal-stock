@@ -32,7 +32,7 @@ const pmsManagementTabs: readonly PMSDemoTab[] = ['dashboard', 'planning', 'rese
 export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> = {
   stock_direction: {
     label: 'Pilotage et contrôle',
-    views: ['pulse', 'dashboard', 'stock-control', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'employees', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports']
   },
   stock_manager: {
     label: 'Gestion complète du stock',
@@ -48,7 +48,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   restaurant_direction: {
     label: 'Pilotage restaurant',
-    views: ['pulse', 'dashboard', 'client', 'answer', 'simulation', 'pos-imports', 'stock-control', 'pricing', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports']
   },
   restaurant_manager: {
     label: 'Exploitation du restaurant',
@@ -60,7 +60,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   delivery_direction: {
     label: 'Pilotage de la vente en ligne',
-    views: ['pulse', 'dashboard', 'client', 'delivery', 'stock-control', 'stocks', 'smart-alerts', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'client', 'employees', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'smart-alerts', 'movements', 'exports']
   },
   delivery_stock_manager: {
     label: 'Stock et préparation des commandes',
@@ -68,7 +68,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   hotel_direction: {
     label: 'Pilotage hôtelier',
-    views: ['pulse', 'dashboard', 'pms', 'stock-control', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'employees', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   },
@@ -80,7 +80,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   complex_direction: {
     label: 'Pilotage hôtel, restaurant et stock',
-    views: ['pulse', 'dashboard', 'client', 'answer', 'simulation', 'pos-imports', 'pms', 'stock-control', 'pricing', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   },
@@ -96,7 +96,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   suite_direction: {
     label: 'Pilotage de la suite',
-    views: ['pulse', 'dashboard', 'client', 'answer', 'simulation', 'pos-imports', 'pms', 'delivery', 'stock-control', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'pms', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   }

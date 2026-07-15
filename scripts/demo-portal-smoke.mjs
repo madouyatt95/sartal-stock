@@ -89,6 +89,14 @@ try {
   assert(!canAccessBackofficeView('director', ['stock', 'restaurant', 'delivery', 'pms'], 'settings'), 'La direction ne doit pas hériter des réglages administrateur');
   assert(!canAccessBackofficeView('auditor', ['stock'], 'inventories'), 'L’auditeur ne doit pas lancer un inventaire');
   assert(canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'pricing'), 'Le manager restaurant doit pouvoir gérer ses prix');
+  assert(!canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'employees'), 'La gestion globale des équipes doit rester réservée à la direction');
+
+  ['stock_direction', 'restaurant_direction', 'delivery_direction', 'hotel_direction', 'complex_direction', 'suite_direction'].forEach(policyId => {
+    const policy = DEMO_ACCESS_POLICIES[policyId];
+    ['employees', 'products', 'pricing', 'warehouses'].forEach(view => {
+      assert(policy.views.includes(view), `${policyId} doit exposer ${view}, inclus dans le socle Stock de l’offre`);
+    });
+  });
   assert(!canAccessBackofficeView('director', ['stock'], 'delivery'), 'Un module non acheté ne doit jamais être ouvert');
 
   assert(DEMO_ACCESS_POLICIES.night_audit.initialPmsTab === 'audit', 'Le contrôle de nuit doit démarrer sur la clôture');
