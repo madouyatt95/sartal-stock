@@ -40,8 +40,10 @@ import {
   Radio,
   RefreshCw,
   WifiOff,
-  ChevronDown
+  ChevronDown,
+  ArrowLeft
 } from 'lucide-react';
+import { getDemoPerspective, getDemoUniverse, type DemoPerspective, type DemoUniverse } from './demoPortalConfig';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const ManagerAnswer = lazy(() => import('./views/ManagerAnswer'));
@@ -76,14 +78,46 @@ const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceC
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
 const SartalAccessCenter = lazy(() => import('./views/SartalAccessCenter'));
 const SartalPulse = lazy(() => import('./views/SartalPulse'));
+const DemoPortal = lazy(() => import('./views/DemoPortal'));
 
 const AppLoading = () => <div className="app-route-loading"><img src="./brand-mark.svg" alt="" /><span>Chargement du poste…</span></div>;
 const PublicAccessError: React.FC<{ eyebrow: string; title: string; message: string; supportPhone?: string }> = ({ eyebrow, title, message, supportPhone }) => <main className="public-access-error"><section><img src="./brand-mark.svg" alt="Sártal" /><span>{eyebrow}</span><h1>{title}</h1><p>{message}</p>{supportPhone && <a href={`tel:${supportPhone.replace(/\s/g, '')}`}><HeartHandshake size={17} /> Contacter l’établissement · {supportPhone}</a>}<small>Vos données restent protégées. Aucun accès au back-office n’a été ouvert.</small></section></main>;
 
+const returnToDemoPortal = (universe: DemoUniverse) => {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('demo', 'portal');
+  url.searchParams.set('univers', universe.id);
+  window.location.assign(url.toString());
+};
+
+const DemoExperienceBar: React.FC<{ universe: DemoUniverse; perspective: DemoPerspective }> = ({ universe, perspective }) => (
+  <header className="demo-experience-bar">
+    <button onClick={() => returnToDemoPortal(universe)}><ArrowLeft size={17} /><span>Changer de point de vue</span></button>
+    <div><small>{universe.label}</small><strong>{perspective.label}</strong></div>
+    <b>MODE DÉMO</b>
+  </header>
+);
+
+const DemoExperienceFrame: React.FC<React.PropsWithChildren<{ universe: DemoUniverse; perspective: DemoPerspective }>> = ({ universe, perspective, children }) => (
+  <div className="demo-experience-frame"><DemoExperienceBar universe={universe} perspective={perspective} />{children}</div>
+);
+
 export const App: React.FC = () => {
   const state = useStockState();
-  const { db } = state;
-  const [view, setView] = useState<string>('pulse');
+  const rawDb = state.db;
+  const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const demoMode = queryParams.get('demo');
+  const demoUniverse = demoMode !== 'portal' ? getDemoUniverse(demoMode) : undefined;
+  const demoPerspective = getDemoPerspective(demoUniverse, queryParams.get('profil'));
+  const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
+  const db = demoBackoffice && demoUniverse ? {
+    ...rawDb,
+    currentUser: { ...rawDb.currentUser, name: demoPerspective?.label || rawDb.currentUser.name, role: demoBackoffice.role },
+    sartalBrandSettings: { ...rawDb.sartalBrandSettings, enabledModules: demoUniverse.modules }
+  } : rawDb;
+  const experienceState = demoBackoffice ? { ...state, db } : state;
+  const [view, setView] = useState<string>(demoBackoffice?.view || 'pulse');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<Set<string>>(() => new Set());
@@ -149,21 +183,39 @@ export const App: React.FC = () => {
     return () => window.cancelAnimationFrame(frame);
   }, [view]);
 
-  const accessCenterMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('connexion') : null;
+  if (demoMode === 'portal') {
+    return <Suspense fallback={<AppLoading />}><DemoPortal initialUniverseId={queryParams.get('univers') || undefined} /></Suspense>;
+  }
+  if (demoUniverse && demoPerspective && demoPerspective.target.type !== 'backoffice') {
+    const target = demoPerspective.target;
+    if (target.type === 'employee') {
+      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-employee-app"><EmployeeWorkspace state={state} initialRole={target.role} demoAutoStart /></main></Suspense></DemoExperienceFrame>;
+    }
+    if (target.type === 'client') {
+      return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><SartalClient state={state} initialMode={target.mode} initialHub={target.initialHub} standalone /></main></Suspense></DemoExperienceFrame>;
+    }
+    const demoReservation = db.pmsReservations.find(item => item.status === 'checked_in') || db.pmsReservations.find(item => item.status === 'confirmed') || db.pmsReservations[0];
+    return <DemoExperienceFrame universe={demoUniverse} perspective={demoPerspective}><Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={demoReservation?.id} standalone /></main></Suspense></DemoExperienceFrame>;
+  }
+  if (demoMode && demoMode !== 'portal' && (!demoUniverse || !demoPerspective)) {
+    return <Suspense fallback={<AppLoading />}><DemoPortal initialUniverseId={demoUniverse?.id} /></Suspense>;
+  }
+
+  const accessCenterMode = queryParams.get('connexion');
   if (accessCenterMode !== null) {
     if (accessCenterMode === '1') return <Suspense fallback={<AppLoading />}><SartalAccessCenter state={state} /></Suspense>;
     return <PublicAccessError eyebrow="CENTRE D’ACCÈS" title="Adresse de connexion incorrecte" message="Utilisez le raccourci officiel de votre établissement pour ouvrir votre espace." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
-  const guestReservationId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sejour') : null;
+  const guestReservationId = queryParams.get('sejour');
   if (guestReservationId !== null) {
     if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
       return <Suspense fallback={<AppLoading />}><main className="pms-public-guest-app"><PMSGuestExperiencePortal state={state} initialReservationId={guestReservationId} standalone /></main></Suspense>;
     }
     return <PublicAccessError eyebrow="MON SÉJOUR" title="Ce lien de séjour n’est plus disponible" message="Demandez un nouveau lien privé à la réception pour retrouver votre chambre, vos services et votre folio." supportPhone={db.sartalBrandSettings.supportPhone} />;
   }
-  const publicClientMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('client') : null;
-  const publicEmployeeMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('equipe') : null;
-  const publicAccessToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('access') : null;
+  const publicClientMode = queryParams.get('client');
+  const publicEmployeeMode = queryParams.get('equipe');
+  const publicAccessToken = queryParams.get('access');
   const publicAccess = db.sartalClientAccess.find(item => item.linkToken === publicAccessToken && item.status === 'active' && new Date(item.expiresAt).getTime() > Date.now());
   if (publicAccessToken !== null) {
     if (publicAccess) {
@@ -233,7 +285,14 @@ export const App: React.FC = () => {
   const moduleForSection: Record<string, 'stock' | 'restaurant' | 'delivery' | 'pms' | undefined> = {
     Restaurant: 'restaurant', Hôtel: 'pms', Livraison: 'delivery', 'Socle stock': 'stock', Opérations: 'stock', Contrôle: 'stock'
   };
-  const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role) && (!moduleForSection[link.section] || db.sartalBrandSettings.enabledModules.includes(moduleForSection[link.section]!)));
+  const hiddenDemoLinks = new Set(['guided-demo', 'business-problems', 'employees']);
+  const demoHasCustomerModule = demoUniverse?.modules.some(module => module !== 'stock');
+  const allowedLinks = sidebarLinks.filter(link => (
+    link.roles.includes(db.currentUser.role)
+    && (!moduleForSection[link.section] || db.sartalBrandSettings.enabledModules.includes(moduleForSection[link.section]!))
+    && (!demoBackoffice || !hiddenDemoLinks.has(link.id))
+    && (!demoBackoffice || link.id !== 'client' || demoHasCustomerModule)
+  ));
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
     { id: 'Équipes', label: 'Interfaces employés' },
@@ -359,73 +418,74 @@ export const App: React.FC = () => {
 
     switch (view) {
       case 'pulse':
-        return <SartalPulse state={state} setView={setView} />;
+        return <SartalPulse state={experienceState} setView={setView} />;
       case 'dashboard':
-        return <Dashboard state={state} setView={setView} />;
+        return <Dashboard state={experienceState} setView={setView} />;
       case 'guided-demo':
-        return <GuidedDemo state={state} setView={setView} />;
+        return <GuidedDemo state={experienceState} setView={setView} />;
       case 'business-problems':
-        return <BusinessProblems state={state} setView={setView} />;
+        return <BusinessProblems state={experienceState} setView={setView} />;
       case 'client':
-        return <CustomerExperienceCockpit state={state} />;
+        return <CustomerExperienceCockpit state={experienceState} />;
       case 'employees':
-        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>{db.sartalBrandSettings.staffAppName}</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={state} /></section>;
+        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>{db.sartalBrandSettings.staffAppName}</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={experienceState} /></section>;
       case 'answer':
-        return <ManagerAnswer state={state} setView={setView} />;
+        return <ManagerAnswer state={experienceState} setView={setView} />;
       case 'simulation':
-        return <BehaviorSimulation state={state} setView={setView} />;
+        return <BehaviorSimulation state={experienceState} setView={setView} />;
       case 'delivery':
-        return <DeliveryDemo state={state} setView={setView} />;
+        return <DeliveryDemo state={experienceState} setView={setView} />;
       case 'pms':
-        return <PMSHotel state={state} setView={setView} />;
+        return <PMSHotel state={experienceState} setView={setView} />;
       case 'stock-control':
-        return <StockControl state={state} setView={setView} />;
+        return <StockControl state={experienceState} setView={setView} />;
       case 'mapping-control':
-        return <MappingControl state={state} setView={setView} />;
+        return <MappingControl state={experienceState} setView={setView} />;
       case 'stock-audit':
-        return <StockAudit state={state} setView={setView} />;
+        return <StockAudit state={experienceState} setView={setView} />;
       case 'smart-alerts':
-        return <SmartAlerts state={state} setView={setView} />;
+        return <SmartAlerts state={experienceState} setView={setView} />;
       case 'products':
-        return <Products state={state} />;
+        return <Products state={experienceState} />;
       case 'pricing':
-        return <POSPricing state={state} />;
+        return <POSPricing state={experienceState} />;
       case 'warehouses':
-        return <Warehouses state={state} />;
+        return <Warehouses state={experienceState} />;
       case 'stocks':
-        return <Stocks state={state} />;
+        return <Stocks state={experienceState} />;
       case 'purchases':
-        return <Purchases state={state} />;
+        return <Purchases state={experienceState} />;
       case 'receiving':
-        return <Receiving state={state} />;
+        return <Receiving state={experienceState} />;
       case 'transfers':
-        return <Transfers state={state} />;
+        return <Transfers state={experienceState} />;
       case 'inventories':
-        return <Inventories state={state} />;
+        return <Inventories state={experienceState} />;
       case 'losses':
-        return <Losses state={state} />;
+        return <Losses state={experienceState} />;
       case 'movements':
-        return <Movements state={state} />;
+        return <Movements state={experienceState} />;
       case 'reorder':
-        return <Reorder state={state} setView={setView} />;
+        return <Reorder state={experienceState} setView={setView} />;
       case 'suppliers':
-        return <Suppliers state={state} />;
+        return <Suppliers state={experienceState} />;
       case 'connectors':
-        return <Connectors state={state} />;
+        return <Connectors state={experienceState} />;
       case 'pos-imports':
-        return <POSImports state={state} setView={setView} />;
+        return <POSImports state={experienceState} setView={setView} />;
       case 'exports':
-        return <Exports state={state} />;
+        return <Exports state={experienceState} />;
       case 'settings':
-        return <Settings state={state} />;
+        return <Settings state={experienceState} />;
       default:
-        return <SartalPulse state={state} setView={setView} />;
+        return <SartalPulse state={experienceState} setView={setView} />;
     }
   };
 
   return (
     <>
-    <div className="app-container" style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
+    {demoBackoffice && demoUniverse && demoPerspective && <DemoExperienceBar universe={demoUniverse} perspective={demoPerspective} />}
+    <div className={`app-container ${demoBackoffice ? 'demo-backoffice-app' : ''}`} style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
       
       {/* Sidebar Panel */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>

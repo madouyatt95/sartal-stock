@@ -62,6 +62,8 @@ type StockWorkspace = 'scan' | 'receiving' | 'transfers' | 'inventory' | 'journa
 
 interface EmployeeWorkspaceProps {
   state: StockState;
+  initialRole?: EmployeeRole;
+  demoAutoStart?: boolean;
 }
 
 interface RoleConfig {
@@ -143,11 +145,12 @@ interface SpeechRecognitionLike {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
-export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) => {
+export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, initialRole, demoAutoStart = false }) => {
   const { db } = state;
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState(db.employeeProfiles[0]?.id || '');
+  const initialEmployee = initialRole ? db.employeeProfiles.find(item => item.role === initialRole && item.active) : db.employeeProfiles[0];
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialEmployee?.id || '');
   const [pin, setPin] = useState('');
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(Boolean(initialRole));
   const [tab, setTab] = useState<StaffTab>('today');
   const [assignmentId, setAssignmentId] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('Téléphone personnel');
@@ -189,6 +192,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   const role = employee?.role;
   const roleConfig = role ? ROLE_CONFIG[role] : ROLE_CONFIG.waiter;
   const siteBrand = db.sartalBrandSettings.siteProfiles.find(item => item.siteId === employee?.siteId);
+
+  useEffect(() => {
+    if (!demoAutoStart || !loggedIn || !employee || activeShift) return;
+    state.startEmployeeShift(employee.id, employee.posId || employee.warehouseId || employee.siteId, 'Poste de démonstration');
+  }, [activeShift, demoAutoStart, employee, loggedIn, state]);
 
   useEffect(() => {
     setAssignmentId(employee?.posId || employee?.warehouseId || employee?.siteId || '');
@@ -533,7 +541,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
       <header className="staff-shift-identity">
         <div className="staff-avatar"><RoleIcon size={28} /></div>
         <div><span>Bonjour {employee.name.split(' ')[0]}</span><h1>Prêt à prendre votre service ?</h1><p>{roleConfig.label} · {employee.employeeNumber}</p></div>
-        <button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={17} /> Changer de profil</button>
+        {!demoAutoStart && <button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={17} /> Changer de profil</button>}
       </header>
       <div className="staff-shift-grid">
         <section className="staff-start-form">
@@ -959,10 +967,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   );
 
   const renderMore = () => (
-    <section className="staff-more-layout"><div className="staff-profile-panel"><header><div className="staff-avatar"><RoleIcon size={24} /></div><div><span>{employee.employeeNumber}</span><h2>{employee.name}</h2><p>{roleConfig.label}</p></div></header><dl><div><dt>Établissement</dt><dd>{db.sites.find(item => item.id === employee.siteId)?.name}</dd></div><div><dt>Affectation</dt><dd>{activeShift?.assignmentLabel}</dd></div><div><dt>Appareil</dt><dd>{activeShift?.deviceLabel}</dd></div><div><dt>Connexion</dt><dd><i /> Session personnelle active</dd></div></dl><button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={16} /> Verrouiller l’écran</button></div><div className="staff-handover-form"><header><ClipboardCheck size={21} /><div><h2>Terminer et passer le service</h2><p>L’équipe suivante devra confirmer la reprise.</p></div></header><label>Ce qui reste à faire <textarea value={handover.notes} onChange={event => setHandover(current => ({ ...current, notes: event.target.value }))} placeholder="Ex. Table T12 attend l’addition..." /></label><div><label>Incidents<textarea value={handover.incidents} onChange={event => setHandover(current => ({ ...current, incidents: event.target.value }))} placeholder="Matériel, retard, anomalie..." /></label><label>Montants à contrôler<textarea value={handover.amountsToCheck} onChange={event => setHandover(current => ({ ...current, amountsToCheck: event.target.value }))} placeholder="Écart caisse, paiement en attente..." /></label></div><label>Clients à suivre <textarea value={handover.customersToFollow} onChange={event => setHandover(current => ({ ...current, customersToFollow: event.target.value }))} placeholder="Nom, engagement et délai promis..." /></label><button className="staff-end-shift" disabled={!handover.notes.trim()} onClick={() => execute(() => { if (!activeShift) throw new Error('Aucun service ouvert'); state.closeEmployeeShift(activeShift.id, handover); setLoggedIn(false); setPin(''); setHandover({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' }); }, 'Passation enregistrée et service terminé.')}><LogOut size={18} /> Enregistrer la passation et terminer</button></div><aside className="staff-access-summary"><ShieldCheck size={24} /><h3>Sécurité du poste</h3><p>Cette session est limitée à votre rôle, votre établissement et votre affectation du jour.</p><ul><li><Check size={14} /> Actions métier autorisées</li><li><Check size={14} /> Traçabilité nominative</li><li><Check size={14} /> Validation manager sensible</li><li><XCircle size={14} /> Réglages administrateur masqués</li></ul></aside></section>
+    <section className="staff-more-layout"><div className="staff-profile-panel"><header><div className="staff-avatar"><RoleIcon size={24} /></div><div><span>{employee.employeeNumber}</span><h2>{employee.name}</h2><p>{roleConfig.label}</p></div></header><dl><div><dt>Établissement</dt><dd>{db.sites.find(item => item.id === employee.siteId)?.name}</dd></div><div><dt>Affectation</dt><dd>{activeShift?.assignmentLabel}</dd></div><div><dt>Appareil</dt><dd>{activeShift?.deviceLabel}</dd></div><div><dt>Connexion</dt><dd><i /> Session personnelle active</dd></div></dl>{!demoAutoStart && <button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={16} /> Verrouiller l’écran</button>}</div><div className="staff-handover-form"><header><ClipboardCheck size={21} /><div><h2>Terminer et passer le service</h2><p>L’équipe suivante devra confirmer la reprise.</p></div></header><label>Ce qui reste à faire <textarea value={handover.notes} onChange={event => setHandover(current => ({ ...current, notes: event.target.value }))} placeholder="Ex. Table T12 attend l’addition..." /></label><div><label>Incidents<textarea value={handover.incidents} onChange={event => setHandover(current => ({ ...current, incidents: event.target.value }))} placeholder="Matériel, retard, anomalie..." /></label><label>Montants à contrôler<textarea value={handover.amountsToCheck} onChange={event => setHandover(current => ({ ...current, amountsToCheck: event.target.value }))} placeholder="Écart caisse, paiement en attente..." /></label></div><label>Clients à suivre <textarea value={handover.customersToFollow} onChange={event => setHandover(current => ({ ...current, customersToFollow: event.target.value }))} placeholder="Nom, engagement et délai promis..." /></label><button className="staff-end-shift" disabled={!handover.notes.trim()} onClick={() => execute(() => { if (!activeShift) throw new Error('Aucun service ouvert'); state.closeEmployeeShift(activeShift.id, handover); setLoggedIn(demoAutoStart); setPin(''); setHandover({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' }); }, 'Passation enregistrée et service terminé.')}><LogOut size={18} /> Enregistrer la passation et terminer</button></div><aside className="staff-access-summary"><ShieldCheck size={24} /><h3>Sécurité du poste</h3><p>Cette session est limitée à votre rôle, votre établissement et votre affectation du jour.</p><ul><li><Check size={14} /> Actions métier autorisées</li><li><Check size={14} /> Traçabilité nominative</li><li><Check size={14} /> Validation manager sensible</li><li><XCircle size={14} /> Réglages administrateur masqués</li></ul></aside></section>
   );
 
   if (!loggedIn) return <div className="employee-workspace">{renderLogin()}{notice && <div className="staff-toast">{notice}</div>}</div>;
+  if (demoAutoStart && !activeShift) return <div className="employee-workspace"><section className="staff-demo-opening"><img src="./brand-mark.svg" alt="" /><strong>Préparation du poste {roleConfig.label}</strong><small>Chargement des tâches et de l’affectation…</small></section></div>;
   if (!activeShift) return <div className="employee-workspace">{renderShiftStart()}{notice && <div className="staff-toast">{notice}</div>}</div>;
 
   const tabs: Array<{ id: StaffTab; label: string; icon: LucideIcon }> = [
