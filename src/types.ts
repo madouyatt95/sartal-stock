@@ -568,14 +568,30 @@ export interface SartalRecoveryPlaybook {
   active: boolean;
 }
 
+export type SartalModule = 'stock' | 'restaurant' | 'delivery' | 'pms';
+
+export interface SartalSiteBrandProfile {
+  siteId: string;
+  displayName: string;
+  primaryColor: string;
+  accentColor: string;
+  supportPhone: string;
+  welcomeMessage: string;
+}
+
 export interface SartalBrandSettings {
   establishmentName: string;
+  backOfficeName: string;
+  staffAppName: string;
   clientAppName: string;
+  hotelAppName: string;
   primaryColor: string;
   accentColor: string;
   welcomeTone: 'warm' | 'formal' | 'concise';
   supportPhone: string;
   lowBandwidthDefault: boolean;
+  enabledModules: SartalModule[];
+  siteProfiles: SartalSiteBrandProfile[];
 }
 
 export interface SartalOfflineAction {

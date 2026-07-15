@@ -161,6 +161,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
   const activeShift = db.employeeShifts.find(item => item.employeeId === employee?.id && item.status === 'open');
   const role = employee?.role;
   const roleConfig = role ? ROLE_CONFIG[role] : ROLE_CONFIG.waiter;
+  const siteBrand = db.sartalBrandSettings.siteProfiles.find(item => item.siteId === employee?.siteId);
 
   useEffect(() => {
     setAssignmentId(employee?.posId || employee?.warehouseId || employee?.siteId || '');
@@ -421,7 +422,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
     <section className="staff-login-shell">
       <div className="staff-login-brand">
         <img src="./brand-mark.svg" alt="" />
-        <span><strong>SÁRTAL ÉQUIPE</strong><small>Le bon poste, au bon moment</small></span>
+        <span><strong>{db.sartalBrandSettings.staffAppName.toUpperCase()}</strong><small>Le bon poste, au bon moment</small></span>
       </div>
       <div className="staff-login-layout">
         <section className="staff-login-intro">
@@ -695,8 +696,8 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state }) =
     { id: 'more', label: 'Plus', icon: MoreHorizontal }
   ];
 
-  return <section className="employee-workspace staff-app" style={{ '--staff-role': roleConfig.color } as React.CSSProperties}>
-    <header className="staff-app-header"><div className="staff-app-brand"><img src="./brand-mark.svg" alt="" /><span><strong>SÁRTAL ÉQUIPE</strong><small>{activeShift.assignmentLabel}</small></span></div><div className="staff-app-context"><span><i /> En service</span><strong>{roleConfig.team}</strong></div><button className="staff-header-profile" onClick={() => setTab('more')}><span>{employee.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{employee.name}</strong><small>{roleConfig.label}</small></div><ChevronRight size={16} /></button></header>
+  return <section className="employee-workspace staff-app" style={{ '--staff-role': roleConfig.color, '--staff-brand': siteBrand?.primaryColor || db.sartalBrandSettings.primaryColor } as React.CSSProperties}>
+    <header className="staff-app-header"><div className="staff-app-brand"><img src="./brand-mark.svg" alt="" /><span><strong>{db.sartalBrandSettings.staffAppName.toUpperCase()}</strong><small>{activeShift.assignmentLabel}</small></span></div><div className="staff-app-context"><span><i /> En service</span><strong>{roleConfig.team}</strong></div><button className="staff-header-profile" onClick={() => setTab('more')}><span>{employee.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{employee.name}</strong><small>{roleConfig.label}</small></div><ChevronRight size={16} /></button></header>
     <nav className="staff-desktop-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><Icon size={18} /><span>{item.label}</span>{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</button>; })}</nav>
     <main className="staff-app-content">{tab === 'today' && renderToday()}{tab === 'tasks' && renderTasks()}{tab === 'action' && renderRoleAction()}{tab === 'messages' && renderMessages()}{tab === 'more' && renderMore()}</main>
     <nav className="staff-mobile-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><span><Icon size={item.id === 'action' ? 22 : 19} />{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</span><small>{item.label}</small></button>; })}</nav>

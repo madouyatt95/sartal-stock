@@ -49,7 +49,7 @@ try {
   const guidedHtml = renderToStaticMarkup(React.createElement(GuidedDemo, { state, setView: () => {} }));
   ['Choisissez une histoire client', 'Séjour + dîner', 'Panier de famille', 'Table entre proches'].forEach(marker => assert(guidedHtml.includes(marker), `Présentation commerciale incomplète : ${marker}`));
   const settingsHtml = renderToStaticMarkup(React.createElement(Settings, { state }));
-  ['Identité de l’espace client', 'Nom de l’application client', 'Mode léger par défaut'].forEach(marker => assert(settingsHtml.includes(marker), `Personnalisation établissement incomplète : ${marker}`));
+  ['Offre et modules activés', 'Identité des interfaces', 'Nom de l’application client', 'Mode léger par défaut'].forEach(marker => assert(settingsHtml.includes(marker), `Personnalisation établissement incomplète : ${marker}`));
   const deliveryDemoHtml = renderToStaticMarkup(React.createElement(DeliveryDemo, { state, setView: () => {} }));
   assert(deliveryDemoHtml.includes('Preuve de remise'), 'Preuve complète absente du parcours livraison');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');

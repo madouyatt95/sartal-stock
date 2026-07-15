@@ -29,9 +29,17 @@ import {
   Truck,
   Search,
   Bell,
+  BellRing,
   BedDouble,
   HeartHandshake,
-  UsersRound
+  UsersRound,
+  CheckCheck,
+  Cloud,
+  Command,
+  LogIn,
+  Radio,
+  RefreshCw,
+  WifiOff
 } from 'lucide-react';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
@@ -65,6 +73,8 @@ const PMSGuestExperiencePortal = lazy(() => import('./views/PMSSignatureExperien
 const SartalClient = lazy(() => import('./views/SartalClient'));
 const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
+const SartalAccessCenter = lazy(() => import('./views/SartalAccessCenter'));
+const SartalPulse = lazy(() => import('./views/SartalPulse'));
 
 const AppLoading = () => <div className="app-route-loading"><img src="./brand-mark.svg" alt="" /><span>Chargement du poste…</span></div>;
 const PublicAccessError: React.FC<{ eyebrow: string; title: string; message: string; supportPhone?: string }> = ({ eyebrow, title, message, supportPhone }) => <main className="public-access-error"><section><img src="./brand-mark.svg" alt="Sártal" /><span>{eyebrow}</span><h1>{title}</h1><p>{message}</p>{supportPhone && <a href={`tel:${supportPhone.replace(/\s/g, '')}`}><HeartHandshake size={17} /> Contacter l’établissement · {supportPhone}</a>}<small>Vos données restent protégées. Aucun accès au back-office n’a été ouvert.</small></section></main>;
@@ -72,10 +82,20 @@ const PublicAccessError: React.FC<{ eyebrow: string; title: string; message: str
 export const App: React.FC = () => {
   const state = useStockState();
   const { db } = state;
-  const [view, setView] = useState<string>('dashboard');
+  const [view, setView] = useState<string>('pulse');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [globalSearch, setGlobalSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [offlineOpen, setOfflineOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === 'undefined' ? true : navigator.onLine);
+  const [lastSyncAt, setLastSyncAt] = useState(() => new Date().toISOString());
+  const [storageProtected, setStorageProtected] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('sartal_read_notifications') || '[]') as string[]); }
+    catch { return new Set(); }
+  });
 
   // Apply dark mode class
   useEffect(() => {
@@ -86,6 +106,43 @@ export const App: React.FC = () => {
     }
   }, [darkMode]);
 
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+      if (event.key === 'Escape') {
+        setSearchOpen(false);
+        setNotificationsOpen(false);
+        setOfflineOpen(false);
+      }
+    };
+    const handleOnline = () => {
+      setIsOnline(true);
+      state.syncSartalOfflineActions();
+      setLastSyncAt(new Date().toISOString());
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [state]);
+
+  useEffect(() => {
+    localStorage.setItem('sartal_read_notifications', JSON.stringify([...readNotificationIds]));
+  }, [readNotificationIds]);
+
+  const accessCenterMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('connexion') : null;
+  if (accessCenterMode !== null) {
+    if (accessCenterMode === '1') return <Suspense fallback={<AppLoading />}><SartalAccessCenter state={state} /></Suspense>;
+    return <PublicAccessError eyebrow="CENTRE D’ACCÈS" title="Adresse de connexion incorrecte" message="Utilisez le raccourci officiel de votre établissement pour ouvrir votre espace." supportPhone={db.sartalBrandSettings.supportPhone} />;
+  }
   const guestReservationId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sejour') : null;
   if (guestReservationId !== null) {
     if (guestReservationId && db.pmsReservations.some(item => item.id === guestReservationId)) {
@@ -123,7 +180,8 @@ export const App: React.FC = () => {
 
   // Navigation visible par role, organisee autour des parcours metier et du socle stock commun.
   const sidebarLinks = [
-    { id: 'dashboard', label: 'Accueil', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
+    { id: 'pulse', label: 'Sártal Pulse', mobileLabel: 'Pulse', icon: <Radio size={18} />, roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'auditor'], section: 'Accueil' },
+    { id: 'dashboard', label: 'Tableau de bord', mobileLabel: 'Accueil', icon: <LayoutDashboard size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'guided-demo', label: 'Présentation guidée', mobileLabel: 'Guide', icon: <PlayCircle size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], section: 'Accueil' },
     { id: 'client', label: 'Pilotage clients', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, roles: ['admin', 'director', 'pos_manager'], section: 'Accueil' },
@@ -161,7 +219,10 @@ export const App: React.FC = () => {
     { id: 'settings', label: 'Réglages', icon: <SettingsIcon size={18} />, roles: ['admin'], section: 'Réglages' }
   ];
 
-  const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role));
+  const moduleForSection: Record<string, 'stock' | 'restaurant' | 'delivery' | 'pms' | undefined> = {
+    Restaurant: 'restaurant', Hôtel: 'pms', Livraison: 'delivery', 'Socle stock': 'stock', Opérations: 'stock', Contrôle: 'stock'
+  };
+  const allowedLinks = sidebarLinks.filter(link => link.roles.includes(db.currentUser.role) && (!moduleForSection[link.section] || db.sartalBrandSettings.enabledModules.includes(moduleForSection[link.section]!)));
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
     { id: 'Équipes', label: 'Interfaces employés' },
@@ -173,7 +234,7 @@ export const App: React.FC = () => {
     { id: 'Contrôle', label: 'Contrôle & rapports' },
     { id: 'Réglages', label: 'Réglages' }
   ];
-  const mobilePrimaryOrder = ['dashboard', 'employees', 'client', 'pms', 'stock-control'];
+  const mobilePrimaryOrder = ['pulse', 'employees', 'client', 'pms', 'stock-control'];
   const mobilePrimaryLinks = mobilePrimaryOrder
     .map(id => allowedLinks.find(link => link.id === id))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
@@ -184,19 +245,19 @@ export const App: React.FC = () => {
     if (!query) return [];
     const navMatches = allowedLinks
       .filter(link => `${link.label} ${link.section}`.toLowerCase().includes(query))
-      .map(link => ({ id: `nav-${link.id}`, label: link.label, detail: link.section, view: link.id }));
+      .map(link => ({ id: `nav-${link.id}`, category: 'Navigation', label: link.label, detail: link.section, view: link.id }));
     const productMatches = db.products
       .filter(product => `${product.name} ${product.sku} ${product.category}`.toLowerCase().includes(query))
       .slice(0, 5)
-      .map(product => ({ id: `product-${product.id}`, label: product.name, detail: `${product.sku} · ${product.category}`, view: 'products' }));
+      .map(product => ({ id: `product-${product.id}`, category: 'Produit', label: product.name, detail: `${product.sku} · ${product.category}`, view: 'products' }));
     const warehouseMatches = db.warehouses
       .filter(warehouse => warehouse.name.toLowerCase().includes(query))
       .slice(0, 3)
-      .map(warehouse => ({ id: `warehouse-${warehouse.id}`, label: warehouse.name, detail: 'Dépôt', view: 'warehouses' }));
+      .map(warehouse => ({ id: `warehouse-${warehouse.id}`, category: 'Dépôt', label: warehouse.name, detail: db.sites.find(site => site.id === warehouse.siteId)?.name || 'Dépôt', view: 'warehouses' }));
     const orderMatches = db.deliveryOrders
       .filter(order => `${order.id} ${order.customerName} ${order.address}`.toLowerCase().includes(query))
       .slice(0, 3)
-      .map(order => ({ id: `order-${order.id}`, label: order.id, detail: `${order.customerName} · Livraison`, view: 'delivery' }));
+      .map(order => ({ id: `order-${order.id}`, category: 'Livraison', label: order.id, detail: `${order.customerName} · ${order.status}`, view: 'delivery' }));
     const pmsMatches = db.pmsReservations
       .filter(reservation => {
         const room = db.pmsRooms.find(item => item.id === reservation.roomId);
@@ -207,33 +268,86 @@ export const App: React.FC = () => {
       .map(reservation => {
         const room = db.pmsRooms.find(item => item.id === reservation.roomId);
         const guest = db.pmsGuests.find(item => item.id === reservation.guestId);
-        return { id: `reservation-${reservation.id}`, label: `Chambre ${room?.roomNumber || ''}`, detail: `${guest?.fullName || reservation.confirmationNumber} · PMS`, view: 'pms' };
+        return { id: `reservation-${reservation.id}`, category: 'Séjour', label: room ? `Chambre ${room.roomNumber}` : reservation.confirmationNumber, detail: `${guest?.fullName || reservation.confirmationNumber} · ${reservation.status}`, view: 'pms' };
       });
-    return [...navMatches, ...productMatches, ...warehouseMatches, ...orderMatches, ...pmsMatches].slice(0, 8);
+    const customerMatches = db.sartalCustomers
+      .filter(customer => `${customer.fullName} ${customer.phone} ${customer.email || ''}`.toLowerCase().includes(query))
+      .slice(0, 4)
+      .map(customer => ({ id: `customer-${customer.id}`, category: 'Client', label: customer.fullName, detail: `${customer.phone} · ${customer.loyaltyTier}`, view: 'client' }));
+    const supplierMatches = db.suppliers
+      .filter(supplier => `${supplier.name} ${supplier.contact} ${supplier.phone}`.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map(supplier => ({ id: `supplier-${supplier.id}`, category: 'Fournisseur', label: supplier.name, detail: `${supplier.contact} · ${supplier.phone}`, view: 'suppliers' }));
+    const posMatches = db.posList
+      .filter(pos => `${pos.name} ${pos.type}`.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map(pos => ({ id: `pos-${pos.id}`, category: 'Canal de vente', label: pos.name, detail: db.warehouses.find(item => item.id === pos.defaultWarehouseId)?.name || pos.type, view: 'warehouses' }));
+    const employeeMatches = db.employeeProfiles
+      .filter(employee => `${employee.name} ${employee.employeeNumber} ${employee.role}`.toLowerCase().includes(query))
+      .slice(0, 3)
+      .map(employee => ({ id: `employee-${employee.id}`, category: 'Équipe', label: employee.name, detail: `${employee.employeeNumber} · ${employee.role.replaceAll('_', ' ')}`, view: 'employees' }));
+    return [...navMatches, ...customerMatches, ...pmsMatches, ...orderMatches, ...productMatches, ...warehouseMatches, ...supplierMatches, ...posMatches, ...employeeMatches]
+      .filter(result => allowedLinks.some(link => link.id === result.view))
+      .slice(0, 18);
   })();
+
+  const operationalNotifications = (() => {
+    const items: Array<{ id: string; tone: 'danger' | 'warning' | 'info'; title: string; detail: string; view: string }> = [];
+    db.sartalCustomerFeedback.filter(item => item.recoveryStatus === 'open').forEach(item => items.push({ id: `feedback-${item.id}`, tone: 'danger', title: `Client insatisfait · ${item.score}/5`, detail: `${item.assignedTo || 'Relation client'} doit reprendre contact`, view: 'client' }));
+    db.deliveryOrders.filter(item => item.status === 'failed').forEach(item => items.push({ id: `delivery-${item.id}`, tone: 'danger', title: `Incident ${item.id}`, detail: `${item.customerName} · ${item.deliveryIssue || 'Livraison interrompue'}`, view: 'delivery' }));
+    db.employeeApprovals.filter(item => item.status === 'pending').forEach(item => items.push({ id: `approval-${item.id}`, tone: 'warning', title: item.label, detail: `${item.requestedByName} attend une validation`, view: 'employees' }));
+    db.pmsMaintenanceTickets.filter(item => !['resolved', 'verified'].includes(item.status)).forEach(item => items.push({ id: `maintenance-${item.id}`, tone: item.priority === 'critical' ? 'danger' : 'warning', title: item.equipment, detail: `Maintenance hôtel · ${item.assignedTo}`, view: 'pms' }));
+    db.employeeMessages.filter(item => item.priority === 'urgent').forEach(item => items.push({ id: `message-${item.id}`, tone: 'info', title: `Consigne urgente · ${item.senderName}`, detail: item.content, view: 'employees' }));
+    db.stocks.filter(item => item.quantityAvailable - item.quantityReserved <= item.alertThreshold).slice(0, 5).forEach(item => items.push({ id: `stock-${item.productId}-${item.warehouseId}`, tone: 'warning', title: db.products.find(product => product.id === item.productId)?.name || 'Stock faible', detail: `${db.warehouses.find(warehouse => warehouse.id === item.warehouseId)?.name} · seuil atteint`, view: 'stock-control' }));
+    return items.filter(item => allowedLinks.some(link => link.id === item.view)).slice(0, 16);
+  })();
+  const unreadNotifications = operationalNotifications.filter(item => !readNotificationIds.has(item.id));
+  const queuedOfflineActions = db.sartalOfflineActions.filter(item => item.status === 'queued');
 
   const openView = (nextView: string) => {
     setView(nextView);
     setMobileMenuOpen(false);
     setGlobalSearch('');
+    setSearchOpen(false);
+    setNotificationsOpen(false);
   };
+
+  const openNotification = (id: string, nextView: string) => {
+    setReadNotificationIds(current => new Set([...current, id]));
+    openView(nextView);
+  };
+
+  const syncOfflineActions = () => {
+    if (!isOnline) return;
+    state.syncSartalOfflineActions();
+    setLastSyncAt(new Date().toISOString());
+  };
+
+  const protectLocalStorage = async () => {
+    const protectedStorage = await navigator.storage?.persist?.();
+    setStorageProtected(Boolean(protectedStorage));
+  };
+
+  const activeSiteProfile = db.sartalBrandSettings.siteProfiles.find(item => item.siteId === db.sites[0]?.id);
 
   const renderView = () => {
     // Role checks fallback
     const currentLink = sidebarLinks.find(l => l.id === view);
-    if (currentLink && !currentLink.roles.includes(db.currentUser.role)) {
+    if (currentLink && !allowedLinks.some(link => link.id === currentLink.id)) {
       return (
         <div style={{ padding: '40px', textAlign: 'center' }}>
           <AlertTriangle size={50} color="var(--danger)" style={{ marginBottom: '16px' }} />
           <h2>Accès Refusé</h2>
           <p style={{ color: 'var(--text-secondary)', marginTop: '8px' }}>
-            Votre profil actuel (<strong>{db.currentUser.role.toUpperCase()}</strong>) ne dispose pas des droits nécessaires pour accéder à cette vue.
+            Votre profil ou l’offre active de cet établissement ne permet pas d’accéder à cette vue.
           </p>
         </div>
       );
     }
 
     switch (view) {
+      case 'pulse':
+        return <SartalPulse state={state} setView={setView} />;
       case 'dashboard':
         return <Dashboard state={state} setView={setView} />;
       case 'guided-demo':
@@ -243,7 +357,7 @@ export const App: React.FC = () => {
       case 'client':
         return <CustomerExperienceCockpit state={state} />;
       case 'employees':
-        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>Sártal Équipe</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={state} /></section>;
+        return <section className="interface-preview-page"><header className="interface-preview-header"><div><span>APERÇU ADMINISTRATEUR</span><h1>{db.sartalBrandSettings.staffAppName}</h1><p>Testez les postes employés ici ou ouvrez leur interface autonome, sans menus du back-office.</p></div><button className="btn btn-primary" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('equipe', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }}><UsersRound size={17} /> Ouvrir l’espace employés</button></header><EmployeeWorkspace state={state} /></section>;
       case 'answer':
         return <ManagerAnswer state={state} setView={setView} />;
       case 'simulation':
@@ -293,12 +407,13 @@ export const App: React.FC = () => {
       case 'settings':
         return <Settings state={state} />;
       default:
-        return <Dashboard state={state} setView={setView} />;
+        return <SartalPulse state={state} setView={setView} />;
     }
   };
 
   return (
-    <div className="app-container">
+    <>
+    <div className="app-container" style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
       
       {/* Sidebar Panel */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
@@ -309,7 +424,7 @@ export const App: React.FC = () => {
             <img src="./brand-mark.svg" alt="" />
             <span>
               <strong>SÁRTAL</strong>
-              <small>Stock & opérations</small>
+              <small>{db.sartalBrandSettings.backOfficeName}</small>
             </span>
           </div>
           <button 
@@ -328,9 +443,8 @@ export const App: React.FC = () => {
           </div>
           <div>
             <span>Session active</span>
-            <strong>
-              {db.currentUser.role.replace('_', ' ')}
-            </strong>
+            <strong>{db.currentUser.name}</strong>
+            <small>{db.currentUser.role.replace('_', ' ')}</small>
           </div>
         </div>
 
@@ -422,23 +536,18 @@ export const App: React.FC = () => {
                 <input
                   className="form-control"
                   value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  placeholder="Rechercher Coca, dépôt, livraison..."
+                  onFocus={() => setSearchOpen(true)}
+                  onChange={(event) => { setGlobalSearch(event.target.value); setSearchOpen(true); }}
+                  placeholder="Rechercher partout..."
                   type="search"
                 />
+                <kbd>⌘K</kbd>
               </div>
-              {globalSearchResults.length > 0 && (
-                <div className="global-search-results">
-                  {globalSearchResults.map(result => (
-                    <button key={result.id} onClick={() => openView(result.view)}>
-                      <strong>{result.label}</strong>
-                      <span>{result.detail}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-            <span className="demo-mode-pill">Back-office · Démo</span>
+            <button className={`app-header-status ${isOnline ? 'online' : 'offline'}`} onClick={() => setOfflineOpen(true)} title="État réseau et synchronisation">{isOnline ? <Cloud size={17} /> : <WifiOff size={17} />}<span>{isOnline ? queuedOfflineActions.length ? `${queuedOfflineActions.length} à synchroniser` : 'Synchronisé' : 'Hors connexion'}</span></button>
+            <button className="app-header-icon notification-trigger" onClick={() => setNotificationsOpen(true)} title="Notifications"><Bell size={18} />{unreadNotifications.length > 0 && <b>{unreadNotifications.length}</b>}</button>
+            <button className="app-header-icon" onClick={() => { const url = new URL(window.location.href); url.search = ''; url.searchParams.set('connexion', '1'); window.open(url.toString(), '_blank', 'noopener,noreferrer'); }} title="Ouvrir le centre d’accès"><LogIn size={18} /></button>
+            <span className="demo-mode-pill">Démo</span>
             
             <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'right', fontSize: '0.75rem' }} className="nav-company-details">
               <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Entreprise</span>
@@ -494,6 +603,38 @@ export const App: React.FC = () => {
       `}</style>
 
     </div>
+
+    {searchOpen && <div className="sartal-command-backdrop" onMouseDown={() => setSearchOpen(false)}>
+      <section className="sartal-command-panel" onMouseDown={event => event.stopPropagation()}>
+        <header><Search size={20} /><input autoFocus value={globalSearch} onChange={event => setGlobalSearch(event.target.value)} placeholder="Produit, client, chambre, commande, fournisseur..." /><kbd>Échap</kbd></header>
+        <div className="sartal-command-results">
+          {globalSearch.trim() ? globalSearchResults.map(result => <button key={result.id} onClick={() => openView(result.view)}><span>{result.category}</span><div><strong>{result.label}</strong><small>{result.detail}</small></div><ArrowRightLeft size={15} /></button>) : <>
+            <div className="sartal-command-intro"><Command size={22} /><div><strong>Aller directement à l’essentiel</strong><small>La recherche respecte les droits et les modules activés.</small></div></div>
+            <div className="sartal-command-shortcuts">{allowedLinks.filter(link => ['pulse', 'stock-control', 'client', 'pms', 'delivery', 'employees'].includes(link.id)).map(link => <button key={link.id} onClick={() => openView(link.id)}>{link.icon}<span>{link.label}</span></button>)}</div>
+          </>}
+          {globalSearch.trim() && globalSearchResults.length === 0 && <div className="sartal-command-empty"><Search size={26} /><strong>Aucun résultat accessible</strong><small>Essayez un nom, un numéro, un code article ou une chambre.</small></div>}
+        </div>
+      </section>
+    </div>}
+
+    {notificationsOpen && <div className="sartal-drawer-backdrop" onMouseDown={() => setNotificationsOpen(false)}>
+      <aside className="sartal-app-drawer notification-center" onMouseDown={event => event.stopPropagation()}>
+        <header><div><BellRing size={21} /><span><strong>Centre de notifications</strong><small>{unreadNotifications.length} non lue(s) · {operationalNotifications.length} signal(s)</small></span></div><button onClick={() => setNotificationsOpen(false)}><X size={19} /></button></header>
+        <div className="notification-actions"><button onClick={() => setReadNotificationIds(new Set(operationalNotifications.map(item => item.id)))}><CheckCheck size={16} /> Tout marquer comme lu</button><button onClick={() => openView('pulse')}><Radio size={16} /> Ouvrir Pulse</button></div>
+        <div className="notification-list">{operationalNotifications.map(item => <button className={`${item.tone} ${readNotificationIds.has(item.id) ? 'read' : ''}`} key={item.id} onClick={() => openNotification(item.id, item.view)}><i /> <span><strong>{item.title}</strong><small>{item.detail}</small></span><ArrowRightLeft size={15} /></button>)}{operationalNotifications.length === 0 && <div className="notification-empty"><CheckCheck size={28} /><strong>Tout est à jour</strong><small>Aucun signal ne requiert votre attention.</small></div>}</div>
+      </aside>
+    </div>}
+
+    {offlineOpen && <div className="sartal-drawer-backdrop" onMouseDown={() => setOfflineOpen(false)}>
+      <aside className="sartal-app-drawer offline-center" onMouseDown={event => event.stopPropagation()}>
+        <header><div>{isOnline ? <Cloud size={21} /> : <WifiOff size={21} />}<span><strong>Continuité de service</strong><small>{isOnline ? 'Connexion disponible' : 'Mode hors connexion actif'}</small></span></div><button onClick={() => setOfflineOpen(false)}><X size={19} /></button></header>
+        <section className={`offline-state-card ${isOnline ? 'online' : 'offline'}`}><i /> <div><strong>{isOnline ? 'Les échanges peuvent être synchronisés' : 'Les actions restent enregistrées sur cet appareil'}</strong><small>Dernière synchronisation · {new Date(lastSyncAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div></section>
+        <section className="offline-capabilities"><h3>Disponible même avec un réseau faible</h3><div><span><Package size={17} /> Consultation stock</span><span><UsersRound size={17} /> Postes employés</span>{db.sartalBrandSettings.enabledModules.includes('pms') && <span><BedDouble size={17} /> Chambres et tâches</span>}{db.sartalBrandSettings.enabledModules.includes('delivery') && <span><Truck size={17} /> Tournées préparées</span>}</div></section>
+        <section className="offline-queue"><header><span><strong>File de reprise</strong><small>{queuedOfflineActions.length} action(s) en attente</small></span><button disabled={!isOnline || queuedOfflineActions.length === 0} onClick={syncOfflineActions}><RefreshCw size={15} /> Synchroniser</button></header>{queuedOfflineActions.map(item => <article key={item.id}><i /><div><strong>{item.summary}</strong><small>{item.actionType.replace('_', ' ')} · {new Date(item.createdAt).toLocaleString('fr-FR')}</small></div></article>)}{queuedOfflineActions.length === 0 && <div className="offline-empty"><CheckCheck size={22} /><span><strong>Aucune action en attente</strong><small>La file locale est à jour.</small></span></div>}</section>
+        <section className="offline-storage"><ShieldCheck size={21} /><div><strong>Protection du stockage local</strong><small>Demandez au navigateur de conserver les données PWA prioritaires sur cet appareil.</small></div><button disabled={storageProtected} onClick={protectLocalStorage}>{storageProtected ? 'Protégé' : 'Sécuriser'}</button></section>
+      </aside>
+    </div>}
+    </>
   );
 };
 export default App;

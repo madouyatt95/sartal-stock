@@ -64,6 +64,8 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const restaurant = db.posList.find(item => item.type === 'restaurant');
   const deliveryChannel = db.posList.find(item => item.type === 'online_grocery');
   const deliveryWarehouse = db.warehouses.find(item => item.id === deliveryChannel?.defaultWarehouseId);
+  const activeSiteId = mode === 'restaurant' ? restaurant?.siteId : deliveryChannel?.siteId;
+  const siteBrand = brandSettings.siteProfiles.find(item => item.siteId === activeSiteId);
   const restaurantReservations = db.restaurantReservations.filter(item => item.customerId === customer?.id && item.status !== 'cancelled');
   const upcomingReservation = restaurantReservations.find(item => ['confirmed', 'seated'].includes(item.status));
   const restaurantOrders = db.restaurantGuestOrders.filter(item => item.customerId === customer?.id);
@@ -106,7 +108,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
         <span>MON SÁRTAL</span>
         <h1>Votre espace se prépare</h1>
         <p>Le restaurant ou le service de livraison n’est pas disponible pour le moment. Notre équipe peut vous accompagner directement.</p>
-        <a href={`tel:${brandSettings.supportPhone.replace(/\s/g, '')}`}><Phone size={17} /> Appeler le {brandSettings.supportPhone}</a>
+        <a href={`tel:${(siteBrand?.supportPhone || brandSettings.supportPhone).replace(/\s/g, '')}`}><Phone size={17} /> Appeler le {siteBrand?.supportPhone || brandSettings.supportPhone}</a>
       </section>
     </main>;
   }
@@ -216,7 +218,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   return (
     <section
       className={`sartal-client ${standalone ? 'standalone' : ''} mode-${mode} ${customer.lowBandwidthMode ? 'low-bandwidth' : ''}`}
-      style={{ '--client-brand': brandSettings.primaryColor, '--client-accent': brandSettings.accentColor } as React.CSSProperties}
+      style={{ '--client-brand': siteBrand?.primaryColor || brandSettings.primaryColor, '--client-accent': siteBrand?.accentColor || brandSettings.accentColor } as React.CSSProperties}
     >
       <header className="sartal-client-header">
         <div><span>{brandSettings.clientAppName.toUpperCase()}</span><strong>{mode === 'restaurant' ? restaurant.name : 'Épicerie & livraison'}</strong></div>
@@ -250,7 +252,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
       </main>
       </>}
       {message && <div className="client-toast"><CheckCircle size={18} /> {message}</div>}
-      {standalone && <footer className="sartal-client-footer"><span>{brandSettings.establishmentName} · aide {brandSettings.supportPhone}</span><span>Paiements sécurisés · Wave · Orange Money</span></footer>}
+      {standalone && <footer className="sartal-client-footer"><span>{siteBrand?.displayName || brandSettings.establishmentName} · aide {siteBrand?.supportPhone || brandSettings.supportPhone}</span><span>Paiements sécurisés · Wave · Orange Money</span></footer>}
     </section>
   );
 };

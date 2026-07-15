@@ -2469,7 +2469,8 @@ export const useStockState = () => {
   const updateSartalBrandSettings = (patch: Partial<SartalBrandSettings>) => {
     const newDb = getDB();
     const next = { ...newDb.sartalBrandSettings, ...patch };
-    if (!next.establishmentName.trim() || !next.clientAppName.trim() || !/^#[0-9a-f]{6}$/i.test(next.primaryColor) || !/^#[0-9a-f]{6}$/i.test(next.accentColor)) throw new Error('Identité visuelle incomplète');
+    const siteProfilesValid = next.siteProfiles.every(profile => profile.displayName.trim() && profile.supportPhone.trim() && /^#[0-9a-f]{6}$/i.test(profile.primaryColor) && /^#[0-9a-f]{6}$/i.test(profile.accentColor));
+    if (!next.establishmentName.trim() || !next.backOfficeName.trim() || !next.staffAppName.trim() || !next.clientAppName.trim() || !next.hotelAppName.trim() || next.enabledModules.length === 0 || !siteProfilesValid || !/^#[0-9a-f]{6}$/i.test(next.primaryColor) || !/^#[0-9a-f]{6}$/i.test(next.accentColor)) throw new Error('Identité visuelle ou modules incomplets');
     newDb.sartalBrandSettings = next;
     saveDB(newDb);
     refresh();

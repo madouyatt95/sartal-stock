@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sartal-stock-v13';
+const CACHE_NAME = 'sartal-stock-v14';
 const STATIC_ASSETS = [
   './favicon.svg',
   './brand-mark.svg',
@@ -9,6 +9,7 @@ const STATIC_ASSETS = [
   './apple-touch-icon.png',
   './manifest.webmanifest',
   './index.html',
+  './offline.html',
 ];
 
 self.addEventListener('install', (event) => {
@@ -46,7 +47,7 @@ self.addEventListener('fetch', (event) => {
           if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put('./index.html', response.clone()));
           return response;
         })
-        .catch(() => caches.match('./index.html')),
+        .catch(async () => (await caches.match('./index.html')) || caches.match('./offline.html')),
     );
     return;
   }

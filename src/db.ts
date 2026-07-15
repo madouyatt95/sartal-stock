@@ -1080,7 +1080,20 @@ const initialDB = (): DatabaseState => {
     { id: 'playbook-signature', name: 'Reprise signature', context: 'all', maxScore: 2, solution: 'Appel direction, solution personnalisée et suivi le lendemain.', compensationPoints: 500, targetMinutes: 10, managerApproval: true, active: true }
   ];
 
-  const sartalBrandSettings: SartalBrandSettings = { establishmentName: 'Complexe Sártal Dakar', clientAppName: 'Mon Sártal', primaryColor: '#123f3a', accentColor: '#f2bd4c', welcomeTone: 'warm', supportPhone: '+221 33 800 00 00', lowBandwidthDefault: false };
+  const sartalBrandSettings: SartalBrandSettings = {
+    establishmentName: 'Complexe Sártal Dakar',
+    backOfficeName: 'Sártal Pilotage',
+    staffAppName: 'Sártal Équipe',
+    clientAppName: 'Mon Sártal',
+    hotelAppName: 'Mon séjour Sártal',
+    primaryColor: '#123f3a',
+    accentColor: '#f2bd4c',
+    welcomeTone: 'warm',
+    supportPhone: '+221 33 800 00 00',
+    lowBandwidthDefault: false,
+    enabledModules: ['stock', 'restaurant', 'delivery', 'pms'],
+    siteProfiles: [{ siteId: 'site-1', displayName: 'Complexe Hôtelier Dakar', primaryColor: '#123f3a', accentColor: '#f2bd4c', supportPhone: '+221 33 800 00 00', welcomeMessage: 'Bienvenue, toutes vos équipes sont reliées.' }]
+  };
   const sartalOfflineActions: SartalOfflineAction[] = [
     { id: 'offline-synced-demo', customerId: 'customer-moussa', actionType: 'message', summary: 'Message conservé pendant une coupure puis synchronisé', status: 'synced', createdAt: `${hotelDate(-1)}T18:12:00.000Z`, syncedAt: `${hotelDate(-1)}T18:18:00.000Z` }
   ];
@@ -2155,13 +2168,18 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     ],
     sartalBrandSettings: {
       establishmentName: 'Complexe Sártal Dakar',
+      backOfficeName: 'Sártal Pilotage',
+      staffAppName: 'Sártal Équipe',
       clientAppName: 'Mon Sártal',
+      hotelAppName: 'Mon séjour Sártal',
       primaryColor: '#123f3a',
       accentColor: '#f2bd4c',
       welcomeTone: 'warm',
       supportPhone: '+221 33 800 00 00',
       lowBandwidthDefault: false,
-      ...(state.sartalBrandSettings || {})
+      ...(state.sartalBrandSettings || {}),
+      enabledModules: state.sartalBrandSettings?.enabledModules || ['stock', 'restaurant', 'delivery', 'pms'],
+      siteProfiles: state.sartalBrandSettings?.siteProfiles || (state.sites || []).map(site => ({ siteId: site.id, displayName: site.name, primaryColor: state.sartalBrandSettings?.primaryColor || '#123f3a', accentColor: state.sartalBrandSettings?.accentColor || '#f2bd4c', supportPhone: state.sartalBrandSettings?.supportPhone || '+221 33 800 00 00', welcomeMessage: 'Bienvenue, toutes vos équipes sont reliées.' }))
     },
     sartalOfflineActions: state.sartalOfflineActions || [],
     sartalDemoRuns: state.sartalDemoRuns || [],
