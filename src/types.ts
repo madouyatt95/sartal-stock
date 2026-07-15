@@ -1172,6 +1172,17 @@ export interface EmployeeProfile {
   warehouseId?: string;
   active: boolean;
   permissions?: EmployeePermission[];
+  experiencePreferences?: EmployeeExperiencePreferences;
+  skills?: string[];
+  careerGoal?: string;
+}
+
+export interface EmployeeExperiencePreferences {
+  language: 'fr' | 'wo';
+  highContrast: boolean;
+  lowBandwidth: boolean;
+  quietNotifications: boolean;
+  voiceAssistance: boolean;
 }
 
 export interface EmployeeShift {
@@ -1185,6 +1196,82 @@ export interface EmployeeShift {
   status: 'open' | 'closed';
   startedAt: string;
   endedAt?: string;
+  durationMinutes?: number;
+  breakMinutes?: number;
+  serviceSummary?: string;
+}
+
+export interface EmployeeSchedule {
+  id: string;
+  employeeId: string;
+  siteId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  assignmentLabel: string;
+  status: 'planned' | 'confirmed' | 'swap_requested' | 'swap_pending_colleague' | 'swap_colleague_accepted' | 'swap_colleague_rejected' | 'leave_requested' | 'change_approved' | 'change_rejected';
+  requestedColleagueId?: string;
+  requestedColleagueScheduleId?: string;
+  requestNote?: string;
+  managerNote?: string;
+  colleagueResponseAt?: string;
+}
+
+export interface EmployeeWellbeingCheckIn {
+  id: string;
+  employeeId: string;
+  shiftId?: string;
+  energy: 1 | 2 | 3 | 4 | 5;
+  workload: 'comfortable' | 'busy' | 'overloaded';
+  note?: string;
+  createdAt: string;
+}
+
+export interface EmployeeSupportRequest {
+  id: string;
+  employeeId: string;
+  siteId: string;
+  shiftId?: string;
+  type: 'reinforcement' | 'transport' | 'confidential';
+  label: string;
+  note: string;
+  confidential: boolean;
+  requestedFor?: string;
+  status: 'open' | 'acknowledged' | 'resolved';
+  createdAt: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  handledBy?: string;
+}
+
+export interface EmployeeBreak {
+  id: string;
+  employeeId: string;
+  shiftId: string;
+  type: 'rest' | 'meal';
+  status: 'planned' | 'started' | 'completed';
+  plannedAt: string;
+  startedAt?: string;
+  endedAt?: string;
+}
+
+export interface EmployeeRecognition {
+  id: string;
+  employeeId: string;
+  source: 'client' | 'peer' | 'manager';
+  authorName: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface EmployeeLearningModule {
+  id: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  skill: string;
+  roles: EmployeeRole[] | ['all'];
+  completedByEmployeeIds: string[];
 }
 
 export interface EmployeeHandover {

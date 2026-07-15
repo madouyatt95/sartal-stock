@@ -46,6 +46,9 @@ try {
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'TOUR DE CONTRÔLE'].forEach(marker => {
     assert(employeeSource.includes(marker), `Assistant métier absent : ${marker}`);
   });
+  ['Mon quotidien', 'Mon planning', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
+    assert(employeeSource.includes(marker), `Expérience collaborateur incomplète : ${marker}`);
+  });
   ['kdsItemProgress', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval', 'setPOSProductAvailability'].forEach(marker => {
     assert(employeeSource.includes(marker), `Action game changer non câblée : ${marker}`);
   });
@@ -55,7 +58,7 @@ try {
   ['waiter', 'cashier', 'kitchen', 'receptionist', 'housekeeper', 'storekeeper', 'picker', 'driver', 'customer_experience', 'service_manager'].forEach(role => {
     assert(roles.has(role), `Profil métier absent : ${role}`);
   });
-  ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals'].forEach(collection => {
+  ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals', 'employeeSchedules', 'employeeWellbeingCheckIns', 'employeeSupportRequests', 'employeeBreaks', 'employeeRecognitions', 'employeeLearningModules'].forEach(collection => {
     assert(Array.isArray(db[collection]), `Collection équipe absente : ${collection}`);
   });
 
@@ -75,6 +78,19 @@ try {
   assert(db.employeeShifts.find(item => item.id === shiftId)?.status === 'open', 'Prise de service non enregistrée');
   assert(db.employeeShifts.find(item => item.id === shiftId)?.assignmentLabel.includes('Restaurant'), 'Affectation POS non résolue');
 
+  const checkInId = state.submitEmployeeWellbeingCheckIn({ employeeId: waiter.id, shiftId, energy: 3, workload: 'busy', note: 'Service test soutenu.' });
+  assert(getDB().employeeWellbeingCheckIns.find(item => item.id === checkInId)?.workload === 'busy', 'Ressenti de prise de service non conservé');
+  const breakId = state.startEmployeeBreak(waiter.id, shiftId, 'rest');
+  assert(getDB().employeeBreaks.find(item => item.id === breakId)?.status === 'started', 'Début de pause non conservé');
+  state.completeEmployeeBreak(breakId, waiter.id);
+  assert(getDB().employeeBreaks.find(item => item.id === breakId)?.status === 'completed', 'Fin de pause non conservée');
+  state.updateEmployeeExperience(waiter.id, { preferences: { highContrast: true, language: 'wo' }, careerGoal: 'Devenir chef de rang test' });
+  assert(getDB().employeeProfiles.find(item => item.id === waiter.id)?.experiencePreferences?.language === 'wo', 'Préférences personnelles non conservées');
+  assert(getDB().employeeProfiles.find(item => item.id === waiter.id)?.careerGoal === 'Devenir chef de rang test', 'Objectif professionnel non conservé');
+  const learning = getDB().employeeLearningModules.find(item => item.roles.includes('all') || item.roles.includes(waiter.role));
+  state.completeEmployeeLearning(waiter.id, learning.id);
+  assert(getDB().employeeLearningModules.find(item => item.id === learning.id)?.completedByEmployeeIds.includes(waiter.id), 'Capsule de progression non validée');
+
   const pendingHandover = db.employeeHandovers.find(item => item.role === 'waiter' && item.status === 'submitted');
   state.acknowledgeEmployeeHandover(pendingHandover.id, waiter.id);
   assert(getDB().employeeHandovers.find(item => item.id === pendingHandover.id).status === 'acknowledged', 'Reprise de passation non confirmée');
@@ -92,12 +108,58 @@ try {
 
   const approvalId = state.requestEmployeeApproval({ type: 'complimentary', referenceId: 'TABLE-TEST', requestedBy: waiter.id, requestedByName: waiter.name, label: 'Attention client test', reason: 'Reprise de service vérifiée.', amount: 1500 });
   const manager = getDB().employeeProfiles.find(item => item.role === 'service_manager');
+  const recognitionId = state.addEmployeeRecognition(waiter.id, manager.id, 'Merci pour une passation test très claire.');
+  assert(getDB().employeeRecognitions.find(item => item.id === recognitionId)?.source === 'manager', 'Reconnaissance manager non conservée');
+  const supportId = state.requestEmployeeSupport({ employeeId: waiter.id, siteId: waiter.siteId, shiftId, type: 'reinforcement', note: 'Renfort test pendant le pic.' });
+  state.updateEmployeeSupportRequest(supportId, 'acknowledged', manager.id);
+  assert(getDB().employeeSupportRequests.find(item => item.id === supportId)?.handledBy === manager.name, 'Prise en compte du renfort non tracée');
+  state.updateEmployeeSupportRequest(supportId, 'resolved', manager.id);
+  assert(getDB().employeeSupportRequests.find(item => item.id === supportId)?.status === 'resolved', 'Demande de renfort non résolue');
+
+  const requesterSchedule = getDB().employeeSchedules.find(item => item.employeeId === waiter.id && item.status === 'planned');
+  const colleagueSchedule = getDB().employeeSchedules.find(item => item.employeeId !== waiter.id && getDB().employeeProfiles.find(profile => profile.id === item.employeeId)?.role === waiter.role && item.siteId === waiter.siteId && item.status === 'planned' && (item.date !== requesterSchedule.date || item.startTime !== requesterSchedule.startTime || item.endTime !== requesterSchedule.endTime));
+  const requesterSlot = { date: requesterSchedule.date, startTime: requesterSchedule.startTime, endTime: requesterSchedule.endTime };
+  const colleagueSlot = { date: colleagueSchedule.date, startTime: colleagueSchedule.startTime, endTime: colleagueSchedule.endTime };
+  state.requestEmployeeScheduleChange(requesterSchedule.id, waiter.id, 'swap', colleagueSchedule.employeeId, 'Échange test entre collègues.', colleagueSchedule.id);
+  assert(getDB().employeeSchedules.find(item => item.id === requesterSchedule.id)?.status === 'swap_pending_colleague', 'Échange non transmis au collègue en premier');
+  const alternateRequesterSchedule = getDB().employeeSchedules.find(item => item.employeeId === waiter.id && item.id !== requesterSchedule.id && item.status === 'planned');
+  assert(alternateRequesterSchedule, 'Créneau alternatif absent pour tester les échanges concurrents');
+  let concurrentSwapBlocked = false;
+  try {
+    state.requestEmployeeScheduleChange(colleagueSchedule.id, colleagueSchedule.employeeId, 'swap', waiter.id, 'Échange concurrent à bloquer.', alternateRequesterSchedule.id);
+  } catch {
+    concurrentSwapBlocked = true;
+  }
+  assert(concurrentSwapBlocked, 'Un créneau déjà engagé ne doit pas entrer dans un second échange');
+  let concurrentLeaveBlocked = false;
+  try {
+    state.requestEmployeeScheduleChange(colleagueSchedule.id, colleagueSchedule.employeeId, 'leave', undefined, 'Absence concurrente à bloquer.');
+  } catch {
+    concurrentLeaveBlocked = true;
+  }
+  assert(concurrentLeaveBlocked, 'Un créneau déjà engagé ne doit pas accepter une demande d’absence concurrente');
+  let prematureManagerReviewBlocked = false;
+  try {
+    state.reviewEmployeeScheduleChange(requesterSchedule.id, manager.id, true);
+  } catch {
+    prematureManagerReviewBlocked = true;
+  }
+  assert(prematureManagerReviewBlocked, 'Le manager ne doit pas pouvoir valider avant le collègue');
+  state.respondEmployeeScheduleSwap(requesterSchedule.id, colleagueSchedule.employeeId, true);
+  assert(getDB().employeeSchedules.find(item => item.id === requesterSchedule.id)?.status === 'swap_colleague_accepted', 'Accord du collègue non conservé');
+  state.reviewEmployeeScheduleChange(requesterSchedule.id, manager.id, true);
+  const swappedRequesterSchedule = getDB().employeeSchedules.find(item => item.id === requesterSchedule.id);
+  const swappedColleagueSchedule = getDB().employeeSchedules.find(item => item.id === colleagueSchedule.id);
+  assert(swappedRequesterSchedule.date === colleagueSlot.date && swappedRequesterSchedule.startTime === colleagueSlot.startTime && swappedRequesterSchedule.endTime === colleagueSlot.endTime, 'Créneau du demandeur non permuté après validation manager');
+  assert(swappedColleagueSchedule.date === requesterSlot.date && swappedColleagueSchedule.startTime === requesterSlot.startTime && swappedColleagueSchedule.endTime === requesterSlot.endTime, 'Créneau du collègue non permuté après validation manager');
   state.decideEmployeeApproval(approvalId, manager.id, 'approved', 'Validé au test');
   assert(getDB().employeeApprovals.find(item => item.id === approvalId).status === 'approved', 'Validation manager non conservée');
 
   state.closeEmployeeShift(shiftId, { notes: 'Table test à suivre.', incidents: 'Aucun.', amountsToCheck: 'Aucun.', customersToFollow: 'Client test.' });
   db = getDB();
   assert(db.employeeShifts.find(item => item.id === shiftId).status === 'closed', 'Fin de service non enregistrée');
+  assert(typeof db.employeeShifts.find(item => item.id === shiftId).durationMinutes === 'number', 'Durée du service non calculée');
+  assert(db.employeeShifts.find(item => item.id === shiftId).serviceSummary.includes('passation enregistrée'), 'Bilan de service non conservé');
   assert(db.employeeHandovers.some(item => item.shiftId === shiftId && item.notes === 'Table test à suivre.'), 'Passation de fin de service absente');
 
   const cashier = db.employeeProfiles.find(item => item.role === 'cashier');
@@ -138,7 +200,7 @@ try {
   assert(getDB().movements.some(item => item.type === 'inventory_adjustment' && item.productId === countedStock.productId && item.userName === storekeeper.name), 'Inventaire employé non tracé au nom du magasinier');
   state.closeEmployeeShift(storekeeperShiftId, { notes: 'Réception, transfert et comptage terminés.', incidents: '', amountsToCheck: '', customersToFollow: '' });
 
-  console.log('Sártal Équipe smoke test: 10 postes et 69 contrôles fonctionnels validés.');
+  console.log('Sártal Équipe smoke test: postes métier, QVT et double validation des échanges vérifiés.');
 } finally {
   await server.close();
 }

@@ -6,10 +6,15 @@ import {
   createEmptyPaymentTotals,
   DeliveryOrder,
   EmployeeApproval,
+  EmployeeBreak,
+  EmployeeExperiencePreferences,
   EmployeeHandover,
   EmployeeMessage,
   EmployeeProfile,
+  EmployeeRecognition,
   EmployeeShift,
+  EmployeeSupportRequest,
+  EmployeeWellbeingCheckIn,
   ExternalPOSSaleRow,
   LossReason,
   PaymentTotals,
@@ -168,7 +173,10 @@ export const useStockState = () => {
       posId,
       warehouseId,
       active: payload.active,
-      permissions: normalizeEmployeePermissions(payload.permissions || (existing?.role === payload.role && existing?.permissions) || getDefaultEmployeePermissions(payload.role))
+      permissions: normalizeEmployeePermissions(payload.permissions || (existing?.role === payload.role && existing?.permissions) || getDefaultEmployeePermissions(payload.role)),
+      experiencePreferences: payload.experiencePreferences || existing?.experiencePreferences || { language: 'fr', highContrast: false, lowBandwidth: payload.role === 'driver', quietNotifications: true, voiceAssistance: false },
+      skills: payload.skills || existing?.skills || [],
+      careerGoal: payload.careerGoal || existing?.careerGoal || 'Renforcer mes compétences métier'
     };
     if (existing) Object.assign(existing, profile);
     else newDb.employeeProfiles.unshift(profile);
@@ -188,6 +196,12 @@ export const useStockState = () => {
       || newDb.employeeHandovers.some(item => item.employeeId === employeeId)
       || newDb.employeeMessages.some(item => item.senderId === employeeId)
       || newDb.employeeApprovals.some(item => item.requestedBy === employeeId)
+      || newDb.employeeWellbeingCheckIns.some(item => item.employeeId === employeeId)
+      || newDb.employeeSupportRequests.some(item => item.employeeId === employeeId)
+      || newDb.employeeBreaks.some(item => item.employeeId === employeeId)
+      || newDb.employeeRecognitions.some(item => item.employeeId === employeeId)
+      || newDb.employeeSchedules.some(item => item.employeeId === employeeId && !['planned', 'confirmed'].includes(item.status))
+      || newDb.employeeSchedules.some(item => item.requestedColleagueId === employeeId && ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status))
       || newDb.cashSessions.some(item => item.userId === employeeId)
       || newDb.movements.some(item => item.userId === employeeId);
     if (hasHistory) throw new Error('Ce collaborateur possède un historique. Désactivez son accès pour conserver la traçabilité.');
@@ -195,6 +209,10 @@ export const useStockState = () => {
       throw new Error('Conservez au moins un manager de service actif');
     }
     newDb.employeeProfiles = newDb.employeeProfiles.filter(item => item.id !== employeeId);
+    newDb.employeeSchedules = newDb.employeeSchedules.filter(item => item.employeeId !== employeeId);
+    newDb.employeeLearningModules.forEach(module => {
+      module.completedByEmployeeIds = module.completedByEmployeeIds.filter(id => id !== employeeId);
+    });
     saveDB(newDb);
     refresh();
   };
@@ -286,8 +304,20 @@ export const useStockState = () => {
     if (!shift || !employee) throw new Error('Service employé introuvable');
     if (!payload.notes.trim()) throw new Error('Indiquez au moins ce qui reste à faire');
     const now = new Date().toISOString();
+    const activeBreak = newDb.employeeBreaks.find(item => item.shiftId === shift.id && item.status === 'started');
+    if (activeBreak) {
+      activeBreak.status = 'completed';
+      activeBreak.endedAt = now;
+    }
+    const breakMinutes = newDb.employeeBreaks
+      .filter(item => item.shiftId === shift.id && item.startedAt && item.endedAt)
+      .reduce((total, item) => total + Math.max(0, Math.round((new Date(item.endedAt!).getTime() - new Date(item.startedAt!).getTime()) / 60000)), 0);
+    const durationMinutes = Math.max(0, Math.round((new Date(now).getTime() - new Date(shift.startedAt).getTime()) / 60000));
     shift.status = 'closed';
     shift.endedAt = now;
+    shift.durationMinutes = durationMinutes;
+    shift.breakMinutes = breakMinutes;
+    shift.serviceSummary = `${durationMinutes} min de service · ${breakMinutes} min de pause · passation enregistrée`;
     newDb.employeeHandovers.unshift({
       id: `HANDOVER-${Date.now().toString().slice(-7)}`,
       shiftId: shift.id,
@@ -301,6 +331,205 @@ export const useStockState = () => {
       status: 'submitted',
       submittedAt: now
     });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const submitEmployeeWellbeingCheckIn = (payload: Omit<EmployeeWellbeingCheckIn, 'id' | 'createdAt'>) => {
+    const newDb = getDB();
+    if (!newDb.employeeProfiles.some(item => item.id === payload.employeeId && item.active)) throw new Error('Collaborateur introuvable ou inactif');
+    if (payload.energy < 1 || payload.energy > 5) throw new Error('Choisissez un niveau d’énergie entre 1 et 5');
+    const id = createRuntimeId('CHECKIN');
+    newDb.employeeWellbeingCheckIns.unshift({ ...payload, id, note: payload.note?.trim(), createdAt: new Date().toISOString() });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const requestEmployeeSupport = (payload: Pick<EmployeeSupportRequest, 'employeeId' | 'siteId' | 'shiftId' | 'type' | 'note' | 'requestedFor'>) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === payload.employeeId && item.active);
+    if (!employee || employee.siteId !== payload.siteId) throw new Error('Collaborateur ou établissement introuvable');
+    if (!payload.note.trim()) throw new Error('Précisez brièvement votre besoin');
+    if (newDb.employeeSupportRequests.some(item => item.employeeId === payload.employeeId && item.type === payload.type && item.status !== 'resolved')) {
+      throw new Error('Une demande de ce type est déjà en cours');
+    }
+    const labels: Record<EmployeeSupportRequest['type'], string> = {
+      reinforcement: 'Besoin de renfort',
+      transport: 'Organisation du retour',
+      confidential: 'Échange confidentiel'
+    };
+    const id = createRuntimeId('SUPPORT');
+    newDb.employeeSupportRequests.unshift({
+      ...payload,
+      id,
+      label: labels[payload.type],
+      note: payload.note.trim(),
+      confidential: payload.type === 'confidential',
+      status: 'open',
+      createdAt: new Date().toISOString()
+    });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateEmployeeSupportRequest = (requestId: string, status: 'acknowledged' | 'resolved', managerId: string) => {
+    const newDb = getDB();
+    const request = newDb.employeeSupportRequests.find(item => item.id === requestId);
+    const manager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active);
+    if (!request || !manager || request.siteId !== manager.siteId) throw new Error('Demande ou manager introuvable');
+    const now = new Date().toISOString();
+    request.status = status;
+    request.handledBy = manager.name;
+    if (status === 'acknowledged') request.acknowledgedAt = now;
+    if (status === 'resolved') {
+      request.acknowledgedAt ||= now;
+      request.resolvedAt = now;
+    }
+    saveDB(newDb);
+    refresh();
+  };
+
+  const requestEmployeeScheduleChange = (scheduleId: string, employeeId: string, action: 'swap' | 'leave', colleagueId?: string, note = '', colleagueScheduleId?: string) => {
+    const newDb = getDB();
+    const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId && item.employeeId === employeeId);
+    const requester = newDb.employeeProfiles.find(item => item.id === employeeId && item.active);
+    if (!schedule) throw new Error('Créneau de planning introuvable');
+    if (['swap_requested', 'swap_pending_colleague', 'swap_colleague_accepted', 'leave_requested'].includes(schedule.status)) throw new Error('Une demande est déjà en attente pour ce créneau');
+    if (action === 'swap' && (!colleagueId || colleagueId === employeeId)) throw new Error('Choisissez un collègue pour proposer l’échange');
+    const colleague = action === 'swap' ? newDb.employeeProfiles.find(item => item.id === colleagueId && item.active) : undefined;
+    if (action === 'swap' && (!requester || !colleague || requester.role !== colleague.role)) throw new Error('Un échange nécessite un collègue habilité sur le même métier');
+    const colleagueSchedule = action === 'swap' ? newDb.employeeSchedules.find(item => item.id === colleagueScheduleId && item.employeeId === colleagueId && item.siteId === schedule.siteId) : undefined;
+    if (action === 'swap' && (!colleagueSchedule || !['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(colleagueSchedule.status))) {
+      throw new Error('Choisissez un créneau disponible du collègue');
+    }
+    if (colleagueSchedule && colleagueSchedule.date === schedule.date && colleagueSchedule.startTime === schedule.startTime && colleagueSchedule.endTime === schedule.endTime) {
+      throw new Error('Ces deux créneaux sont identiques');
+    }
+    if (colleagueSchedule && newDb.employeeSchedules.some(item => item.id !== schedule.id && item.requestedColleagueScheduleId === colleagueSchedule.id && ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status))) {
+      throw new Error('Ce créneau fait déjà l’objet d’une demande d’échange');
+    }
+    if (newDb.employeeSchedules.some(item => item.id !== schedule.id && item.requestedColleagueScheduleId === schedule.id && ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status))) {
+      throw new Error('Votre créneau est déjà engagé dans une proposition d’échange');
+    }
+    schedule.status = action === 'swap' ? 'swap_pending_colleague' : 'leave_requested';
+    schedule.requestedColleagueId = action === 'swap' ? colleagueId : undefined;
+    schedule.requestedColleagueScheduleId = action === 'swap' ? colleagueScheduleId : undefined;
+    schedule.requestNote = note.trim() || (action === 'swap' ? 'Échange de service proposé.' : 'Demande d’absence envoyée.');
+    schedule.managerNote = undefined;
+    schedule.colleagueResponseAt = undefined;
+    saveDB(newDb);
+    refresh();
+  };
+
+  const respondEmployeeScheduleSwap = (scheduleId: string, colleagueId: string, accepted: boolean) => {
+    const newDb = getDB();
+    const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId && item.requestedColleagueId === colleagueId && item.status === 'swap_pending_colleague');
+    const colleagueSchedule = schedule && newDb.employeeSchedules.find(item => item.id === schedule.requestedColleagueScheduleId && item.employeeId === colleagueId);
+    if (!schedule || !colleagueSchedule) throw new Error('Proposition d’échange introuvable');
+    if (accepted && !['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(colleagueSchedule.status)) throw new Error('Votre créneau n’est plus disponible pour cet échange');
+    schedule.status = accepted ? 'swap_colleague_accepted' : 'swap_colleague_rejected';
+    schedule.colleagueResponseAt = new Date().toISOString();
+    schedule.managerNote = accepted ? 'Accord du collègue reçu · validation manager requise' : 'Le collègue a refusé la proposition';
+    saveDB(newDb);
+    refresh();
+  };
+
+  const reviewEmployeeScheduleChange = (scheduleId: string, managerId: string, approved: boolean, note = '') => {
+    const newDb = getDB();
+    const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId && ['swap_colleague_accepted', 'leave_requested'].includes(item.status));
+    const manager = newDb.employeeProfiles.find(item => item.id === managerId && item.role === 'service_manager' && item.active);
+    if (!schedule || !manager || schedule.siteId !== manager.siteId) throw new Error('Demande de planning ou manager introuvable');
+    if (approved && schedule.status === 'swap_colleague_accepted') {
+      const colleagueSchedule = newDb.employeeSchedules.find(item => item.id === schedule.requestedColleagueScheduleId && item.employeeId === schedule.requestedColleagueId);
+      if (!colleagueSchedule || !['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(colleagueSchedule.status)) throw new Error('Le créneau du collègue n’est plus disponible');
+      const requesterSlot = { date: schedule.date, startTime: schedule.startTime, endTime: schedule.endTime, assignmentLabel: schedule.assignmentLabel };
+      schedule.date = colleagueSchedule.date;
+      schedule.startTime = colleagueSchedule.startTime;
+      schedule.endTime = colleagueSchedule.endTime;
+      schedule.assignmentLabel = colleagueSchedule.assignmentLabel;
+      colleagueSchedule.date = requesterSlot.date;
+      colleagueSchedule.startTime = requesterSlot.startTime;
+      colleagueSchedule.endTime = requesterSlot.endTime;
+      colleagueSchedule.assignmentLabel = requesterSlot.assignmentLabel;
+      colleagueSchedule.status = 'change_approved';
+      colleagueSchedule.managerNote = `Échange validé par ${manager.name}`;
+    }
+    schedule.status = approved ? 'change_approved' : 'change_rejected';
+    schedule.managerNote = note.trim() || (approved ? `Validé par ${manager.name}` : `Refusé par ${manager.name}`);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const startEmployeeBreak = (employeeId: string, shiftId: string, type: EmployeeBreak['type'] = 'rest') => {
+    const newDb = getDB();
+    const shift = newDb.employeeShifts.find(item => item.id === shiftId && item.employeeId === employeeId && item.status === 'open');
+    if (!shift) throw new Error('Aucun service ouvert pour cette pause');
+    if (newDb.employeeBreaks.some(item => item.employeeId === employeeId && item.status === 'started')) throw new Error('Une pause est déjà en cours');
+    const now = new Date().toISOString();
+    const id = createRuntimeId('BREAK');
+    newDb.employeeBreaks.unshift({ id, employeeId, shiftId, type, status: 'started', plannedAt: now, startedAt: now });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const completeEmployeeBreak = (breakId: string, employeeId: string) => {
+    const newDb = getDB();
+    const employeeBreak = newDb.employeeBreaks.find(item => item.id === breakId && item.employeeId === employeeId && item.status === 'started');
+    if (!employeeBreak) throw new Error('Pause active introuvable');
+    employeeBreak.status = 'completed';
+    employeeBreak.endedAt = new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+  };
+
+  const addEmployeeRecognition = (employeeId: string, authorEmployeeId: string, message: string) => {
+    const newDb = getDB();
+    const recipient = newDb.employeeProfiles.find(item => item.id === employeeId && item.active);
+    const author = newDb.employeeProfiles.find(item => item.id === authorEmployeeId && item.active);
+    if (!recipient || !author || recipient.siteId !== author.siteId) throw new Error('Collaborateur ou auteur introuvable');
+    if (!message.trim()) throw new Error('Écrivez un remerciement concret');
+    const recognition: EmployeeRecognition = {
+      id: createRuntimeId('THANKS'),
+      employeeId,
+      source: author.role === 'service_manager' ? 'manager' : 'peer',
+      authorName: author.name,
+      message: message.trim(),
+      createdAt: new Date().toISOString()
+    };
+    newDb.employeeRecognitions.unshift(recognition);
+    saveDB(newDb);
+    refresh();
+    return recognition.id;
+  };
+
+  const completeEmployeeLearning = (employeeId: string, moduleId: string) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId && item.active);
+    const learning = newDb.employeeLearningModules.find(item => item.id === moduleId);
+    if (!employee || !learning) throw new Error('Collaborateur ou formation introuvable');
+    const eligibleRoles = learning.roles as string[];
+    const isEligible = eligibleRoles.includes('all') || eligibleRoles.includes(employee.role);
+    if (!isEligible) throw new Error('Cette capsule ne correspond pas à votre poste');
+    if (!learning.completedByEmployeeIds.includes(employeeId)) learning.completedByEmployeeIds.push(employeeId);
+    employee.skills ||= [];
+    if (!employee.skills.includes(learning.skill)) employee.skills.push(learning.skill);
+    saveDB(newDb);
+    refresh();
+  };
+
+  const updateEmployeeExperience = (employeeId: string, payload: { preferences?: Partial<EmployeeExperiencePreferences>; careerGoal?: string }) => {
+    const newDb = getDB();
+    const employee = newDb.employeeProfiles.find(item => item.id === employeeId && item.active);
+    if (!employee) throw new Error('Collaborateur introuvable');
+    const defaults: EmployeeExperiencePreferences = { language: 'fr', highContrast: false, lowBandwidth: employee.role === 'driver', quietNotifications: true, voiceAssistance: false };
+    employee.experiencePreferences = { ...defaults, ...employee.experiencePreferences, ...payload.preferences };
+    if (payload.careerGoal !== undefined) {
+      if (!payload.careerGoal.trim()) throw new Error('Précisez votre objectif professionnel');
+      employee.careerGoal = payload.careerGoal.trim();
+    }
     saveDB(newDb);
     refresh();
   };
@@ -3040,6 +3269,17 @@ export const useStockState = () => {
     updateEmployeePermissions,
     startEmployeeShift,
     closeEmployeeShift,
+    submitEmployeeWellbeingCheckIn,
+    requestEmployeeSupport,
+    updateEmployeeSupportRequest,
+    requestEmployeeScheduleChange,
+    respondEmployeeScheduleSwap,
+    reviewEmployeeScheduleChange,
+    startEmployeeBreak,
+    completeEmployeeBreak,
+    addEmployeeRecognition,
+    completeEmployeeLearning,
+    updateEmployeeExperience,
     acknowledgeEmployeeHandover,
     sendEmployeeMessage,
     markEmployeeMessageRead,

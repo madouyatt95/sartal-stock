@@ -71,6 +71,12 @@ import {
   EmployeeHandover,
   EmployeeMessage,
   EmployeeApproval,
+  EmployeeSchedule,
+  EmployeeWellbeingCheckIn,
+  EmployeeSupportRequest,
+  EmployeeBreak,
+  EmployeeRecognition,
+  EmployeeLearningModule,
   User,
   createEmptyPaymentTotals
 } from './types';
@@ -120,6 +126,12 @@ export interface DatabaseState {
   employeeHandovers: EmployeeHandover[];
   employeeMessages: EmployeeMessage[];
   employeeApprovals: EmployeeApproval[];
+  employeeSchedules: EmployeeSchedule[];
+  employeeWellbeingCheckIns: EmployeeWellbeingCheckIn[];
+  employeeSupportRequests: EmployeeSupportRequest[];
+  employeeBreaks: EmployeeBreak[];
+  employeeRecognitions: EmployeeRecognition[];
+  employeeLearningModules: EmployeeLearningModule[];
   cashSessions: CashSession[];
   pmsRooms: PMSRoom[];
   pmsFolios: PMSFolio[];
@@ -155,6 +167,45 @@ export interface DatabaseState {
 
 const DB_KEY = 'sartal_stock_db';
 const DEMO_SEED_KEY = 'sartal_demo_seed_v13';
+
+const employeeDate = (offset: number) => {
+  const date = new Date();
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().slice(0, 10);
+};
+
+const employeeAssignmentLabel = (role: EmployeeProfile['role']) => {
+  if (['waiter', 'cashier', 'kitchen'].includes(role)) return 'Restaurant La Terrasse';
+  if (['storekeeper', 'picker'].includes(role)) return 'Dépôt principal';
+  if (role === 'driver') return 'Tournée Dakar';
+  if (['receptionist', 'housekeeper'].includes(role)) return 'Hôtel / PMS';
+  return 'Complexe Sártal Dakar';
+};
+
+const buildEmployeeSchedules = (profiles: EmployeeProfile[]): EmployeeSchedule[] => profiles.flatMap((profile, index) => {
+  const lateShift = ['cashier', 'waiter', 'kitchen'].includes(profile.role);
+  const startTime = lateShift ? '15:00' : index % 2 ? '08:00' : '07:00';
+  const endTime = lateShift ? '23:30' : index % 2 ? '16:00' : '15:00';
+  return [1, 3, 5].map((offset, scheduleIndex) => ({
+    id: `schedule-${profile.id}-${scheduleIndex + 1}`,
+    employeeId: profile.id,
+    siteId: profile.siteId,
+    date: employeeDate(offset),
+    startTime,
+    endTime,
+    assignmentLabel: employeeAssignmentLabel(profile.role),
+    status: 'planned' as const
+  }));
+});
+
+const buildEmployeeLearningModules = (): EmployeeLearningModule[] => [
+  { id: 'learning-service-care', title: 'Accueil attentionné', description: 'Lire une préférence client et personnaliser le premier contact.', durationMinutes: 3, skill: 'Accueil client', roles: ['waiter', 'cashier', 'receptionist', 'customer_experience'], completedByEmployeeIds: ['emp-cx'] },
+  { id: 'learning-allergy', title: 'Réflexe allergie', description: 'Sécuriser la transmission entre salle, cuisine et client.', durationMinutes: 2, skill: 'Sécurité alimentaire', roles: ['waiter', 'kitchen', 'service_manager'], completedByEmployeeIds: ['emp-kitchen'] },
+  { id: 'learning-pms-arrival', title: 'Arrivée sans attente', description: 'Garantie, chambre, clé et folio dans le bon ordre.', durationMinutes: 4, skill: 'Accueil PMS', roles: ['receptionist', 'service_manager'], completedByEmployeeIds: [] },
+  { id: 'learning-stock-trace', title: 'Stock traçable', description: 'Scanner, contrôler le lot et expliquer un écart.', durationMinutes: 3, skill: 'Traçabilité stock', roles: ['storekeeper', 'picker', 'service_manager'], completedByEmployeeIds: ['emp-storekeeper'] },
+  { id: 'learning-safe-shift', title: 'Service soutenable', description: 'Signaler une surcharge et demander un renfort au bon moment.', durationMinutes: 2, skill: 'Prévention et entraide', roles: ['all'], completedByEmployeeIds: [] }
+];
 
 const getDemoSupplierId = (product: Pick<Product, 'id' | 'category'>): string => {
   if (product.category.includes('Boissons premium')) return 'sup-premium';
@@ -740,6 +791,7 @@ const initialDB = (): DatabaseState => {
 
   const employeeProfiles: EmployeeProfile[] = [
     { id: 'emp-waiter', employeeNumber: 'SAL-104', name: 'Moussa Sarr', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 14', posId: 'pos-1', active: true },
+    { id: 'emp-waiter-2', employeeNumber: 'SAL-105', name: 'Adama Ndiaye', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 15', posId: 'pos-1', active: true },
     { id: 'emp-cashier', employeeNumber: 'SAL-208', name: 'Ndeye Fall', role: 'cashier', siteId: 'site-1', phone: '+221 76 420 18 08', posId: 'pos-1', active: true },
     { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
     { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
@@ -750,6 +802,11 @@ const initialDB = (): DatabaseState => {
     { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
     { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
   ];
+  employeeProfiles.forEach(profile => {
+    profile.experiencePreferences = { language: 'fr', highContrast: false, lowBandwidth: profile.role === 'driver', quietNotifications: true, voiceAssistance: false };
+    profile.skills = profile.role === 'receptionist' ? ['Accueil client', 'PMS'] : profile.role === 'storekeeper' ? ['Réception stock', 'Traçabilité'] : profile.role === 'service_manager' ? ['Pilotage de service', 'Accompagnement équipe'] : [];
+    profile.careerGoal = profile.role === 'waiter' ? 'Évoluer vers chef de rang' : profile.role === 'receptionist' ? 'Devenir responsable réception' : 'Renforcer mes compétences métier';
+  });
 
   const employeeShifts: EmployeeShift[] = [];
   const employeeHandovers: EmployeeHandover[] = [
@@ -775,6 +832,24 @@ const initialDB = (): DatabaseState => {
     return date.toISOString().slice(0, 10);
   };
   const today = hotelDate(0);
+  const employeeSchedules = buildEmployeeSchedules(employeeProfiles);
+  const employeeWellbeingCheckIns: EmployeeWellbeingCheckIn[] = [
+    { id: 'wellbeing-waiter', employeeId: 'emp-waiter', energy: 4, workload: 'busy', createdAt: new Date(Date.now() - 35 * 60000).toISOString() },
+    { id: 'wellbeing-housekeeper', employeeId: 'emp-housekeeper', energy: 3, workload: 'overloaded', note: 'Deux chambres prioritaires en même temps.', createdAt: new Date(Date.now() - 22 * 60000).toISOString() },
+    { id: 'wellbeing-picker', employeeId: 'emp-picker', energy: 4, workload: 'comfortable', createdAt: new Date(Date.now() - 18 * 60000).toISOString() }
+  ];
+  const employeeSupportRequests: EmployeeSupportRequest[] = [
+    { id: 'support-housekeeping', employeeId: 'emp-housekeeper', siteId: 'site-1', type: 'reinforcement', label: 'Renfort chambres prioritaires', note: 'Deux chambres doivent être prêtes avant 15 h.', confidential: false, status: 'open', createdAt: new Date(Date.now() - 16 * 60000).toISOString() },
+    { id: 'support-cashier-transport', employeeId: 'emp-cashier', siteId: 'site-1', type: 'transport', label: 'Retour après service', note: 'Départ prévu à 23 h 45 vers Liberté 6.', confidential: false, requestedFor: `${today}T23:45:00.000Z`, status: 'acknowledged', handledBy: 'Ousmane Gueye', acknowledgedAt: new Date(Date.now() - 10 * 60000).toISOString(), createdAt: new Date(Date.now() - 25 * 60000).toISOString() },
+    { id: 'support-confidential-demo', employeeId: 'emp-kitchen', siteId: 'site-1', type: 'confidential', label: 'Échange confidentiel', note: 'Je souhaite être rappelé par le référent RH.', confidential: true, status: 'open', createdAt: new Date(Date.now() - 12 * 60000).toISOString() }
+  ];
+  const employeeBreaks: EmployeeBreak[] = [];
+  const employeeRecognitions: EmployeeRecognition[] = [
+    { id: 'recognition-waiter-client', employeeId: 'emp-waiter', source: 'client', authorName: 'Aminata Diop', message: 'Merci pour l’attention portée à mon allergie et pour votre gentillesse.', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
+    { id: 'recognition-reception-manager', employeeId: 'emp-reception', source: 'manager', authorName: 'Ousmane Gueye', message: 'Très belle gestion de l’arrivée tardive et excellente passation.', createdAt: new Date(Date.now() - 86400000).toISOString() },
+    { id: 'recognition-picker-peer', employeeId: 'emp-picker', source: 'peer', authorName: 'Mamadou Ba', message: 'Préparation claire et tournée remise sans erreur.', createdAt: new Date(Date.now() - 3 * 86400000).toISOString() }
+  ];
+  const employeeLearningModules = buildEmployeeLearningModules();
 
   const pmsRooms: PMSRoom[] = [
     { id: 'room-101', siteId: 'site-1', roomNumber: '101', roomType: 'Standard', floor: '1er étage', capacity: 2, nightlyRate: 45000, status: 'vacant', housekeepingStatus: 'clean' },
@@ -1441,6 +1516,12 @@ const initialDB = (): DatabaseState => {
     employeeHandovers,
     employeeMessages,
     employeeApprovals,
+    employeeSchedules,
+    employeeWellbeingCheckIns,
+    employeeSupportRequests,
+    employeeBreaks,
+    employeeRecognitions,
+    employeeLearningModules,
     cashSessions: [],
     pmsRooms,
     pmsFolios,
@@ -2082,8 +2163,9 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     };
   });
 
-  const employeeProfiles: EmployeeProfile[] = state.employeeProfiles?.length ? state.employeeProfiles : [
+  const employeeProfiles: EmployeeProfile[] = (state.employeeProfiles?.length ? state.employeeProfiles : [
     { id: 'emp-waiter', employeeNumber: 'SAL-104', name: 'Moussa Sarr', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 14', posId: 'pos-1', active: true },
+    { id: 'emp-waiter-2', employeeNumber: 'SAL-105', name: 'Adama Ndiaye', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 15', posId: 'pos-1', active: true },
     { id: 'emp-cashier', employeeNumber: 'SAL-208', name: 'Ndeye Fall', role: 'cashier', siteId: 'site-1', phone: '+221 76 420 18 08', posId: 'pos-1', active: true },
     { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
     { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
@@ -2093,7 +2175,15 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     { id: 'emp-driver', employeeNumber: 'LIV-024', name: 'Mamadou Ba', role: 'driver', siteId: 'site-1', phone: '+221 77 420 10 10', warehouseId: 'wh-delivery', active: true },
     { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
     { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
-  ];
+  ] as EmployeeProfile[]).map(profile => ({
+    ...profile,
+    experiencePreferences: profile.experiencePreferences || { language: 'fr', highContrast: false, lowBandwidth: profile.role === 'driver', quietNotifications: true, voiceAssistance: false },
+    skills: profile.skills || [],
+    careerGoal: profile.careerGoal || (profile.role === 'waiter' ? 'Évoluer vers chef de rang' : 'Renforcer mes compétences métier')
+  }));
+  if (!employeeProfiles.some(profile => profile.id === 'emp-waiter-2')) {
+    employeeProfiles.push({ id: 'emp-waiter-2', employeeNumber: 'SAL-105', name: 'Adama Ndiaye', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 15', posId: 'pos-1', active: true, experiencePreferences: { language: 'fr', highContrast: false, lowBandwidth: false, quietNotifications: true, voiceAssistance: false }, skills: ['Service en salle'], careerGoal: 'Évoluer vers chef de rang' });
+  }
   const employeeHandovers: EmployeeHandover[] = state.employeeHandovers?.length ? state.employeeHandovers : [
     { id: 'handover-restaurant', shiftId: 'shift-restaurant-morning', employeeId: 'previous-waiter', employeeName: 'Astou Diallo', role: 'waiter', notes: 'Table T12 en cours, addition à préparer après le dessert.', incidents: 'Aucun incident bloquant.', amountsToCheck: 'Partage Wave et Orange Money demandé.', customersToFollow: 'Aminata Diop, allergie arachides confirmée.', status: 'submitted', submittedAt: new Date(Date.now() - 45 * 60000).toISOString() },
     { id: 'handover-reception', shiftId: 'shift-reception-morning', employeeId: 'previous-reception', employeeName: 'Rokhaya Seck', role: 'receptionist', notes: 'Deux arrivées à préparer et une chambre encore sans attribution.', incidents: 'Serrure chambre 102 signalée au service technique.', amountsToCheck: 'Garantie de la réservation RSV-240707.', customersToFollow: 'Jean Morel demande un départ rapide demain.', status: 'submitted', submittedAt: new Date(Date.now() - 65 * 60000).toISOString() },
@@ -2212,6 +2302,27 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     employeeHandovers,
     employeeMessages,
     employeeApprovals,
+    employeeSchedules: [
+      ...(state.employeeSchedules || []),
+      ...buildEmployeeSchedules(employeeProfiles.filter(profile => !(state.employeeSchedules || []).some(schedule => schedule.employeeId === profile.id)))
+    ],
+    employeeWellbeingCheckIns: state.employeeWellbeingCheckIns?.length ? state.employeeWellbeingCheckIns : [
+      { id: 'wellbeing-waiter', employeeId: 'emp-waiter', energy: 4, workload: 'busy', createdAt: new Date(Date.now() - 35 * 60000).toISOString() },
+      { id: 'wellbeing-housekeeper', employeeId: 'emp-housekeeper', energy: 3, workload: 'overloaded', note: 'Deux chambres prioritaires en même temps.', createdAt: new Date(Date.now() - 22 * 60000).toISOString() },
+      { id: 'wellbeing-picker', employeeId: 'emp-picker', energy: 4, workload: 'comfortable', createdAt: new Date(Date.now() - 18 * 60000).toISOString() }
+    ],
+    employeeSupportRequests: state.employeeSupportRequests?.length ? state.employeeSupportRequests : [
+      { id: 'support-housekeeping', employeeId: 'emp-housekeeper', siteId: 'site-1', type: 'reinforcement', label: 'Renfort chambres prioritaires', note: 'Deux chambres doivent être prêtes avant 15 h.', confidential: false, status: 'open', createdAt: new Date(Date.now() - 16 * 60000).toISOString() },
+      { id: 'support-cashier-transport', employeeId: 'emp-cashier', siteId: 'site-1', type: 'transport', label: 'Retour après service', note: 'Départ prévu après la clôture.', confidential: false, requestedFor: `${employeeDate(0)}T23:45:00.000Z`, status: 'acknowledged', handledBy: 'Ousmane Gueye', acknowledgedAt: new Date(Date.now() - 10 * 60000).toISOString(), createdAt: new Date(Date.now() - 25 * 60000).toISOString() },
+      { id: 'support-confidential-demo', employeeId: 'emp-kitchen', siteId: 'site-1', type: 'confidential', label: 'Échange confidentiel', note: 'Je souhaite être rappelé par le référent RH.', confidential: true, status: 'open', createdAt: new Date(Date.now() - 12 * 60000).toISOString() }
+    ],
+    employeeBreaks: state.employeeBreaks || [],
+    employeeRecognitions: state.employeeRecognitions?.length ? state.employeeRecognitions : [
+      { id: 'recognition-waiter-client', employeeId: 'emp-waiter', source: 'client', authorName: 'Aminata Diop', message: 'Merci pour l’attention portée à mon allergie et pour votre gentillesse.', createdAt: new Date(Date.now() - 2 * 86400000).toISOString() },
+      { id: 'recognition-reception-manager', employeeId: 'emp-reception', source: 'manager', authorName: 'Ousmane Gueye', message: 'Très belle gestion de l’arrivée tardive et excellente passation.', createdAt: new Date(Date.now() - 86400000).toISOString() },
+      { id: 'recognition-picker-peer', employeeId: 'emp-picker', source: 'peer', authorName: 'Mamadou Ba', message: 'Préparation claire et tournée remise sans erreur.', createdAt: new Date(Date.now() - 3 * 86400000).toISOString() }
+    ],
+    employeeLearningModules: state.employeeLearningModules?.length ? state.employeeLearningModules : buildEmployeeLearningModules(),
     cashSessions,
     pmsRooms,
     pmsFolios: (state.pmsFolios || []).map(folio => ({ ...folio, payments: folio.payments || [], charges: (folio.charges || []).map(charge => ({ ...charge, billingWindow: charge.billingWindow || 'guest' })) })),

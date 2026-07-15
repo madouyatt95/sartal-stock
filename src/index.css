@@ -52,6 +52,342 @@
   --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Employee wellbeing, planning and growth workspace. */
+.staff-next-shift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border-left: 3px solid #d7a32f;
+  background: #fff8e8;
+  color: #604a17;
+}
+.staff-next-shift > svg { flex: 0 0 auto; }
+.staff-next-shift > span { min-width: 0; display: grid; gap: 2px; }
+.staff-next-shift small { font-size: 0.67rem; font-weight: 800; text-transform: uppercase; }
+.staff-next-shift strong { font-size: 0.78rem; }
+.staff-next-shift em { color: #7a6b46; font-size: 0.7rem; font-style: normal; }
+
+.staff-energy-check { display: grid; gap: 10px; padding: 12px; border: 1px solid #d8e5e2; background: #f8fbfa; }
+.staff-energy-check > header,
+.staff-personal-card > header,
+.staff-support-history > header { display: flex; align-items: center; gap: 9px; }
+.staff-energy-check > header > span,
+.staff-personal-card > header > span,
+.staff-support-history > header > div { min-width: 0; display: grid; gap: 2px; }
+.staff-energy-check > header svg,
+.staff-personal-card > header svg,
+.staff-support-history > header svg { flex: 0 0 auto; color: var(--staff-role); }
+.staff-energy-check > header strong,
+.staff-personal-card > header strong,
+.staff-support-history > header strong { font-size: 0.78rem; }
+.staff-energy-check > header small,
+.staff-personal-card > header small,
+.staff-support-history > header small { color: #6a7f79; font-size: 0.68rem; line-height: 1.4; }
+
+.staff-energy-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.staff-energy-scale button { min-width: 0; min-height: 48px; display: grid; place-items: center; gap: 1px; padding: 5px; border: 1px solid #cfddda; border-radius: 6px; background: #fff; color: #49605b; cursor: pointer; }
+.staff-energy-scale button b { font-size: 0.82rem; }
+.staff-energy-scale button small { min-height: 12px; color: inherit; font-size: 0.58rem; }
+.staff-energy-scale button.active { border-color: var(--staff-role); background: color-mix(in srgb, var(--staff-role) 12%, white); color: var(--staff-role); box-shadow: inset 0 -3px 0 var(--staff-role); }
+.staff-workload-choice { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.staff-workload-choice button { min-height: 36px; padding: 6px; border: 1px solid #cfddda; border-radius: 6px; background: #fff; color: #536b65; cursor: pointer; font-size: 0.68rem; font-weight: 800; }
+.staff-workload-choice button.active { border-color: var(--staff-role); background: var(--staff-role); color: #fff; }
+
+.staff-wellbeing-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #d7e3e0; background: #fff; }
+.staff-wellbeing-strip article { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px; }
+.staff-wellbeing-strip article + article { border-left: 1px solid #d7e3e0; }
+.staff-wellbeing-strip article.active { background: #fff8e8; }
+.staff-wellbeing-strip article > svg { color: var(--staff-role); }
+.staff-wellbeing-strip article > span { min-width: 0; display: grid; gap: 2px; }
+.staff-wellbeing-strip small { color: #73857f; font-size: 0.65rem; }
+.staff-wellbeing-strip strong { overflow: hidden; color: #27443f; font-size: 0.73rem; text-overflow: ellipsis; white-space: nowrap; }
+.staff-wellbeing-strip button { min-height: 34px; display: flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid #bfd3ce; border-radius: 6px; background: #fff; color: var(--staff-role); cursor: pointer; font-size: 0.67rem; font-weight: 850; }
+
+.staff-life-shell { display: grid; gap: 12px; }
+.staff-life-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 16px; border-left: 5px solid var(--staff-role); background: #173f3a; color: #fff; }
+.staff-life-heading > div:nth-child(2) { min-width: 0; display: grid; gap: 2px; }
+.staff-life-heading > div:nth-child(2) > span { color: #9fd2c7; font-size: 0.66rem; font-weight: 900; }
+.staff-life-heading h1 { font-size: 1.35rem; }
+.staff-life-heading p { color: #c9dcd8; font-size: 0.74rem; }
+.staff-life-heading > button { min-height: 38px; display: flex; align-items: center; gap: 6px; padding: 7px 11px; border: 1px solid #587a74; border-radius: 6px; background: #244f49; color: #fff; font-size: 0.68rem; font-weight: 800; }
+
+.staff-life-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid #d4e1de; background: #fff; }
+.staff-life-nav button { min-width: 0; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 8px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: #617772; cursor: pointer; font-size: 0.76rem; font-weight: 800; }
+.staff-life-nav button + button { border-left: 1px solid #e0e8e6; }
+.staff-life-nav button.active { border-bottom-color: var(--staff-role); background: color-mix(in srgb, var(--staff-role) 8%, white); color: var(--staff-role); }
+
+.staff-life-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.staff-personal-card,
+.staff-support-history,
+.staff-support-form,
+.staff-learning-board,
+.staff-transport-card,
+.staff-service-recap,
+.staff-people-care { border: 1px solid #d6e3e0; background: #fff; }
+.staff-personal-card { display: grid; align-content: start; gap: 14px; padding: 15px; }
+.staff-identity-card > header { padding-bottom: 12px; border-bottom: 1px solid #e0e8e6; }
+.staff-identity-card > header > span { min-width: 0; display: grid; gap: 2px; }
+.staff-identity-card > header small { color: var(--staff-role); font-size: 0.65rem; font-weight: 900; }
+.staff-identity-card > header strong { overflow: hidden; font-size: 0.95rem; text-overflow: ellipsis; white-space: nowrap; }
+.staff-identity-card > header em { color: #6a7e79; font-size: 0.7rem; font-style: normal; }
+.staff-identity-card dl { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #dfe8e6; }
+.staff-identity-card dl > div { display: grid; gap: 3px; padding: 11px; background: #f8faf9; }
+.staff-identity-card dt { color: #72847f; font-size: 0.65rem; }
+.staff-identity-card dd { color: #2d4944; font-size: 0.73rem; font-weight: 800; }
+.staff-identity-card dd.online { color: #147458; }
+.staff-identity-card dd.online i { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #18a77d; }
+.staff-personal-pulse > .staff-card-primary { min-height: 40px; border: 0; border-radius: 6px; background: var(--staff-role); color: #fff; font-size: 0.71rem; font-weight: 850; }
+
+.staff-recognition-wall > div { display: grid; gap: 8px; }
+.staff-recognition-wall article { display: grid; gap: 5px; padding: 12px; border-left: 3px solid #dda935; background: #fff9eb; }
+.staff-recognition-wall article p { margin: 0; color: #3d4f4b; font-size: 0.75rem; line-height: 1.5; }
+.staff-recognition-wall article small { color: #7a6e51; font-size: 0.63rem; }
+
+.staff-language-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.staff-language-choice button,
+.staff-preferences > button { border: 1px solid #d2dfdc; border-radius: 6px; background: #fff; color: #4e6660; cursor: pointer; }
+.staff-language-choice button { min-height: 38px; font-size: 0.69rem; font-weight: 800; }
+.staff-language-choice button.active { border-color: var(--staff-role); background: color-mix(in srgb, var(--staff-role) 10%, white); color: var(--staff-role); }
+.staff-preferences > button { min-height: 50px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 9px 10px; text-align: left; }
+.staff-preferences > button > span { display: grid; gap: 2px; }
+.staff-preferences > button strong { font-size: 0.72rem; }
+.staff-preferences > button small { color: #758681; font-size: 0.63rem; font-weight: 500; }
+.staff-preferences > button > i { width: 34px; height: 19px; position: relative; border-radius: 12px; background: #c6d2cf; }
+.staff-preferences > button > i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 13px; height: 13px; border-radius: 50%; background: #fff; transition: transform 150ms ease; }
+.staff-preferences > button.active { border-color: #9cc4ba; background: #f1f8f6; color: #174f47; }
+.staff-preferences > button.active > i { background: var(--staff-role); }
+.staff-preferences > button.active > i::after { transform: translateX(15px); }
+
+.staff-schedule-space,
+.staff-growth-space,
+.staff-support-space,
+.staff-handover-space { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr); gap: 12px; align-items: start; }
+.staff-schedule-space > section,
+.staff-learning-board { min-width: 0; }
+.staff-colleague-picker,
+.staff-transport-card label,
+.staff-growth-profile label,
+.staff-support-form label { display: grid; gap: 6px; margin: 0 0 10px; color: #4f6862; font-size: 0.69rem; font-weight: 800; }
+.staff-colleague-picker { max-width: 420px; margin: 10px 0; }
+.staff-colleague-picker > small { color: #72847f; font-size: 0.63rem; font-weight: 500; line-height: 1.4; }
+.staff-incoming-swaps { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border: 1px solid #d8c487; background: #fff9e9; }
+.staff-incoming-swaps > header { display: flex; align-items: center; gap: 8px; color: #7b5b12; }
+.staff-incoming-swaps > header > span { display: grid; gap: 2px; }
+.staff-incoming-swaps > header strong { font-size: 0.75rem; }
+.staff-incoming-swaps > header small { color: #7a7058; font-size: 0.64rem; }
+.staff-incoming-swaps > article { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 11px; border: 1px solid #e5d9b6; background: #fff; }
+.staff-incoming-swaps > article > div { min-width: 0; display: grid; gap: 3px; }
+.staff-incoming-swaps article b { color: #8c6818; font-size: 0.64rem; }
+.staff-incoming-swaps article strong { font-size: 0.75rem; text-transform: capitalize; }
+.staff-incoming-swaps article p { margin: 0; color: #657873; font-size: 0.67rem; }
+.staff-incoming-swaps footer { display: flex; gap: 6px; }
+.staff-incoming-swaps footer button { min-height: 36px; padding: 6px 9px; border: 1px solid #c9d7d4; border-radius: 6px; background: #fff; color: #546a65; font-size: 0.64rem; font-weight: 800; }
+.staff-incoming-swaps footer button.primary { border-color: var(--staff-role); background: var(--staff-role); color: #fff; }
+.staff-colleague-picker select,
+.staff-transport-card input,
+.staff-transport-card textarea,
+.staff-growth-profile textarea,
+.staff-support-form input,
+.staff-support-form textarea,
+.staff-recognition-compose select,
+.staff-recognition-compose textarea { width: 100%; min-height: 42px; padding: 9px 10px; border: 1px solid #cbdad6; border-radius: 6px; outline: 0; background: #fff; color: #24433d; font: inherit; font-size: 0.72rem; }
+.staff-transport-card textarea,
+.staff-growth-profile textarea,
+.staff-support-form textarea,
+.staff-recognition-compose textarea { min-height: 86px; resize: vertical; }
+.staff-schedule-list { display: grid; gap: 8px; }
+.staff-schedule-list > article { min-width: 0; display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px; border: 1px solid #d5e2df; border-left: 4px solid #9cb3ad; background: #fff; }
+.staff-schedule-list > article.swap_requested,
+.staff-schedule-list > article.swap_pending_colleague,
+.staff-schedule-list > article.swap_colleague_accepted,
+.staff-schedule-list > article.leave_requested { border-left-color: #d6a238; background: #fffaf0; }
+.staff-schedule-list > article.swap_colleague_rejected { border-left-color: #c85348; background: #fffafa; }
+.staff-schedule-list > article.change_approved { border-left-color: #1c8c69; background: #f2faf7; }
+.staff-schedule-list > article.change_rejected { border-left-color: #c85348; }
+.staff-schedule-list time { min-height: 62px; display: grid; place-content: center; justify-items: center; border-right: 1px solid #dce6e3; color: #36564f; text-transform: capitalize; }
+.staff-schedule-list time b,
+.staff-schedule-list time small { color: #748681; font-size: 0.62rem; }
+.staff-schedule-list time strong { font-size: 1.2rem; }
+.staff-schedule-list > article > div { min-width: 0; display: grid; gap: 3px; }
+.staff-schedule-list > article > div > span { color: var(--staff-role); font-size: 0.62rem; font-weight: 900; text-transform: uppercase; }
+.staff-schedule-list h3 { font-size: 0.85rem; }
+.staff-schedule-list p { margin: 0; color: #647a74; font-size: 0.7rem; }
+.staff-schedule-list > article > div > small { color: #8a4b44; font-size: 0.64rem; }
+.staff-schedule-list footer { display: flex; gap: 6px; }
+.staff-schedule-list footer button { min-height: 36px; padding: 6px 9px; border: 1px solid #bfd1cd; border-radius: 6px; background: #fff; color: #315f56; font-size: 0.65rem; font-weight: 800; }
+.staff-schedule-list footer button:disabled { opacity: 0.45; }
+.staff-transport-card { position: sticky; top: 0; display: grid; gap: 10px; padding: 15px; }
+.staff-transport-card > svg { color: #9b6e16; }
+.staff-transport-card h3 { font-size: 0.9rem; }
+.staff-transport-card p { margin: 0; color: #687d77; font-size: 0.7rem; line-height: 1.5; }
+.staff-transport-card > button,
+.staff-growth-profile > button,
+.staff-support-form > button,
+.staff-recognition-compose > button { min-height: 40px; border: 0; border-radius: 6px; background: var(--staff-role); color: #fff; font-size: 0.7rem; font-weight: 850; }
+.staff-transport-card > button:disabled,
+.staff-support-form > button:disabled,
+.staff-recognition-compose > button:disabled { opacity: 0.45; }
+
+.staff-growth-profile { align-self: start; }
+.staff-skill-list { display: flex; flex-wrap: wrap; gap: 7px; padding-top: 12px; border-top: 1px solid #dfe8e6; }
+.staff-skill-list > small { width: 100%; color: #6d817b; font-size: 0.66rem; font-weight: 800; }
+.staff-skill-list > span { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 5px; background: #e8f4f0; color: #28685a; font-size: 0.66rem; font-weight: 800; }
+.staff-skill-list p { margin: 0; color: #70837e; font-size: 0.68rem; }
+.staff-learning-board { padding: 14px; }
+.staff-learning-board > div { display: grid; gap: 8px; margin-top: 10px; }
+.staff-learning-board article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px; border: 1px solid #d8e4e1; background: #fff; }
+.staff-learning-board article.completed { background: #f2f8f6; }
+.staff-learning-board article > span { color: var(--staff-role); }
+.staff-learning-board article > div { min-width: 0; display: grid; gap: 3px; }
+.staff-learning-board article small { color: #72847f; font-size: 0.63rem; }
+.staff-learning-board article h3 { font-size: 0.78rem; }
+.staff-learning-board article p { margin: 0; color: #617771; font-size: 0.68rem; line-height: 1.45; }
+.staff-learning-board article button { min-height: 35px; padding: 6px 9px; border: 1px solid #b9cec8; border-radius: 6px; background: #fff; color: var(--staff-role); font-size: 0.65rem; font-weight: 800; }
+.staff-learning-board article button:disabled { border-color: transparent; background: #dfeae7; color: #52736b; }
+
+.staff-support-form { display: grid; gap: 12px; padding: 16px; }
+.staff-support-form > header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.staff-support-form > header svg { color: var(--staff-role); }
+.staff-support-form > header > div { display: grid; gap: 3px; }
+.staff-support-form > header span { color: var(--staff-role); font-size: 0.63rem; font-weight: 900; }
+.staff-support-form > header h2 { font-size: 1rem; }
+.staff-support-form > header p { margin: 0; color: #667c76; font-size: 0.7rem; line-height: 1.45; }
+.staff-support-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.staff-support-types button { min-width: 0; min-height: 100px; display: grid; align-content: center; justify-items: start; gap: 4px; padding: 11px; border: 1px solid #d1dfdc; border-radius: 6px; background: #fff; color: #4a635d; text-align: left; }
+.staff-support-types button.active { border-color: var(--staff-role); background: color-mix(in srgb, var(--staff-role) 8%, white); color: var(--staff-role); }
+.staff-support-types strong { font-size: 0.72rem; }
+.staff-support-types small { color: #6f817d; font-size: 0.62rem; line-height: 1.35; }
+.staff-support-history { display: grid; gap: 8px; padding: 14px; }
+.staff-support-history > article { display: grid; gap: 5px; padding: 12px; border: 1px solid #d9e4e2; border-left: 3px solid #d3a139; background: #fff; }
+.staff-support-history > article > span { width: max-content; display: flex; align-items: center; gap: 5px; color: #8a6719; font-size: 0.62rem; font-weight: 850; text-transform: uppercase; }
+.staff-support-history > article > span i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.staff-support-history > article > span.resolved { color: #197256; }
+.staff-support-history h3 { font-size: 0.78rem; }
+.staff-support-history p { margin: 0; color: #536b65; font-size: 0.7rem; line-height: 1.45; }
+.staff-support-history > article > small { color: #778984; font-size: 0.62rem; }
+
+.staff-handover-space { grid-template-columns: minmax(240px, 0.45fr) minmax(0, 1.55fr); }
+.staff-service-recap { display: grid; gap: 7px; padding: 16px; color: #31504a; }
+.staff-service-recap > svg { color: var(--staff-role); }
+.staff-service-recap > span { color: var(--staff-role); font-size: 0.63rem; font-weight: 900; }
+.staff-service-recap h2 { font-size: 1.5rem; }
+.staff-service-recap p { margin: 0; color: #687d77; font-size: 0.7rem; }
+.staff-service-recap dl { display: grid; gap: 1px; margin-top: 8px; background: #dce7e4; }
+.staff-service-recap dl > div { display: flex; justify-content: space-between; gap: 10px; padding: 9px; background: #f8faf9; }
+.staff-service-recap dt { color: #6b7f79; font-size: 0.66rem; }
+.staff-service-recap dd { font-size: 0.7rem; font-weight: 850; }
+.staff-service-recap > small { color: #758782; font-size: 0.63rem; line-height: 1.45; }
+.staff-handover-space .staff-handover-form { padding-bottom: 14px; }
+.staff-voice-button { margin-left: auto; min-height: 34px; display: flex; align-items: center; gap: 5px; padding: 6px 9px; border: 1px solid #bfd2cd; border-radius: 6px; background: #fff; color: var(--staff-role); font-size: 0.65rem; font-weight: 800; }
+
+.staff-people-care { display: grid; gap: 12px; padding: 15px; }
+.staff-people-care > header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
+.staff-people-care > header > svg { color: #b07d1b; }
+.staff-people-care > header > div { display: grid; gap: 3px; }
+.staff-people-care > header span { color: #9a6b13; font-size: 0.62rem; font-weight: 900; }
+.staff-people-care > header h2 { font-size: 1rem; }
+.staff-people-care > header p { margin: 0; color: #657a75; font-size: 0.7rem; }
+.staff-care-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #d7e3e0; }
+.staff-care-metrics article { min-width: 0; display: grid; gap: 3px; padding: 11px; }
+.staff-care-metrics article + article { border-left: 1px solid #d7e3e0; }
+.staff-care-metrics article.alert { background: #fff7e8; }
+.staff-care-metrics small,
+.staff-care-metrics span { color: #71837f; font-size: 0.63rem; }
+.staff-care-metrics strong { color: #234b43; font-size: 1.1rem; }
+.staff-care-metrics strong i { color: #7a8d88; font-size: 0.65rem; font-style: normal; }
+.staff-care-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(250px, 0.65fr); gap: 10px; align-items: start; }
+.staff-care-columns > section,
+.staff-recognition-compose { min-width: 0; border: 1px solid #d8e4e1; background: #f9fbfa; }
+.staff-care-columns > section > header { display: flex; align-items: center; gap: 8px; padding: 11px; border-bottom: 1px solid #dce6e3; }
+.staff-care-columns > section > header svg { color: var(--staff-role); }
+.staff-care-columns > section > header span { display: grid; gap: 2px; }
+.staff-care-columns > section > header strong { font-size: 0.74rem; }
+.staff-care-columns > section > header small { color: #72847f; font-size: 0.62rem; }
+.staff-care-list { display: grid; gap: 7px; padding: 8px; }
+.staff-care-list > article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; border-left: 3px solid #d4a13b; background: #fff; }
+.staff-care-list > article.confidential { border-left-color: #735a9e; background: #faf8ff; }
+.staff-care-list > article > div:first-child { min-width: 0; display: grid; gap: 3px; }
+.staff-care-list article b { width: max-content; padding: 3px 5px; border-radius: 4px; background: #edf4f2; color: #49665f; font-size: 0.58rem; }
+.staff-care-list article strong { font-size: 0.72rem; }
+.staff-care-list article p { margin: 0; color: #5f746f; font-size: 0.66rem; line-height: 1.4; }
+.staff-care-list article small { color: #7a8a86; font-size: 0.6rem; }
+.staff-care-list article > div:last-child { display: flex; align-items: center; gap: 5px; }
+.staff-care-list article button { min-height: 32px; padding: 5px 7px; border: 1px solid #c6d6d2; border-radius: 5px; background: #fff; color: #526a64; font-size: 0.61rem; font-weight: 800; }
+.staff-care-list article button.primary { border-color: var(--staff-role); background: var(--staff-role); color: #fff; }
+.staff-recognition-compose { display: grid; gap: 9px; padding: 12px; }
+.staff-recognition-compose > svg { color: #b27f1c; }
+.staff-recognition-compose h3 { font-size: 0.82rem; }
+.staff-recognition-compose p { margin: 0; color: #6c7f7a; font-size: 0.67rem; line-height: 1.4; }
+.staff-recognition-compose label { display: grid; gap: 5px; color: #526b65; font-size: 0.65rem; font-weight: 800; }
+
+.staff-high-contrast { --staff-brand: #072d29; background: #fff; }
+.staff-high-contrast .staff-app-content { background: #fff; }
+.staff-high-contrast :is(.staff-personal-card, .staff-support-form, .staff-support-history, .staff-learning-board, .staff-people-care, .staff-wellbeing-strip) { border-color: #54706a; }
+.staff-high-contrast :is(p, small) { color: #41534f; }
+.staff-low-bandwidth * { box-shadow: none !important; transition: none !important; }
+
+@media (max-width: 1100px) {
+  .staff-care-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .staff-recognition-compose { grid-column: 1 / -1; }
+  .staff-schedule-list > article { grid-template-columns: 58px minmax(0, 1fr); }
+  .staff-schedule-list footer { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+@media (max-width: 760px) {
+  .staff-next-shift { align-items: flex-start; }
+  .staff-wellbeing-strip { grid-template-columns: 1fr; }
+  .staff-wellbeing-strip article + article { border-top: 1px solid #d7e3e0; border-left: 0; }
+  .staff-wellbeing-strip article { min-height: 66px; }
+  .staff-life-heading { grid-template-columns: auto minmax(0, 1fr); padding: 12px; }
+  .staff-life-heading h1 { font-size: 1.1rem; }
+  .staff-life-heading p { font-size: 0.7rem; }
+  .staff-life-heading > button { grid-column: 1 / -1; justify-content: center; }
+  .staff-life-nav { position: sticky; z-index: 7; top: 58px; display: flex; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
+  .staff-life-nav button { min-width: 132px; justify-content: flex-start; scroll-snap-align: start; font-size: 0.74rem; }
+  .staff-life-grid,
+  .staff-schedule-space,
+  .staff-growth-space,
+  .staff-support-space,
+  .staff-handover-space { grid-template-columns: 1fr; }
+  .staff-incoming-swaps > article { grid-template-columns: 1fr; }
+  .staff-incoming-swaps footer { justify-content: stretch; }
+  .staff-incoming-swaps footer button { flex: 1; }
+  .staff-transport-card { position: static; }
+  .staff-support-types { display: flex; overflow-x: auto; scroll-snap-type: x proximity; }
+  .staff-support-types button { min-width: 180px; scroll-snap-align: start; }
+  .staff-care-metrics { grid-template-columns: 1fr 1fr; }
+  .staff-care-metrics article + article { border-left: 0; }
+  .staff-care-metrics article:nth-child(2n) { border-left: 1px solid #d7e3e0; }
+  .staff-care-metrics article:nth-child(-n + 2) { border-bottom: 1px solid #d7e3e0; }
+  .staff-care-columns { grid-template-columns: 1fr; }
+  .staff-recognition-compose { grid-column: auto; }
+  .staff-learning-board article { grid-template-columns: auto minmax(0, 1fr); }
+  .staff-learning-board article button { grid-column: 2; justify-self: start; }
+  .staff-handover-space .staff-handover-form > header { flex-wrap: wrap; }
+  .staff-voice-button { width: 100%; justify-content: center; margin-left: 0; }
+}
+
+@media (max-width: 460px) {
+  .staff-energy-scale button { min-height: 44px; }
+  .staff-energy-scale button small { display: none; }
+  .staff-life-grid { gap: 8px; }
+  .staff-personal-card,
+  .staff-support-form,
+  .staff-support-history,
+  .staff-learning-board,
+  .staff-people-care { padding: 12px; }
+  .staff-schedule-list > article { grid-template-columns: 50px minmax(0, 1fr); gap: 9px; padding: 10px; }
+  .staff-schedule-list footer { display: grid; grid-template-columns: 1fr 1fr; }
+  .staff-schedule-list footer button { min-height: 40px; }
+  .staff-care-list > article { grid-template-columns: 1fr; }
+  .staff-care-list article > div:last-child { justify-content: stretch; }
+  .staff-care-list article button { flex: 1; min-height: 38px; }
+  .staff-learning-board article { grid-template-columns: 1fr; }
+  .staff-learning-board article > span { display: none; }
+  .staff-learning-board article button { grid-column: auto; width: 100%; min-height: 40px; }
+}
+
 /* Sártal Client: shared restaurant and delivery experience */
 .sartal-public-client-app {
   min-height: 100vh;
@@ -701,7 +1037,7 @@
   .client-mode-switch { width: 100%; }
   .client-preview-controls { width: 100%; }
   .sartal-client-tabs { position: sticky; top: 0; z-index: 40; display: flex; padding: 0 0.35rem; overflow-x: auto; }
-  .sartal-client-tabs button { min-width: 82px; min-height: 55px; flex-direction: column; gap: 0.15rem; font-size: 0.62rem; }
+  .sartal-client-tabs button { min-width: 92px; min-height: 58px; flex-direction: column; gap: 0.2rem; font-size: 0.75rem; }
   .sartal-client-tabs button b { position: absolute; top: 5px; right: 10px; }
   .sartal-client-body { min-height: calc(100vh - 180px); padding: 0.65rem; }
   .client-hero { min-height: 390px; }
@@ -1148,11 +1484,11 @@
   }
 
   .pms-tabs button {
-    min-height: 44px;
+    min-height: 48px;
     padding: 7px 10px;
     flex-direction: column;
-    gap: 3px;
-    font-size: 0.64rem;
+    gap: 4px;
+    font-size: 0.75rem;
   }
 
   .pms-tab-content {
@@ -1385,9 +1721,9 @@ button, input, select, textarea {
 .sidebar-section-title {
   padding: 0 14px 4px;
   color: rgba(255, 255, 255, 0.42);
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -3231,7 +3567,7 @@ button, input, select, textarea {
     justify-content: center;
     gap: 3px;
     min-height: 48px;
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
   }
@@ -3470,7 +3806,7 @@ button, input, select, textarea {
   .pms-page-header > div:last-child { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   .pms-page-header > div:last-child .btn { margin-top: 0 !important; min-height: 44px; }
   .pms-tabs { position: sticky; top: 0; z-index: 12; padding: 4px; box-shadow: var(--shadow-sm); }
-  .pms-tabs button { min-height: 44px; padding: 7px 10px; flex-direction: column; gap: 3px; font-size: 0.64rem; }
+  .pms-tabs button { min-height: 48px; padding: 7px 10px; flex-direction: column; gap: 4px; font-size: 0.75rem; }
   .pms-kpi { grid-template-columns: 1fr; gap: 4px; align-content: start; }
   .pms-kpi > svg, .pms-kpi-icon { grid-row: auto; width: 32px; height: 32px; }
   .pms-section-header, .pms-folio-heading { display: grid; grid-template-columns: 1fr; }
@@ -3743,7 +4079,7 @@ button, input, select, textarea {
 
 .nav-current-view span {
   color: var(--primary);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -6908,11 +7244,11 @@ button, input, select, textarea {
   }
 
   .pms-guest-tabs button {
-    min-width: 92px;
-    min-height: 54px;
+    min-width: 100px;
+    min-height: 58px;
     flex-direction: column;
     gap: 0.2rem;
-    font-size: 0.63rem;
+    font-size: 0.75rem;
   }
 
   .pms-guest-next-action {
@@ -8058,7 +8394,7 @@ button, input, select, textarea {
   .sartal-hub-heading { align-items: stretch; flex-direction: column; padding: 0.9rem; }
   .sartal-hub-identity { width: 100%; min-width: 0; }
   .sartal-hub-tabs { display: flex; overflow-x: auto; }
-  .sartal-hub-tabs button { min-width: 96px; flex: 1; flex-direction: column; gap: 0.18rem; font-size: 0.62rem; }
+  .sartal-hub-tabs button { min-width: 104px; flex: 1; flex-direction: column; gap: 0.22rem; font-size: 0.75rem; }
   .sartal-now-card { min-height: 200px; align-items: stretch; flex-direction: column; justify-content: flex-end; }
   .sartal-now-card button { width: 100%; }
   .sartal-context-grid,
@@ -8214,7 +8550,7 @@ button, input, select, textarea {
   border: 1px solid rgb(255 255 255 / 0.2);
   border-radius: 6px;
   background: rgb(10 54 48 / 0.72);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 750;
   backdrop-filter: blur(8px);
 }
@@ -9567,7 +9903,7 @@ button, input, select, textarea {
   border-radius: 6px;
   background: transparent;
   color: #657c77;
-  font-size: 0.65rem;
+  font-size: 0.8rem;
   font-weight: 800;
 }
 .staff-desktop-nav button:hover { background: #f0f5f4; }
@@ -9786,9 +10122,9 @@ button, input, select, textarea {
 .staff-list-tools { position: sticky; z-index: 2; top: -0.85rem; display: flex; justify-content: space-between; gap: 0.65rem; padding: 0.65rem 0; background: #fff; }
 .staff-search { min-width: 260px; display: flex; align-items: center; gap: 0.4rem; padding: 0 0.6rem; border: 1px solid #cfddda; border-radius: 6px; background: #f9fbfa; }
 .staff-search svg { color: #748984; }
-.staff-search input { width: 100%; min-height: 38px; border: 0; outline: 0; background: transparent; color: #1a3733; font-size: 0.66rem; }
+.staff-search input { width: 100%; min-height: 42px; border: 0; outline: 0; background: transparent; color: #1a3733; font-size: 0.78rem; }
 .staff-segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.18rem; padding: 0.2rem; border: 1px solid #d4e0dd; border-radius: 6px; background: #eef4f2; }
-.staff-segmented button { min-width: 72px; padding: 0.4rem; border: 0; border-radius: 4px; background: transparent; color: #6b7e79; font-size: 0.58rem; font-weight: 800; }
+.staff-segmented button { min-width: 76px; min-height: 40px; padding: 0.45rem; border: 0; border-radius: 4px; background: transparent; color: #6b7e79; font-size: 0.75rem; font-weight: 800; }
 .staff-segmented button.active { background: #fff; color: var(--staff-role); box-shadow: 0 1px 3px rgb(35 70 65 / 0.1); }
 
 .staff-action-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 0.75rem; }
@@ -9799,12 +10135,12 @@ button, input, select, textarea {
 .staff-table-board > article.served { border-top-color: #386faa; }
 .staff-table-board article > header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .staff-table-board article > header strong { font-size: 1.1rem; }
-.staff-table-board article > header span { padding: 0.2rem 0.35rem; border-radius: 4px; background: #edf3f1; color: #617670; font-size: 0.52rem; font-weight: 850; }
-.staff-table-board h3 { font-size: 0.7rem; }
-.staff-table-board .staff-allergy { display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem; background: #fff0ee; color: #a94137; font-size: 0.57rem; font-weight: 850; }
-.staff-table-board article > div { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: auto; color: #71817e; font-size: 0.58rem; }
+.staff-table-board article > header span { padding: 0.25rem 0.4rem; border-radius: 4px; background: #edf3f1; color: #617670; font-size: 0.66rem; font-weight: 850; }
+.staff-table-board h3 { font-size: 0.78rem; }
+.staff-table-board .staff-allergy { display: flex; align-items: center; gap: 0.3rem; padding: 0.4rem; background: #fff0ee; color: #a94137; font-size: 0.7rem; font-weight: 850; }
+.staff-table-board article > div { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: auto; color: #71817e; font-size: 0.7rem; }
 .staff-table-board article > div b { color: #253f3b; }
-.staff-table-board article > button { display: flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.42rem; border: 1px solid #d4e0dd; border-radius: 5px; background: #fff; color: #5a716c; font-size: 0.58rem; font-weight: 800; }
+.staff-table-board article > button { min-height: 40px; display: flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.46rem; border: 1px solid #d4e0dd; border-radius: 5px; background: #fff; color: #5a716c; font-size: 0.7rem; font-weight: 800; }
 .staff-table-board article > button.staff-card-primary { border-color: var(--staff-role); background: var(--staff-role); color: #fff; }
 .staff-action-side { align-self: start; }
 .staff-action-side > article { display: grid; gap: 0.2rem; margin: 0.65rem; padding: 0.65rem; border: 1px solid #dde7e5; background: #f9fbfa; }
@@ -9917,7 +10253,7 @@ button, input, select, textarea {
 .staff-stock-workspace { display: grid; gap: 0.65rem; }
 .staff-workspace-switch { display: flex; gap: 0.35rem; padding: 0.4rem; border: 1px solid #d5e2df; background: #fff; overflow-x: auto; scrollbar-width: none; }
 .staff-workspace-switch::-webkit-scrollbar { display: none; }
-.staff-workspace-switch button { flex: 0 0 auto; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.45rem 0.7rem; border: 0; border-radius: 5px; background: transparent; color: #6d817c; font-size: 0.6rem; font-weight: 850; white-space: nowrap; }
+.staff-workspace-switch button { flex: 0 0 auto; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.5rem 0.75rem; border: 0; border-radius: 5px; background: transparent; color: #6d817c; font-size: 0.75rem; font-weight: 850; white-space: nowrap; }
 .staff-workspace-switch button.active { background: var(--staff-role); color: #fff; box-shadow: 0 4px 12px color-mix(in srgb, var(--staff-role) 20%, transparent); }
 .staff-stock-switch button { flex: 1 0 auto; }
 .staff-reception-list > article.selected { background: color-mix(in srgb, var(--staff-role) 7%, white); box-shadow: inset 3px 0 var(--staff-role); }
@@ -10401,7 +10737,7 @@ button, input, select, textarea {
   }
   .staff-mobile-nav button { position: relative; min-width: 0; display: grid; justify-items: center; align-content: center; gap: 0.18rem; border: 0; background: transparent; color: #748984; }
   .staff-mobile-nav button > span { position: relative; width: 34px; height: 31px; display: grid; place-items: center; border-radius: 7px; }
-  .staff-mobile-nav button small { overflow: hidden; max-width: 100%; font-size: 0.5rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+  .staff-mobile-nav button small { overflow: hidden; max-width: 100%; font-size: 0.75rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
   .staff-mobile-nav button.active { color: var(--staff-role); }
   .staff-mobile-nav button.active > span { background: color-mix(in srgb, var(--staff-role) 11%, white); }
   .staff-mobile-nav button.central > span { width: 46px; height: 42px; margin-top: -18px; border: 4px solid #fff; border-radius: 8px; background: var(--staff-role); box-shadow: 0 5px 12px color-mix(in srgb, var(--staff-role) 30%, transparent); color: #fff; }
@@ -10690,7 +11026,7 @@ button, input, select, textarea {
   }
 
   .mobile-bottom-nav button {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -11594,4 +11930,120 @@ button, input, select, textarea {
   .access-experience-frame .pms-public-guest-app,
   .access-experience-frame .sartal-public-employee-app .employee-workspace,
   .access-experience-frame .sartal-public-employee-app .staff-app { min-height: calc(100dvh - 54px); }
+}
+
+/* Keep operational navigation and action labels readable on every device. */
+.staff-workload-choice button,
+.staff-wellbeing-strip button,
+.staff-life-heading > button,
+.staff-language-choice button,
+.staff-incoming-swaps footer button,
+.staff-schedule-list footer button,
+.staff-learning-board article button,
+.staff-voice-button,
+.staff-care-list article button,
+.client-service-choice button,
+.pms-task-progress button,
+.restaurant-kds-row footer button,
+.sartal-live-service > header button,
+.sartal-access-actions button,
+.sartal-reward-list > article button,
+.sartal-favorites > div button,
+.client-invite-form button,
+.client-group-bill > article button,
+.client-live-basket > header button,
+.client-order-line-tools button,
+.client-split-shortcuts button,
+.client-split-form > button,
+.client-address.missing button,
+.pms-guest-preference-shortcut button,
+.team-row-actions button,
+.team-permission-layout > aside > button,
+.public-payment-choice button,
+.sartal-access-grid article > button,
+.staff-shift-identity > button,
+.staff-profile-panel > button,
+.staff-priority-panel > header > button,
+.staff-task > button,
+.staff-service-brief > button,
+.staff-action-side article button,
+.staff-secondary-link,
+.staff-cash-open button,
+.staff-cash-close button,
+.staff-checkout-form > button,
+.staff-kds-board footer button,
+.staff-reception-list article > button,
+.staff-room-legend > button,
+.staff-room-task-grid footer button,
+.staff-scan-result > footer button,
+.staff-picking-list footer button,
+.staff-proof-checklist > div button,
+.staff-delivery-alert button,
+.staff-cx-queue article button,
+.staff-recovery-queue article button,
+.staff-approval-queue footer button,
+.staff-live-operations > button,
+.staff-message-compose > button,
+.staff-room-checklist button,
+.demo-experience-bar > button {
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.pms-booking-steps button strong,
+.pms-frontdesk-lane button span,
+.pms-frontdesk-lane button small,
+.pms-floor-list button small,
+.staff-booking-types button small,
+.public-room-choice button > span:nth-child(2) small,
+.public-room-choice button > span:nth-child(2) b,
+.pulse-module-grid > button > span,
+.pulse-module-grid > button > small,
+.pulse-priorities > div > button strong,
+.pulse-priorities > div > button small,
+.sartal-command-results > button > span,
+.sartal-command-results > button strong,
+.sartal-command-results > button small,
+.sartal-command-shortcuts button,
+.notification-actions button,
+.notification-list > button strong,
+.notification-list > button small,
+.offline-queue > header button,
+.offline-storage button,
+.sartal-module-settings button strong,
+.sartal-module-settings button small,
+.staff-room-options button span,
+.staff-room-options button small,
+.staff-stock-shortcuts button strong,
+.staff-stock-shortcuts button small,
+.staff-operation-list > button strong,
+.staff-operation-list > button small,
+.staff-route-list > button > span,
+.staff-route-list > button strong,
+.staff-route-list > button small,
+.staff-message-thread > button > span,
+.staff-message-thread > button strong,
+.staff-message-thread > button p,
+.staff-message-thread > button small,
+.staff-reception-assistant section > button small,
+.staff-stock-intelligence-grid article > button small,
+.staff-picker-route article > button small,
+.staff-cx-360 aside > button small,
+.client-slot-picker button strong,
+.client-slot-picker button small,
+.client-edit-order-button small,
+.staff-kds-items > button > span small,
+.staff-picking-items > button > small {
+  font-size: 0.7rem;
+  line-height: 1.3;
+}
+
+@media (max-width: 768px) {
+  .team-tabs button { font-size: 0.76rem; }
+  .staff-workspace-switch button,
+  .staff-segmented button,
+  .sartal-client-tabs button,
+  .pms-tabs button,
+  .pms-guest-tabs button,
+  .sartal-hub-tabs button { line-height: 1.2; }
 }

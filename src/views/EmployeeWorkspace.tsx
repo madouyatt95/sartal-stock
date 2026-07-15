@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -27,7 +27,6 @@ import {
   MapPin,
   MapPinned,
   MessageCircle,
-  MoreHorizontal,
   Navigation,
   PackageCheck,
   PackageSearch,
@@ -53,11 +52,12 @@ import {
   type LucideIcon
 } from 'lucide-react';
 import type { StockState } from '../hooks/useStockState';
-import type { EmployeeRole, PaymentType } from '../types';
+import type { EmployeeExperiencePreferences, EmployeeRole, PaymentType } from '../types';
 import { hasEmployeePermission } from '../employeePermissions';
 import { getPMSAvailabilityByType } from '../utils/pmsAvailability';
 
 type StaffTab = 'today' | 'tasks' | 'action' | 'messages' | 'more';
+type EmployeeLifeSection = 'overview' | 'schedule' | 'growth' | 'support' | 'handover';
 type TaskTone = 'urgent' | 'active' | 'waiting' | 'done';
 type ReceptionWorkspace = 'arrivals' | 'rooms' | 'booking';
 type StockWorkspace = 'scan' | 'receiving' | 'transfers' | 'inventory' | 'journal';
@@ -130,6 +130,24 @@ const ORDER_STATUS: Record<string, string> = {
   inspected: 'Contrôlée'
 };
 
+const SCHEDULE_STATUS: Record<string, string> = {
+  planned: 'Planifié',
+  confirmed: 'Confirmé',
+  swap_requested: 'Accord collègue reçu',
+  swap_pending_colleague: 'En attente du collègue',
+  swap_colleague_accepted: 'Accord collègue · manager requis',
+  swap_colleague_rejected: 'Échange refusé par le collègue',
+  leave_requested: 'Absence demandée',
+  change_approved: 'Changement validé',
+  change_rejected: 'Changement refusé'
+};
+
+const WORKLOAD_LABELS = {
+  comfortable: 'Fluide',
+  busy: 'Soutenu',
+  overloaded: 'Surchargé'
+} as const;
+
 const formatFCFA = (amount: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(amount))} FCFA`;
 const formatTime = (date: string) => new Date(date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const elapsedMinutes = (date: string) => Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 60000));
@@ -194,6 +212,17 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [pickedLineIds, setPickedLineIds] = useState<Set<string>>(() => new Set());
   const [customerFocusId, setCustomerFocusId] = useState('');
   const [handover, setHandover] = useState({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' });
+  const [lifeSection, setLifeSection] = useState<EmployeeLifeSection>('overview');
+  const [energy, setEnergy] = useState<1 | 2 | 3 | 4 | 5>(4);
+  const [workload, setWorkload] = useState<'comfortable' | 'busy' | 'overloaded'>('comfortable');
+  const [supportType, setSupportType] = useState<'reinforcement' | 'transport' | 'confidential'>('reinforcement');
+  const [supportNote, setSupportNote] = useState('');
+  const [supportWhen, setSupportWhen] = useState('');
+  const [scheduleSwapTargetId, setScheduleSwapTargetId] = useState('');
+  const [careerGoal, setCareerGoal] = useState('');
+  const [recognitionTargetId, setRecognitionTargetId] = useState('');
+  const [recognitionMessage, setRecognitionMessage] = useState('');
+  const demoShiftOpeningRef = useRef('');
 
   const employee = db.employeeProfiles.find(item => item.id === selectedEmployeeId);
   const canEmployee = (permission: Parameters<typeof hasEmployeePermission>[1]) => employee ? hasEmployeePermission(employee, permission) : false;
@@ -204,6 +233,25 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const enabledModules = db.sartalBrandSettings.enabledModules;
   const assignedPosId = activeShift?.assignmentId || employee?.posId;
   const assignedRestaurantOrders = assignedPosId ? db.restaurantGuestOrders.filter(item => item.posId === assignedPosId) : [];
+  const preferences = employee?.experiencePreferences || { language: 'fr' as const, highContrast: false, lowBandwidth: employee?.role === 'driver', quietNotifications: true, voiceAssistance: false };
+  const employeeSchedules = employee ? db.employeeSchedules.filter(item => item.employeeId === employee.id).sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`)) : [];
+  const engagedScheduleIds = new Set(db.employeeSchedules.filter(item => ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status)).map(item => item.requestedColleagueScheduleId).filter((id): id is string => Boolean(id)));
+  const employeeSupportRequests = employee ? db.employeeSupportRequests.filter(item => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
+  const employeeRecognitions = employee ? db.employeeRecognitions.filter(item => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
+  const employeeLearning = employee ? db.employeeLearningModules.filter(item => {
+    const roles = item.roles as string[];
+    return roles.includes('all') || roles.includes(employee.role);
+  }) : [];
+  const latestWellbeing = employee ? db.employeeWellbeingCheckIns.filter(item => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : undefined;
+  const activeBreak = employee ? db.employeeBreaks.find(item => item.employeeId === employee.id && item.status === 'started') : undefined;
+  const openReinforcement = employeeSupportRequests.find(item => item.type === 'reinforcement' && item.status !== 'resolved');
+  const nextSchedule = employeeSchedules.find(item => item.date >= new Date().toISOString().slice(0, 10));
+  const swapScheduleOptions = employee ? db.employeeSchedules.filter(item => item.employeeId !== employee.id && item.siteId === employee.siteId && item.date >= new Date().toISOString().slice(0, 10) && !engagedScheduleIds.has(item.id) && ['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(item.status) && db.employeeProfiles.some(profile => profile.id === item.employeeId && profile.active && profile.role === employee.role)).sort((a, b) => {
+    const aRole = db.employeeProfiles.find(profile => profile.id === a.employeeId)?.role;
+    const bRole = db.employeeProfiles.find(profile => profile.id === b.employeeId)?.role;
+    return Number(aRole !== employee.role) - Number(bRole !== employee.role) || `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`);
+  }) : [];
+  const incomingSwapRequests = employee ? db.employeeSchedules.filter(item => item.requestedColleagueId === employee.id && item.status === 'swap_pending_colleague') : [];
   const customerContextAllowed = (context: string) => (
     context === 'restaurant'
       ? enabledModules.includes('restaurant')
@@ -214,13 +262,25 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   useEffect(() => {
     if (!demoAutoStart || !loggedIn || !employee || activeShift) return;
-    state.startEmployeeShift(employee.id, employee.posId || employee.warehouseId || employee.siteId, 'Poste de démonstration');
-  }, [activeShift, demoAutoStart, employee, loggedIn, state]);
+    if (demoShiftOpeningRef.current === employee.id) return;
+    demoShiftOpeningRef.current = employee.id;
+    try {
+      const shiftId = state.startEmployeeShift(employee.id, employee.posId || employee.warehouseId || employee.siteId, 'Poste de démonstration');
+      state.submitEmployeeWellbeingCheckIn({ employeeId: employee.id, shiftId, energy, workload });
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('déjà ouvert')) {
+        setNotice(error instanceof Error ? error.message : 'Impossible de préparer le poste de démonstration.');
+      }
+    }
+  }, [activeShift, demoAutoStart, employee, energy, loggedIn, state, workload]);
 
   useEffect(() => {
     setAssignmentId(employee?.posId || employee?.warehouseId || employee?.siteId || '');
     setTab('today');
-  }, [employee?.id, employee?.posId, employee?.siteId, employee?.warehouseId]);
+    setLifeSection('overview');
+    setCareerGoal(employee?.careerGoal || '');
+    setScheduleSwapTargetId('');
+  }, [employee?.careerGoal, employee?.id, employee?.posId, employee?.siteId, employee?.warehouseId]);
 
   const roleAssignments = useMemo(() => {
     if (!employee) return [];
@@ -519,7 +579,54 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   }
 
   const RoleIcon = roleConfig.icon;
-  const openShift = () => execute(() => state.startEmployeeShift(employee.id, assignmentId, deviceLabel), `Service ouvert pour ${employee.name}.`);
+  const openShift = () => execute(() => {
+    const shiftId = state.startEmployeeShift(employee.id, assignmentId, deviceLabel);
+    state.submitEmployeeWellbeingCheckIn({ employeeId: employee.id, shiftId, energy, workload });
+  }, `Service ouvert pour ${employee.name}. Bonne prise de poste.`);
+
+  const saveWellbeing = () => execute(
+    () => state.submitEmployeeWellbeingCheckIn({ employeeId: employee.id, shiftId: activeShift?.id, energy, workload }),
+    'Votre ressenti est enregistré. Il sert à ajuster le service, pas à vous évaluer.'
+  );
+
+  const submitSupport = () => execute(() => {
+    state.requestEmployeeSupport({
+      employeeId: employee.id,
+      siteId: employee.siteId,
+      shiftId: activeShift?.id,
+      type: supportType,
+      note: supportNote,
+      requestedFor: supportWhen ? new Date(supportWhen).toISOString() : undefined
+    });
+    setSupportNote('');
+    setSupportWhen('');
+  }, supportType === 'confidential' ? 'Demande confidentielle transmise au référent habilité.' : 'Votre demande a été envoyée et reste visible dans son suivi.');
+
+  const updatePreference = (patch: Partial<EmployeeExperiencePreferences>) => execute(
+    () => state.updateEmployeeExperience(employee.id, { preferences: patch }),
+    'Préférence appliquée à votre espace.'
+  );
+
+  const startVoiceHandover = () => {
+    const speechWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      setNotice('La dictée vocale n’est pas disponible sur ce navigateur.');
+      return;
+    }
+    const recognition = new Recognition();
+    recognition.lang = preferences.language === 'wo' ? 'fr-SN' : 'fr-FR';
+    recognition.onresult = event => {
+      const transcript = event.results[0]?.[0]?.transcript || '';
+      setHandover(current => ({ ...current, notes: `${current.notes} ${transcript}`.trim() }));
+      setNotice('La dictée a été ajoutée à la passation.');
+    };
+    recognition.onerror = () => setNotice('La dictée vocale a été interrompue.');
+    recognition.start();
+  };
 
   const renderLogin = () => (
     <section className="staff-login-shell">
@@ -570,6 +677,12 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
           <label>Poste<input value={roleConfig.label} disabled /></label>
           <label>POS, dépôt ou zone<select value={assignmentId} onChange={event => setAssignmentId(event.target.value)}>{roleAssignments.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
           <label>Appareil<select value={deviceLabel} onChange={event => setDeviceLabel(event.target.value)}><option>Téléphone personnel</option><option>Tablette de service</option><option>Terminal POS partagé</option><option>Terminal dépôt</option></select></label>
+          {nextSchedule && <div className="staff-next-shift"><CalendarCheck size={19} /><span><small>Planning confirmé</small><strong>{new Date(`${nextSchedule.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {nextSchedule.startTime}–{nextSchedule.endTime}</strong><em>{nextSchedule.assignmentLabel}</em></span></div>}
+          <div className="staff-energy-check">
+            <header><HeartHandshake size={18} /><span><strong>Comment démarrez-vous ?</strong><small>Ce signal aide à équilibrer la charge du service.</small></span></header>
+            <div className="staff-energy-scale" aria-label="Niveau d’énergie">{([1, 2, 3, 4, 5] as const).map(level => <button className={energy === level ? 'active' : ''} key={level} onClick={() => setEnergy(level)} aria-label={`Énergie ${level} sur 5`}><b>{level}</b><small>{level === 1 ? 'Faible' : level === 3 ? 'Moyenne' : level === 5 ? 'Haute' : ''}</small></button>)}</div>
+            <div className="staff-workload-choice">{(Object.entries(WORKLOAD_LABELS) as Array<[typeof workload, string]>).map(([value, label]) => <button className={workload === value ? 'active' : ''} key={value} onClick={() => setWorkload(value)}>{label}</button>)}</div>
+          </div>
           <button className="staff-primary-action" onClick={openShift}><DoorOpen size={19} /> Ouvrir mon service <ArrowRight size={18} /></button>
         </section>
         <section className="staff-handover-preview">
@@ -601,6 +714,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
       <section className="staff-today-hero" style={{ '--staff-role': roleConfig.color } as React.CSSProperties}>
         <div><span><i /> Service en cours</span><h1>{roleConfig.team}, votre priorité est claire.</h1><p>{tasks.filter(item => item.tone === 'urgent').length ? `${tasks.filter(item => item.tone === 'urgent').length} point(s) demandent votre attention maintenant.` : 'Aucun blocage critique. Gardez le rythme et les promesses annoncées.'}</p></div>
         <div className="staff-shift-clock"><Clock3 size={18} /><span><small>Service ouvert à</small><strong>{activeShift ? formatTime(activeShift.startedAt) : '--:--'}</strong></span></div>
+      </section>
+      <section className="staff-wellbeing-strip">
+        <article><HeartHandshake size={20} /><span><small>Mon rythme</small><strong>{latestWellbeing ? `Énergie ${latestWellbeing.energy}/5 · ${WORKLOAD_LABELS[latestWellbeing.workload]}` : 'À renseigner'}</strong></span><button onClick={() => { setLifeSection('overview'); setTab('more'); }}>Actualiser</button></article>
+        <article><Clock3 size={20} /><span><small>Pause</small><strong>{activeBreak ? `En cours depuis ${formatTime(activeBreak.startedAt || activeBreak.plannedAt)}` : 'Disponible quand nécessaire'}</strong></span>{activeBreak ? <button onClick={() => execute(() => state.completeEmployeeBreak(activeBreak.id, employee.id), 'Pause terminée. Bon retour au service.')}><Check size={15} /> Reprendre</button> : <button onClick={() => execute(() => state.startEmployeeBreak(employee.id, activeShift!.id, 'rest'), 'Pause démarrée. Votre équipe voit uniquement votre indisponibilité temporaire.')}><Clock3 size={15} /> Démarrer</button>}</article>
+        <article className={openReinforcement ? 'active' : ''}><UsersRound size={20} /><span><small>Besoin d’aide</small><strong>{openReinforcement ? `Demande ${openReinforcement.status === 'acknowledged' ? 'prise en compte' : 'envoyée'}` : 'Un renfort en un geste'}</strong></span>{openReinforcement ? <button onClick={() => { setLifeSection('support'); setTab('more'); }}>Suivre</button> : <button onClick={() => execute(() => state.requestEmployeeSupport({ employeeId: employee.id, siteId: employee.siteId, shiftId: activeShift?.id, type: 'reinforcement', note: `Charge ${WORKLOAD_LABELS[latestWellbeing?.workload || workload].toLowerCase()} sur le poste ${roleConfig.team}.` }), 'Le manager a reçu votre demande de renfort.')}><Bell size={15} /> Demander</button>}</article>
       </section>
       <section className="staff-metrics">{metrics.map(item => <article className={item.tone || ''} key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}</section>
       <div className="staff-today-grid">
@@ -984,6 +1102,29 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     return <section className="staff-game-changer staff-manager-intelligence"><header><CircleGauge size={22} /><div><span>TOUR DE CONTRÔLE</span><h2>Les goulets d’étranglement, maintenant</h2></div><b className={totalPressure > 5 ? 'danger' : totalPressure ? 'warning' : 'good'}>{totalPressure} point(s) de pression</b></header><div className="staff-manager-command"><article>{bottlenecks.map((item, index) => <div className={item.count ? 'alert' : 'good'} key={item.id}><i>{index + 1}</i><span><strong>{item.label}</strong><small>Responsable · {item.owner}</small></span><b>{item.count}</b></div>)}</article><section><small>Recommandation d’affectation</small>{staffing.length ? staffing.map(item => <p key={item.role}><AlertCircle size={15} /> Ouvrir ou réaffecter un poste {ROLE_CONFIG[item.role].team} pour absorber {item.need} priorité(s).</p>) : <p><CheckCircle2 size={15} /> Les postes critiques disposent d’une présence active.</p>}<button onClick={() => execute(() => state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · Manager`, audience: 'all', content: `Point service : ${bottlenecks.filter(item => item.count).map(item => `${item.label} (${item.count})`).join(', ') || 'aucun blocage critique'}. Merci de confirmer la prise en charge.`, priority: totalPressure > 5 ? 'urgent' : 'normal' }), 'Brief opérationnel envoyé à toutes les équipes.')}><Send size={16} /> Diffuser le point service</button></section><aside><small>Prévision des 30 prochaines minutes</small><strong>{totalPressure > 8 ? 'Saturation probable' : totalPressure > 3 ? 'Tension maîtrisable' : 'Flux normal'}</strong><p>{totalPressure > 8 ? 'Réaffecter une personne et geler les validations non urgentes.' : totalPressure > 3 ? 'Traiter cuisine, chambres et livraisons dans cet ordre.' : 'Maintenir les affectations et surveiller les promesses client.'}</p><button onClick={() => setTab('tasks')}><ArrowRight size={16} /> Ouvrir les priorités</button></aside></div></section>;
   };
 
+  const renderManagerPeopleCare = () => {
+    const team = db.employeeProfiles.filter(item => item.active && item.siteId === employee.siteId && item.id !== employee.id);
+    const teamCheckIns = team.map(profile => ({
+      profile,
+      checkIn: db.employeeWellbeingCheckIns.filter(item => item.employeeId === profile.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
+    }));
+    const checkedIn = teamCheckIns.filter(item => item.checkIn);
+    const averageEnergy = checkedIn.length ? (checkedIn.reduce((sum, item) => sum + (item.checkIn?.energy || 0), 0) / checkedIn.length).toFixed(1) : '—';
+    const overloaded = checkedIn.filter(item => item.checkIn?.workload === 'overloaded').length;
+    const openSupport = db.employeeSupportRequests.filter(item => item.siteId === employee.siteId && item.status !== 'resolved');
+    const scheduleRequests = db.employeeSchedules.filter(item => item.siteId === employee.siteId && ['swap_colleague_accepted', 'leave_requested'].includes(item.status));
+    const recognitionTarget = recognitionTargetId || team[0]?.id || '';
+    return <section className="staff-people-care">
+      <header><HeartHandshake size={22} /><div><span>QUALITÉ DU SERVICE ET DU TRAVAIL</span><h2>Aider l’équipe avant que la pression ne déborde</h2><p>Les ressentis personnels restent privés. Seuls les signaux nécessaires à l’organisation sont présentés ici.</p></div></header>
+      <div className="staff-care-metrics"><article><small>Énergie moyenne</small><strong>{averageEnergy}<i>/5</i></strong><span>{checkedIn.length} prise(s) de service</span></article><article className={overloaded ? 'alert' : ''}><small>Charge trop forte</small><strong>{overloaded}</strong><span>poste(s) à rééquilibrer</span></article><article className={openSupport.length ? 'alert' : ''}><small>Demandes d’aide</small><strong>{openSupport.length}</strong><span>à prendre en charge</span></article><article><small>Pauses en cours</small><strong>{db.employeeBreaks.filter(item => item.status === 'started').length}</strong><span>indisponibilité temporaire</span></article></div>
+      <div className="staff-care-columns">
+        <section><header><UsersRound size={18} /><span><strong>Demandes de l’équipe</strong><small>Sans exposer le contenu confidentiel</small></span></header><div className="staff-care-list">{openSupport.map(request => { const author = team.find(item => item.id === request.employeeId); return <article className={request.confidential ? 'confidential' : ''} key={request.id}><div><b>{request.type === 'reinforcement' ? 'Renfort' : request.type === 'transport' ? 'Transport' : 'Confidentiel'}</b><strong>{author?.name || 'Collaborateur'}</strong><p>{request.confidential ? 'Contenu réservé au référent habilité.' : request.note}</p><small>{formatTime(request.createdAt)} · {request.status === 'open' ? 'À prendre en compte' : 'Pris en compte'}</small></div><div>{request.status === 'open' && <button onClick={() => execute(() => state.updateEmployeeSupportRequest(request.id, 'acknowledged', employee.id), request.confidential ? 'Demande transmise au référent habilité.' : 'La demande est maintenant prise en compte.')}>{request.confidential ? 'Transmettre' : 'Prendre en compte'}</button>}{request.status === 'acknowledged' && !request.confidential && <button onClick={() => execute(() => state.updateEmployeeSupportRequest(request.id, 'resolved', employee.id), 'Demande clôturée avec traçabilité.')}>Résoudre</button>}</div></article>; })}{openSupport.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={24} /><strong>Aucune demande en attente</strong></div>}</div></section>
+        <section><header><CalendarCheck size={18} /><span><strong>Ajustements de planning</strong><small>Décision visible par le collaborateur</small></span></header><div className="staff-care-list">{scheduleRequests.map(schedule => { const author = team.find(item => item.id === schedule.employeeId); const colleague = team.find(item => item.id === schedule.requestedColleagueId); return <article key={schedule.id}><div><b>{schedule.status === 'swap_colleague_accepted' ? 'Échange' : 'Absence'}</b><strong>{author?.name} · {new Date(`${schedule.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</strong><p>{schedule.status === 'swap_colleague_accepted' ? `Accord de ${colleague?.name || 'un collègue'} reçu · contrôle manager` : schedule.requestNote}</p><small>{schedule.startTime}–{schedule.endTime} · {schedule.assignmentLabel}</small></div><div><button onClick={() => execute(() => state.reviewEmployeeScheduleChange(schedule.id, employee.id, false), 'Demande refusée avec retour au collaborateur.')}>Refuser</button><button className="primary" onClick={() => execute(() => state.reviewEmployeeScheduleChange(schedule.id, employee.id, true), 'Changement de planning validé.')}>Valider</button></div></article>; })}{scheduleRequests.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={24} /><strong>Planning sans demande</strong></div>}</div></section>
+        <aside className="staff-recognition-compose"><Sparkles size={21} /><h3>Faire vivre la reconnaissance</h3><p>Remercier un geste concret, sans classement ni compétition.</p><label>Collaborateur<select value={recognitionTarget} onChange={event => setRecognitionTargetId(event.target.value)}>{team.map(profile => <option key={profile.id} value={profile.id}>{profile.name} · {ROLE_CONFIG[profile.role].team}</option>)}</select></label><label>Message<textarea value={recognitionMessage} onChange={event => setRecognitionMessage(event.target.value)} placeholder="Ex. Merci pour la passation claire et l’aide apportée à l’équipe." /></label><button disabled={!recognitionTarget || !recognitionMessage.trim()} onClick={() => execute(() => { state.addEmployeeRecognition(recognitionTarget, employee.id, recognitionMessage); setRecognitionMessage(''); }, 'Remerciement envoyé dans l’espace personnel du collaborateur.')}><HeartHandshake size={16} /> Envoyer le remerciement</button></aside>
+      </div>
+    </section>;
+  };
+
   const renderRoleGameChanger = () => {
     switch (employee.role) {
       case 'waiter': return renderWaiterGameChanger();
@@ -1013,30 +1154,76 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
       case 'customer_experience': workspace = renderCustomerExperienceAction(); break;
       case 'service_manager': workspace = renderManagerAction(); break;
     }
-    return <div className="staff-role-workspace">{renderRoleGameChanger()}{workspace}</div>;
+    return <div className="staff-role-workspace">{renderRoleGameChanger()}{employee.role === 'service_manager' && renderManagerPeopleCare()}{workspace}</div>;
   };
 
   const renderMessages = () => (
     <section className="staff-messages-layout"><div className="staff-message-thread"><header><MessageCircle size={20} /><div><h2>Messages d’équipe</h2><p>Consignes opérationnelles liées au service.</p></div><b>{unreadMessages} non lu(s)</b></header>{visibleMessages.map(message => <button className={`${message.priority} ${message.readByEmployeeIds.includes(employee.id) ? 'read' : 'unread'}`} key={message.id} onClick={() => execute(() => state.markEmployeeMessageRead(message.id, employee.id), 'Message marqué comme lu.')}><span>{message.senderName.split(' ').slice(0, 2).map(part => part[0]).join('')}</span><div><strong>{message.senderName}</strong><p>{message.content}</p><small>{message.audience === 'all' ? 'Toute l’équipe' : ROLE_CONFIG[message.audience].team} · {formatTime(message.sentAt)}</small></div>{message.priority === 'urgent' && <b>URGENT</b>}</button>)}</div><aside className="staff-message-compose"><header><Send size={19} /><div><strong>Nouvelle consigne</strong><small>Elle sera conservée dans le service.</small></div></header><label>Destinataires<select value={messageAudience} onChange={event => setMessageAudience(event.target.value as EmployeeRole | 'all')}><option value="service_manager">Manager de service</option><option value="all">Toute l’équipe</option>{Object.entries(ROLE_CONFIG).map(([value, config]) => <option key={value} value={value}>{config.team}</option>)}</select></label><label>Message<textarea value={messageText} onChange={event => setMessageText(event.target.value)} placeholder="Décrivez le fait, l’action attendue et le délai." /></label><button onClick={() => execute(() => { state.sendEmployeeMessage({ siteId: employee.siteId, senderId: employee.id, senderName: `${employee.name} · ${roleConfig.team}`, audience: messageAudience, content: messageText, priority: messageText.toLowerCase().includes('urgent') ? 'urgent' : 'normal' }); setMessageText(''); }, 'Consigne envoyée à l’équipe.')} disabled={!messageText.trim()}><Send size={17} /> Envoyer</button></aside></section>
   );
 
-  const renderMore = () => (
-    <section className="staff-more-layout"><div className="staff-profile-panel"><header><div className="staff-avatar"><RoleIcon size={24} /></div><div><span>{employee.employeeNumber}</span><h2>{employee.name}</h2><p>{roleConfig.label}</p></div></header><dl><div><dt>Établissement</dt><dd>{db.sites.find(item => item.id === employee.siteId)?.name}</dd></div><div><dt>Affectation</dt><dd>{activeShift?.assignmentLabel}</dd></div><div><dt>Appareil</dt><dd>{activeShift?.deviceLabel}</dd></div><div><dt>Connexion</dt><dd><i /> Session personnelle active</dd></div></dl>{!demoAutoStart && <button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={16} /> Verrouiller l’écran</button>}</div><div className="staff-handover-form"><header><ClipboardCheck size={21} /><div><h2>Terminer et passer le service</h2><p>L’équipe suivante devra confirmer la reprise.</p></div></header><label>Ce qui reste à faire <textarea value={handover.notes} onChange={event => setHandover(current => ({ ...current, notes: event.target.value }))} placeholder="Ex. Table T12 attend l’addition..." /></label><div><label>Incidents<textarea value={handover.incidents} onChange={event => setHandover(current => ({ ...current, incidents: event.target.value }))} placeholder="Matériel, retard, anomalie..." /></label><label>Montants à contrôler<textarea value={handover.amountsToCheck} onChange={event => setHandover(current => ({ ...current, amountsToCheck: event.target.value }))} placeholder="Écart caisse, paiement en attente..." /></label></div><label>Clients à suivre <textarea value={handover.customersToFollow} onChange={event => setHandover(current => ({ ...current, customersToFollow: event.target.value }))} placeholder="Nom, engagement et délai promis..." /></label><button className="staff-end-shift" disabled={!handover.notes.trim()} onClick={() => execute(() => { if (!activeShift) throw new Error('Aucun service ouvert'); state.closeEmployeeShift(activeShift.id, handover); setLoggedIn(demoAutoStart); setPin(''); setHandover({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' }); }, 'Passation enregistrée et service terminé.')}><LogOut size={18} /> Enregistrer la passation et terminer</button></div><aside className="staff-access-summary"><ShieldCheck size={24} /><h3>Sécurité du poste</h3><p>Cette session est limitée à votre rôle, votre établissement et votre affectation du jour.</p><ul><li><Check size={14} /> Actions métier autorisées</li><li><Check size={14} /> Traçabilité nominative</li><li><Check size={14} /> Validation manager sensible</li><li><XCircle size={14} /> Réglages administrateur masqués</li></ul></aside></section>
-  );
+  const renderMore = () => {
+    const completedLearning = employeeLearning.filter(item => item.completedByEmployeeIds.includes(employee.id)).length;
+    const currentServiceMinutes = activeShift ? Math.max(0, Math.round((Date.now() - new Date(activeShift.startedAt).getTime()) / 60000)) : 0;
+    const completedBreakMinutes = db.employeeBreaks.filter(item => item.employeeId === employee.id && item.shiftId === activeShift?.id && item.startedAt && item.endedAt).reduce((total, item) => total + Math.max(0, Math.round((new Date(item.endedAt!).getTime() - new Date(item.startedAt!).getTime()) / 60000)), 0);
+    const lifeNav: Array<{ id: EmployeeLifeSection; label: string; icon: LucideIcon }> = [
+      { id: 'overview', label: 'Mon quotidien', icon: Home },
+      { id: 'schedule', label: 'Mon planning', icon: CalendarCheck },
+      { id: 'growth', label: 'Ma progression', icon: TrendingUp },
+      { id: 'support', label: 'Aide et services', icon: HeartHandshake },
+      { id: 'handover', label: 'Ma passation', icon: ClipboardCheck }
+    ];
+
+    return <section className="staff-life-shell">
+      <header className="staff-life-heading"><div className="staff-avatar"><RoleIcon size={24} /></div><div><span>MON ESPACE</span><h1>{employee.name}</h1><p>{roleConfig.label} · un espace personnel, utile avant, pendant et après le service.</p></div>{!demoAutoStart && <button onClick={() => { setLoggedIn(false); setPin(''); }}><LogOut size={16} /> Verrouiller</button>}</header>
+      <nav className="staff-life-nav">{lifeNav.map(item => { const Icon = item.icon; return <button className={lifeSection === item.id ? 'active' : ''} key={item.id} onClick={() => setLifeSection(item.id)}><Icon size={17} /><span>{item.label}</span></button>; })}</nav>
+
+      {lifeSection === 'overview' && <div className="staff-life-grid">
+        <section className="staff-personal-card staff-identity-card"><header><div className="staff-avatar"><RoleIcon size={22} /></div><span><small>{employee.employeeNumber}</small><strong>{employee.name}</strong><em>{activeShift?.assignmentLabel}</em></span></header><dl><div><dt>Poste</dt><dd>{roleConfig.team}</dd></div><div><dt>Service</dt><dd>{currentServiceMinutes} min</dd></div><div><dt>Appareil</dt><dd>{activeShift?.deviceLabel}</dd></div><div><dt>Statut</dt><dd className="online"><i /> En service</dd></div></dl></section>
+        <section className="staff-personal-card staff-personal-pulse"><header><HeartHandshake size={20} /><span><strong>Mon rythme aujourd’hui</strong><small>Une information d’organisation, jamais une note de performance.</small></span></header><div className="staff-energy-scale">{([1, 2, 3, 4, 5] as const).map(level => <button className={energy === level ? 'active' : ''} key={level} onClick={() => setEnergy(level)}><b>{level}</b><small>{level === 1 ? 'Faible' : level === 3 ? 'Moyen' : level === 5 ? 'Haut' : ''}</small></button>)}</div><div className="staff-workload-choice">{(Object.entries(WORKLOAD_LABELS) as Array<[typeof workload, string]>).map(([value, label]) => <button className={workload === value ? 'active' : ''} key={value} onClick={() => setWorkload(value)}>{label}</button>)}</div><button className="staff-card-primary" onClick={saveWellbeing}>Mettre à jour mon rythme</button></section>
+        <section className="staff-personal-card staff-recognition-wall"><header><Sparkles size={20} /><span><strong>Ce que l’on a apprécié</strong><small>Des gestes concrets, sans classement.</small></span></header><div>{employeeRecognitions.slice(0, 3).map(item => <article key={item.id}><p>“{item.message}”</p><small>{item.authorName} · {item.source === 'client' ? 'Client' : item.source === 'manager' ? 'Manager' : 'Collègue'} · {new Date(item.createdAt).toLocaleDateString('fr-FR')}</small></article>)}{employeeRecognitions.length === 0 && <div className="staff-list-empty"><HeartHandshake size={24} /><strong>Les remerciements apparaîtront ici</strong></div>}</div></section>
+        <section className="staff-personal-card staff-preferences"><header><ShieldCheck size={20} /><span><strong>Mon confort d’utilisation</strong><small>Réglages propres à votre compte.</small></span></header><div className="staff-language-choice"><button className={preferences.language === 'fr' ? 'active' : ''} onClick={() => updatePreference({ language: 'fr' })}>Français</button><button className={preferences.language === 'wo' ? 'active' : ''} onClick={() => updatePreference({ language: 'wo' })}>Wolof</button></div><button className={preferences.highContrast ? 'active' : ''} onClick={() => updatePreference({ highContrast: !preferences.highContrast })}><span><strong>Contraste renforcé</strong><small>Lecture plus nette en forte luminosité</small></span><i /></button><button className={preferences.lowBandwidth ? 'active' : ''} onClick={() => updatePreference({ lowBandwidth: !preferences.lowBandwidth })}><span><strong>Réseau faible</strong><small>Priorité au texte et aux actions essentielles</small></span><i /></button><button className={preferences.quietNotifications ? 'active' : ''} onClick={() => updatePreference({ quietNotifications: !preferences.quietNotifications })}><span><strong>Notifications calmes</strong><small>Urgences visibles, interruptions limitées</small></span><i /></button><button className={preferences.voiceAssistance ? 'active' : ''} onClick={() => updatePreference({ voiceAssistance: !preferences.voiceAssistance })}><span><strong>Assistance vocale</strong><small>Dictée disponible dans les saisies longues</small></span><i /></button></section>
+      </div>}
+
+      {lifeSection === 'schedule' && <div className="staff-schedule-space">
+        <section>
+          <header className="staff-section-heading"><div><span>ANTICIPER</span><h2>Mon planning</h2><p>Un échange suit toujours trois étapes : proposition, accord du collègue, validation manager.</p></div><b>{employeeSchedules.length} service(s)</b></header>
+          {incomingSwapRequests.length > 0 && <div className="staff-incoming-swaps"><header><UsersRound size={18} /><span><strong>Propositions reçues</strong><small>Votre réponse précède obligatoirement la décision du manager.</small></span></header>{incomingSwapRequests.map(request => { const requester = db.employeeProfiles.find(profile => profile.id === request.employeeId); const mySlot = db.employeeSchedules.find(item => item.id === request.requestedColleagueScheduleId); return <article key={request.id}><div><b>{requester?.name || 'Un collègue'}</b><strong>{new Date(request.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' })} · {request.startTime}–{request.endTime}</strong><p>Contre votre service du {mySlot ? new Date(mySlot.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }) + ' · ' + mySlot.startTime + '–' + mySlot.endTime : 'créneau sélectionné'}.</p></div><footer><button onClick={() => execute(() => state.respondEmployeeScheduleSwap(request.id, employee.id, false), 'Proposition refusée. Le collègue en est informé.')}>Refuser</button><button className="primary" onClick={() => execute(() => state.respondEmployeeScheduleSwap(request.id, employee.id, true), 'Votre accord est enregistré. Le manager doit maintenant valider l’échange.')}>Accepter puis transmettre</button></footer></article>; })}</div>}
+          {swapScheduleOptions.length > 0 && <label className="staff-colleague-picker">Créneau du collègue proposé<select value={scheduleSwapTargetId} onChange={event => setScheduleSwapTargetId(event.target.value)}><option value="">Choisir un créneau précis</option>{swapScheduleOptions.map(option => { const profile = db.employeeProfiles.find(item => item.id === option.employeeId); return <option key={option.id} value={option.id}>{profile?.name} · {ROLE_CONFIG[profile?.role || 'waiter'].team} · {new Date(option.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} {option.startTime}–{option.endTime}</option>; })}</select><small>Le manager vérifiera aussi la compatibilité du poste avant sa validation finale.</small></label>}
+          <div className="staff-schedule-list">{employeeSchedules.map(schedule => <article className={schedule.status} key={schedule.id}><time><b>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short' })}</b><strong>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit' })}</strong><small>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short' })}</small></time><div><span>{engagedScheduleIds.has(schedule.id) ? 'Échange proposé par un collègue' : SCHEDULE_STATUS[schedule.status]}</span><h3>{schedule.startTime}–{schedule.endTime}</h3><p>{schedule.assignmentLabel}</p>{schedule.managerNote && <small>{schedule.managerNote}</small>}</div>{['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(schedule.status) && !engagedScheduleIds.has(schedule.id) && <footer><button disabled={!scheduleSwapTargetId} onClick={() => execute(() => { const target = db.employeeSchedules.find(item => item.id === scheduleSwapTargetId); if (!target) throw new Error('Choisissez le créneau du collègue'); state.requestEmployeeScheduleChange(schedule.id, employee.id, 'swap', target.employeeId, 'Proposition d’échange entre collègues.', target.id); }, 'Proposition envoyée au collègue. Le manager n’interviendra qu’après son accord.')}>Proposer un échange</button><button onClick={() => execute(() => state.requestEmployeeScheduleChange(schedule.id, employee.id, 'leave', undefined, 'Demande personnelle à examiner.'), 'Demande d’absence envoyée au manager.')}>Demander une absence</button></footer>}</article>)}</div>
+        </section>
+        <aside className="staff-transport-card"><Route size={23} /><h3>Retour après service</h3><p>Anticipez un service tardif. La demande est suivie par le manager.</p><label>Heure souhaitée<input type="datetime-local" value={supportWhen} onChange={event => setSupportWhen(event.target.value)} /></label><label>Précision<textarea value={supportType === 'transport' ? supportNote : ''} onFocus={() => setSupportType('transport')} onChange={event => { setSupportType('transport'); setSupportNote(event.target.value); }} placeholder="Quartier, contrainte ou point de rendez-vous." /></label><button disabled={!supportWhen || supportType !== 'transport' || !supportNote.trim()} onClick={submitSupport}>Demander l’organisation du retour</button></aside>
+      </div>}
+
+      {lifeSection === 'growth' && <div className="staff-growth-space">
+        <section className="staff-personal-card staff-growth-profile"><header><TrendingUp size={21} /><span><strong>Mon parcours</strong><small>Des compétences visibles et un prochain pas concret.</small></span></header><label>Mon objectif professionnel<textarea value={careerGoal} onChange={event => setCareerGoal(event.target.value)} placeholder="Ex. devenir chef de rang, maîtriser la réception..." /></label><button onClick={() => execute(() => state.updateEmployeeExperience(employee.id, { careerGoal }), 'Votre objectif professionnel est enregistré.')}>Enregistrer mon objectif</button><div className="staff-skill-list"><small>Compétences acquises</small>{(employee.skills || []).map(skill => <span key={skill}><Check size={13} /> {skill}</span>)}{!(employee.skills || []).length && <p>Terminez une capsule pour ajouter votre première compétence.</p>}</div></section>
+        <section className="staff-learning-board"><header className="staff-section-heading"><div><span>CAPSULES COURTES</span><h2>Apprendre dans le rythme du service</h2><p>Des contenus de 2 à 4 minutes adaptés à votre poste.</p></div><b>{completedLearning}/{employeeLearning.length}</b></header><div>{employeeLearning.map(module => { const completed = module.completedByEmployeeIds.includes(employee.id); return <article className={completed ? 'completed' : ''} key={module.id}><span>{completed ? <CheckCircle2 size={22} /> : <Clock3 size={22} />}</span><div><small>{module.durationMinutes} min · {module.skill}</small><h3>{module.title}</h3><p>{module.description}</p></div><button disabled={completed} onClick={() => execute(() => state.completeEmployeeLearning(employee.id, module.id), 'Capsule terminée et compétence ajoutée à votre parcours.')}>{completed ? 'Terminée' : 'Valider la capsule'}</button></article>; })}</div></section>
+      </div>}
+
+      {lifeSection === 'support' && <div className="staff-support-space">
+        <section className="staff-support-form"><header><HeartHandshake size={22} /><div><span>BESOIN D’UN COUP DE MAIN</span><h2>Demander de l’aide simplement</h2><p>Chaque demande reçoit un statut. Le contenu confidentiel reste hors du cockpit opérationnel.</p></div></header><div className="staff-support-types"><button className={supportType === 'reinforcement' ? 'active' : ''} onClick={() => setSupportType('reinforcement')}><UsersRound size={20} /><strong>Renfort</strong><small>Charge trop forte ou priorité simultanée</small></button><button className={supportType === 'transport' ? 'active' : ''} onClick={() => setSupportType('transport')}><Route size={20} /><strong>Transport</strong><small>Retour après un horaire tardif</small></button><button className={supportType === 'confidential' ? 'active' : ''} onClick={() => setSupportType('confidential')}><LockKeyhole size={20} /><strong>Confidentiel</strong><small>Transmission au référent habilité</small></button></div>{supportType === 'transport' && <label>Quand ?<input type="datetime-local" value={supportWhen} onChange={event => setSupportWhen(event.target.value)} /></label>}<label>{supportType === 'confidential' ? 'Votre demande au référent' : 'Ce dont vous avez besoin'}<textarea value={supportNote} onChange={event => setSupportNote(event.target.value)} placeholder={supportType === 'reinforcement' ? 'Ex. deux priorités simultanées, renfort souhaité pendant 20 minutes.' : supportType === 'transport' ? 'Quartier et contrainte horaire.' : 'Expliquez uniquement ce que vous souhaitez transmettre.'} /></label><button disabled={!supportNote.trim() || (supportType === 'transport' && !supportWhen)} onClick={submitSupport}><Send size={16} /> Envoyer la demande</button></section>
+        <section className="staff-support-history"><header><Clock3 size={20} /><div><strong>Suivi de mes demandes</strong><small>Vous savez toujours où elles en sont.</small></div></header>{employeeSupportRequests.map(request => <article key={request.id}><span className={request.status}><i /> {request.status === 'open' ? 'Envoyée' : request.status === 'acknowledged' ? 'Prise en compte' : 'Résolue'}</span><h3>{request.label}</h3><p>{request.note}</p><small>{new Date(request.createdAt).toLocaleString('fr-FR')} {request.handledBy ? '· ' + request.handledBy : ''}</small></article>)}{employeeSupportRequests.length === 0 && <div className="staff-list-empty"><CheckCircle2 size={25} /><strong>Aucune demande en cours</strong></div>}</section>
+      </div>}
+
+      {lifeSection === 'handover' && <div className="staff-handover-space">
+        <aside className="staff-service-recap"><CircleGauge size={24} /><span>MON SERVICE</span><h2>{currentServiceMinutes} min</h2><p>Temps écoulé depuis la prise de poste.</p><dl><div><dt>Pauses terminées</dt><dd>{completedBreakMinutes} min</dd></div><div><dt>Tâches encore visibles</dt><dd>{tasks.length}</dd></div><div><dt>Messages non lus</dt><dd>{unreadMessages}</dd></div></dl><small>Le bilan final sera conservé avec la passation.</small></aside>
+        <div className="staff-handover-form"><header><ClipboardCheck size={21} /><div><h2>Terminer et passer le service</h2><p>L’équipe suivante devra confirmer la reprise.</p></div><button className="staff-voice-button" onClick={startVoiceHandover}><MessageCircle size={16} /> Dicter</button></header><label>Ce qui reste à faire<textarea value={handover.notes} onChange={event => setHandover(current => ({ ...current, notes: event.target.value }))} placeholder="Ex. Table T12 attend l’addition..." /></label><div><label>Incidents<textarea value={handover.incidents} onChange={event => setHandover(current => ({ ...current, incidents: event.target.value }))} placeholder="Matériel, retard, anomalie..." /></label><label>Montants à contrôler<textarea value={handover.amountsToCheck} onChange={event => setHandover(current => ({ ...current, amountsToCheck: event.target.value }))} placeholder="Écart caisse, paiement en attente..." /></label></div><label>Clients à suivre<textarea value={handover.customersToFollow} onChange={event => setHandover(current => ({ ...current, customersToFollow: event.target.value }))} placeholder="Nom, engagement et délai promis..." /></label><button className="staff-end-shift" disabled={!handover.notes.trim()} onClick={() => execute(() => { if (!activeShift) throw new Error('Aucun service ouvert'); state.closeEmployeeShift(activeShift.id, handover); setLoggedIn(demoAutoStart); setPin(''); setHandover({ notes: '', incidents: '', amountsToCheck: '', customersToFollow: '' }); }, 'Passation enregistrée et service terminé.')}><LogOut size={18} /> Enregistrer la passation et terminer</button></div>
+      </div>}
+    </section>;
+  };
 
   if (!loggedIn) return <div className="employee-workspace">{renderLogin()}{notice && <div className="staff-toast">{notice}</div>}</div>;
   if (demoAutoStart && !activeShift) return <div className="employee-workspace"><section className="staff-demo-opening"><img src="./brand-mark.svg" alt="" /><strong>Préparation du poste {roleConfig.label}</strong><small>Chargement des tâches et de l’affectation…</small></section></div>;
   if (!activeShift) return <div className="employee-workspace">{renderShiftStart()}{notice && <div className="staff-toast">{notice}</div>}</div>;
 
   const tabs: Array<{ id: StaffTab; label: string; icon: LucideIcon }> = [
-    { id: 'today', label: "Aujourd'hui", icon: Home },
-    { id: 'tasks', label: 'Mes tâches', icon: ClipboardCheck },
+    { id: 'today', label: preferences.language === 'wo' ? 'Tey' : "Aujourd'hui", icon: Home },
+    { id: 'tasks', label: preferences.language === 'wo' ? 'Sama liggéey' : 'Mes tâches', icon: ClipboardCheck },
     { id: 'action', label: roleConfig.actionLabel, icon: roleConfig.icon },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
-    { id: 'more', label: 'Plus', icon: MoreHorizontal }
+    { id: 'messages', label: preferences.language === 'wo' ? 'Ekip' : 'Équipe', icon: UsersRound },
+    { id: 'more', label: preferences.language === 'wo' ? 'Man' : 'Moi', icon: UserRoundSearch }
   ];
 
-  return <section className="employee-workspace staff-app" style={{ '--staff-role': roleConfig.color, '--staff-brand': siteBrand?.primaryColor || db.sartalBrandSettings.primaryColor } as React.CSSProperties}>
+  return <section className={`employee-workspace staff-app ${preferences.highContrast ? 'staff-high-contrast' : ''} ${preferences.lowBandwidth ? 'staff-low-bandwidth' : ''}`} style={{ '--staff-role': roleConfig.color, '--staff-brand': siteBrand?.primaryColor || db.sartalBrandSettings.primaryColor } as React.CSSProperties}>
     <header className="staff-app-header"><div className="staff-app-brand"><img src="./brand-mark.svg" alt="" /><span><strong>{db.sartalBrandSettings.staffAppName.toUpperCase()}</strong><small>{activeShift.assignmentLabel}</small></span></div><div className="staff-app-context"><span><i /> En service</span><strong>{roleConfig.team}</strong></div><button className="staff-header-profile" onClick={() => setTab('more')}><span>{employee.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{employee.name}</strong><small>{roleConfig.label}</small></div><ChevronRight size={16} /></button></header>
     <nav className="staff-desktop-nav">{tabs.map(item => { const Icon = item.icon; return <button className={`${tab === item.id ? 'active' : ''} ${item.id === 'action' ? 'central' : ''}`} key={item.id} onClick={() => setTab(item.id)}><Icon size={18} /><span>{item.label}</span>{item.id === 'messages' && unreadMessages > 0 && <b>{unreadMessages}</b>}</button>; })}</nav>
     <main className="staff-app-content">{tab === 'today' && renderToday()}{tab === 'tasks' && renderTasks()}{tab === 'action' && renderRoleAction()}{tab === 'messages' && renderMessages()}{tab === 'more' && renderMore()}</main>
