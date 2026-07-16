@@ -524,7 +524,7 @@ export type RestaurantOrderItemStatus = 'held' | 'sent' | 'preparing' | 'ready' 
 
 export interface RestaurantServiceEvent {
   id: string;
-  type: 'order_opened' | 'items_added' | 'items_sent' | 'course_fired' | 'item_preparing' | 'item_ready' | 'item_served' | 'payment' | 'discount' | 'complimentary' | 'void';
+  type: 'order_opened' | 'items_added' | 'items_sent' | 'course_fired' | 'item_preparing' | 'item_ready' | 'item_served' | 'folio_linked' | 'payment' | 'discount' | 'complimentary' | 'void';
   label: string;
   actor: string;
   createdAt: string;
@@ -570,10 +570,13 @@ export interface RestaurantGuestOrderPayment {
   tipAmount?: number;
   reference?: string;
   source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio';
+  receiptChannel?: 'whatsapp' | 'email' | 'none';
+  receiptSentAt?: string;
 }
 
 export interface RestaurantGuestOrder {
   id: string;
+  operationId?: string;
   customerId: string;
   posId: string;
   reservationId?: string;
@@ -698,9 +701,16 @@ export interface SartalServiceRequest {
   customerId: string;
   context: 'restaurant' | 'delivery' | 'hotel';
   referenceId?: string;
-  type: 'water' | 'waiter' | 'bill' | 'reception' | 'delivery_help' | 'product_help' | 'other';
+  type: 'water' | 'waiter' | 'bill' | 'cash_payment' | 'reception' | 'delivery_help' | 'product_help' | 'other';
   label: string;
   note?: string;
+  itemId?: string;
+  requestedAmount?: number;
+  requestedTipAmount?: number;
+  receiptChannel?: 'whatsapp' | 'email' | 'none';
+  payerName?: string;
+  paymentMethod?: PaymentType;
+  operationId?: string;
   status: 'requested' | 'accepted' | 'completed' | 'cancelled';
   priority: 'normal' | 'urgent';
   assignedTo?: string;
@@ -719,6 +729,10 @@ export interface RestaurantGuestInvite {
   paidAmount?: number;
   paymentMethod?: PaymentType;
   accessCode: string;
+  linkToken?: string;
+  expiresAt?: string;
+  openedAt?: string;
+  paymentOperationId?: string;
   invitedAt: string;
   paidAt?: string;
 }

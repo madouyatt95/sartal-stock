@@ -13675,6 +13675,201 @@ button, input, select, textarea {
   line-height: 1.25;
 }
 
+/* Client restaurant: one stock truth, focused table actions and secure shared payments. */
+.restaurant-menu .client-menu-photo { height: 168px; background-size: 185%; background-repeat: no-repeat; }
+.restaurant-menu > article { overflow: hidden; }
+.restaurant-menu > article.low { border-color: #e4b74f; }
+.client-menu-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; }
+.client-menu-title h3 { font-size: 1rem; line-height: 1.3; }
+.client-menu-title > small { display: flex; align-items: center; gap: 0.25rem; flex: none; color: #5f746f; font-size: 0.72rem; font-weight: 800; }
+.restaurant-menu .client-menu-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 24px; }
+.restaurant-menu .client-menu-tags span { padding: 0.25rem 0.38rem; border: 1px solid #d3e1de; border-radius: 4px; background: #f7faf9; color: #45615b; font-size: 0.68rem; font-weight: 750; }
+.client-menu-availability { display: flex; align-items: center; gap: 0.3rem; font-size: 0.74rem !important; font-weight: 850; }
+.client-menu-availability.available { color: #177565 !important; }
+.client-menu-availability.low { color: #94630c !important; }
+.client-menu-availability.out { color: #a2463d !important; }
+.client-menu-alternatives { display: grid; gap: 0.3rem; padding: 0.55rem; border-left: 3px solid #e4b74f; background: #fff8e8; }
+.client-menu-alternatives > small { color: #765818 !important; font-size: 0.7rem !important; font-weight: 850; }
+.client-menu-alternatives button { min-height: 36px; padding: 0.4rem 0.5rem; border: 1px solid #ddc989; border-radius: 4px; background: #fff; color: #5b4819; text-align: left; font-size: 0.72rem; font-weight: 750; }
+.client-room-link { grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.65rem; }
+.client-room-link span { display: grid; }
+.client-room-link span small { color: #6a817b; font-size: 0.7rem; font-weight: 800; }
+.client-room-link span strong { font-size: 0.86rem; }
+.client-room-link > input { width: 22px; height: 22px; accent-color: #0b675e; }
+.client-room-link > b { color: #294b45; font-size: 0.76rem; }
+.client-sticky-cart > button:disabled { opacity: 0.65; cursor: progress; }
+
+.client-table-workspace { align-items: start; }
+.client-table-main { min-width: 0; display: grid; gap: 0.85rem; }
+.client-table-pane { min-width: 0; }
+.client-table-pane.service,
+.client-table-pane.payment { display: grid; gap: 0.75rem; padding: 0.9rem; border: 1px solid #d8e4e1; border-radius: 7px; background: #fff; }
+.client-table-pane-heading { display: flex; align-items: center; gap: 0.55rem; color: #147568; }
+.client-table-pane-heading > div { display: grid; gap: 0.08rem; }
+.client-table-pane-heading span { color: #70827e; font-size: 0.67rem; font-weight: 850; }
+.client-table-pane-heading h2 { margin: 0; color: #173532; font-size: 1rem; }
+.client-table-session { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; margin-bottom: 0.8rem; padding: 0.75rem; border: 1px solid #bcd8d2; border-radius: 7px; background: #edf8f5; color: #147568; }
+.client-table-session > span { display: grid; gap: 0.06rem; }
+.client-table-session small { color: #5f7b75; font-size: 0.65rem; font-weight: 850; }
+.client-table-session strong { color: #173532; font-size: 0.9rem; }
+.client-table-session b { color: #5c746e; font-size: 0.68rem; font-weight: 650; }
+.client-table-session > div { display: flex; gap: 0.35rem; }
+.client-table-session button { min-height: 38px; display: flex; align-items: center; gap: 0.3rem; padding: 0.42rem 0.55rem; border: 1px solid #bfd3cf; border-radius: 5px; background: #fff; color: #46615b; font-size: 0.72rem; font-weight: 800; }
+.client-table-session button:first-child { border-color: #e4c2bc; color: #9a443c; }
+.client-order-line-meta { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.client-order-line-meta span { padding: 0.22rem 0.35rem; border-radius: 4px; background: #eef5f3; color: #536d67; font-size: 0.68rem; font-weight: 750; }
+.client-table-actions button:disabled { border-color: #d7e2df; background: #edf2f1; color: #748681; cursor: default; }
+.client-live-requests article { align-items: start; }
+.client-live-requests article > div { min-width: 0; }
+.client-live-requests p { margin: 0.3rem 0 0; color: #5d726d; font-size: 0.74rem; line-height: 1.4; }
+.client-request-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 0.35rem; margin-top: 0.5rem; }
+.client-request-controls button { min-height: 38px; padding: 0.4rem 0.55rem; border: 0; border-radius: 4px; background: #126e63; color: #fff; font-size: 0.72rem; font-weight: 800; }
+.client-request-controls button.danger { background: #fff0ee; color: #a14037; }
+.client-table-empty-pane { display: grid; justify-items: center; gap: 0.35rem; padding: 1.2rem; border: 1px dashed #c7d8d4; color: #177565; text-align: center; }
+.client-table-empty-pane strong { color: #294a44; font-size: 0.86rem; }
+.client-table-empty-pane small { color: #6b807b; font-size: 0.74rem; }
+
+.client-split-mode { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; }
+.client-split-mode button,
+.client-tip-choice button,
+.client-receipt-choice button { min-height: 40px; padding: 0.45rem; border: 1px solid #bcd4cf; border-radius: 5px; background: #fff; color: #41615a; font-size: 0.72rem; font-weight: 800; }
+.client-split-mode button.active,
+.client-tip-choice button.active,
+.client-receipt-choice button.active { border-color: #126e63; background: #126e63; color: #fff; }
+.client-split-mode button:disabled { opacity: 0.45; }
+.client-equal-split { display: grid; grid-template-columns: minmax(120px, 0.45fr) minmax(0, 1fr); gap: 0.5rem; padding: 0.65rem; border: 1px solid #c8dcd8; background: #fff; }
+.client-equal-split label,
+.client-equal-split > div { display: grid; gap: 0.18rem; color: #526b65; font-size: 0.72rem; font-weight: 800; }
+.client-equal-split input { min-height: 42px; width: 100%; padding: 0.45rem; border: 1px solid #bcd1cd; border-radius: 4px; }
+.client-equal-split strong { color: #126e63; font-size: 1rem; }
+.client-equal-split small { color: #6c807b; font-size: 0.68rem; }
+.client-split-seats,
+.client-split-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; }
+.client-split-seats button,
+.client-split-items button { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 0.4rem; padding: 0.5rem; border: 1px solid #c7d9d5; border-radius: 5px; background: #fff; color: #48635d; text-align: left; font-size: 0.72rem; }
+.client-split-seats button.active,
+.client-split-items button.active { border-color: #126e63; background: #e5f4f0; color: #105f56; }
+.client-split-form input[readonly] { background: #edf3f1; color: #31544d; font-weight: 850; }
+.client-folio-confirmation,
+.client-cash-pending { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.55rem; padding: 0.65rem; border: 1px solid #bcd7d1; border-radius: 6px; background: #fff; color: #147568; }
+.client-folio-confirmation > span,
+.client-cash-pending > span { display: grid; gap: 0.08rem; }
+.client-folio-confirmation strong,
+.client-cash-pending strong { color: #294a44; font-size: 0.78rem; }
+.client-folio-confirmation small,
+.client-cash-pending small { color: #687e79; font-size: 0.7rem; }
+.client-folio-confirmation input { width: 22px; height: 22px; accent-color: #126e63; }
+.client-cash-pending { grid-template-columns: auto minmax(0, 1fr); border-color: #e0c477; background: #fff8e8; color: #936410; }
+.client-tip-choice,
+.client-receipt-choice { display: flex; align-items: center; flex-wrap: wrap; gap: 0.35rem; }
+.client-tip-choice > span,
+.client-receipt-choice > span { min-width: 125px; color: #4b655f; font-size: 0.74rem; font-weight: 850; }
+.client-tip-choice input { min-height: 40px; max-width: 150px; padding: 0.4rem 0.5rem; border: 1px solid #bfd3cf; border-radius: 4px; }
+.client-pay-share-button { min-height: 48px; width: 100%; padding: 0.65rem; border: 0; border-radius: 6px; background: #0d655c; color: #fff; font-size: 0.82rem; font-weight: 900; }
+.client-pay-share-button:disabled { background: #79928d; }
+.client-invite-payments button { display: flex; align-items: center; justify-content: center; gap: 0.25rem; }
+.client-restaurant-closeout { display: grid; justify-items: center; gap: 0.55rem; padding: 1rem; border: 1px solid #bedbd4; border-radius: 7px; background: #f0faf7; color: #147568; text-align: center; }
+.client-restaurant-closeout > span { font-size: 0.7rem; font-weight: 900; }
+.client-restaurant-closeout h2,
+.client-restaurant-closeout p { margin: 0; }
+.client-restaurant-closeout h2 { color: #173532; font-size: 1.2rem; }
+.client-restaurant-closeout p { color: #607873; font-size: 0.78rem; }
+.client-restaurant-closeout textarea { width: 100%; min-height: 82px; }
+.client-restaurant-closeout > button { min-height: 42px; padding: 0.5rem 0.8rem; border: 0; border-radius: 5px; background: #126e63; color: #fff; font-weight: 850; }
+.client-feedback-confirmed { display: flex; align-items: center; gap: 0.5rem; padding: 0.65rem; background: #fff; }
+.client-feedback-confirmed > strong,
+.client-feedback-confirmed > small { display: block; text-align: left; }
+.client-table-session-closed { display: grid; justify-items: center; gap: 0.6rem; min-height: 360px; align-content: center; padding: 1.2rem; color: #147568; text-align: center; }
+.client-table-session-closed h2,
+.client-table-session-closed p { margin: 0; }
+.client-table-session-closed p { max-width: 480px; color: #657a75; line-height: 1.55; }
+.client-table-session-closed button { min-height: 44px; padding: 0.55rem 0.8rem; border: 0; border-radius: 5px; background: #126e63; color: #fff; font-weight: 850; }
+.client-table-mobile-nav { display: none; }
+
+.restaurant-guest-payment-portal { min-height: 100dvh; display: grid; place-items: center; padding: 1rem; background: #eef4f2; color: #173532; }
+.restaurant-guest-payment-shell { width: min(100%, 520px); overflow: hidden; border: 1px solid #c9d9d5; border-radius: 8px; background: #fff; box-shadow: 0 18px 42px rgba(14, 55, 50, 0.14); }
+.restaurant-guest-payment-shell > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; padding: 0.85rem 1rem; background: #103f39; color: #fff; }
+.restaurant-guest-payment-shell > header img { width: 40px; height: 40px; }
+.restaurant-guest-payment-shell > header div { display: grid; }
+.restaurant-guest-payment-shell > header span { color: #9fd1c7; font-size: 0.65rem; font-weight: 850; }
+.restaurant-guest-payment-shell > header strong { font-size: 0.9rem; }
+.restaurant-guest-payment-intro,
+.restaurant-guest-payment-success,
+.restaurant-guest-payment-expired { display: grid; justify-items: center; gap: 0.55rem; padding: 1.2rem 1rem; text-align: center; }
+.restaurant-guest-payment-intro > span { display: flex; align-items: center; gap: 0.35rem; color: #147568; font-size: 0.7rem; font-weight: 900; }
+.restaurant-guest-payment-intro h1,
+.restaurant-guest-payment-success h1,
+.restaurant-guest-payment-expired h1 { margin: 0; font-size: 1.5rem; }
+.restaurant-guest-payment-intro p,
+.restaurant-guest-payment-success p,
+.restaurant-guest-payment-expired p { max-width: 430px; margin: 0; color: #617772; font-size: 0.82rem; line-height: 1.5; }
+.restaurant-guest-payment-intro > strong,
+.restaurant-guest-payment-success > strong { color: #0f695f; font-size: 1.8rem; }
+.restaurant-guest-payment-intro > small { display: flex; align-items: center; gap: 0.3rem; color: #6a7d78; font-size: 0.72rem; }
+.restaurant-guest-privacy-note { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.6rem; margin: 0 1rem; padding: 0.75rem; border: 1px solid #c8ddd8; background: #f3faf8; color: #176d62; }
+.restaurant-guest-privacy-note span { display: grid; gap: 0.12rem; }
+.restaurant-guest-privacy-note strong { color: #294b45; font-size: 0.78rem; }
+.restaurant-guest-privacy-note small { color: #607a74; font-size: 0.7rem; line-height: 1.4; }
+.restaurant-guest-payment-methods { display: grid; gap: 0.45rem; padding: 1rem; }
+.restaurant-guest-payment-methods h2 { margin: 0 0 0.2rem; font-size: 0.95rem; }
+.restaurant-guest-payment-methods > button:not(.restaurant-guest-pay-button) { min-height: 54px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.6rem; padding: 0.6rem; border: 1px solid #cbdad7; border-radius: 6px; background: #fff; color: #4b645f; text-align: left; }
+.restaurant-guest-payment-methods > button.active { border-color: #126e63; background: #eaf6f3; color: #126e63; }
+.restaurant-guest-payment-methods button span { display: grid; }
+.restaurant-guest-payment-methods button strong { font-size: 0.8rem; }
+.restaurant-guest-payment-methods button small { color: #6d807c; font-size: 0.7rem; }
+.restaurant-guest-pay-button { min-height: 50px; border: 0; border-radius: 6px; background: #0d655c; color: #fff; font-size: 0.86rem; font-weight: 900; }
+.restaurant-guest-payment-methods > small { display: flex; align-items: center; justify-content: center; gap: 0.3rem; color: #617873; font-size: 0.7rem; }
+.restaurant-guest-payment-success { padding-block: 2rem; color: #147568; }
+.restaurant-guest-payment-success > span { font-size: 0.68rem; font-weight: 900; }
+.restaurant-guest-payment-success > div { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.4rem; padding: 0.7rem; border: 1px solid #c9ddd8; background: #f5faf8; }
+.restaurant-guest-payment-success > div span { display: grid; text-align: left; }
+.restaurant-guest-payment-success > div b { color: #294a44; font-size: 0.76rem; }
+.restaurant-guest-payment-success > div small { color: #6a7c78; font-size: 0.68rem; }
+.restaurant-guest-payment-expired { min-height: 340px; align-content: center; color: #a46519; }
+.restaurant-guest-payment-message { margin: 0 1rem 1rem; padding: 0.65rem; border-left: 3px solid #e3b84e; background: #fff8e6; color: #6e5517; font-size: 0.76rem; font-weight: 750; }
+.restaurant-guest-payment-shell > footer { padding: 0.8rem 1rem; border-top: 1px solid #e0e8e6; color: #6f817d; text-align: center; font-size: 0.68rem; }
+
+@media (max-width: 680px) {
+  .restaurant-menu .client-menu-photo { height: 142px; background-size: 205%; }
+  .client-product-grid.restaurant-menu { grid-template-columns: 1fr; gap: 0.65rem; }
+  .restaurant-menu .client-product-grid p,
+  .restaurant-menu p { display: block; min-height: auto; font-size: 0.76rem; line-height: 1.45; }
+  .client-room-link { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .client-room-link > b { grid-column: 2 / -1; }
+  .client-table-workspace { display: block; padding-bottom: 78px; }
+  .client-table-main > .client-table-pane:not(.is-active),
+  .client-table-workspace > .client-table-pane:not(.is-active) { display: none; }
+  .client-table-main > .client-table-pane.is-active,
+  .client-table-workspace > .client-table-pane.is-active { display: grid; }
+  .client-table-pane.service,
+  .client-table-pane.payment { padding: 0.7rem; border: 0; }
+  .client-table-session { grid-template-columns: auto minmax(0, 1fr); }
+  .client-table-session > div { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+  .client-table-session button { justify-content: center; min-height: 44px; }
+  .client-request-controls { grid-template-columns: 1fr 1fr; }
+  .client-request-controls input { grid-column: 1 / -1; }
+  .client-split-mode { grid-template-columns: 1fr 1fr; }
+  .client-split-mode button { min-height: 46px; }
+  .client-equal-split { grid-template-columns: 1fr; }
+  .client-split-seats,
+  .client-split-items { grid-template-columns: 1fr; }
+  .client-tip-choice,
+  .client-receipt-choice { display: grid; grid-template-columns: 1fr 1fr; }
+  .client-tip-choice > span,
+  .client-receipt-choice > span { grid-column: 1 / -1; }
+  .client-tip-choice input { grid-column: 1 / -1; max-width: none; }
+  .client-folio-confirmation { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .client-table-mobile-nav { position: fixed; z-index: 42; right: 0.5rem; bottom: max(0.5rem, env(safe-area-inset-bottom)); left: 0.5rem; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0.35rem; border: 1px solid #b9d0cb; border-radius: 8px; background: #fff; box-shadow: 0 10px 28px rgba(18, 59, 54, 0.2); }
+  .client-table-mobile-nav button { position: relative; min-height: 52px; display: grid; place-items: center; gap: 0.08rem; border: 0; border-radius: 5px; background: transparent; color: #60756f; font-size: 0.66rem; font-weight: 800; }
+  .client-table-mobile-nav button.active { background: #0f665d; color: #fff; }
+  .client-table-mobile-nav b { position: absolute; top: 3px; right: 18%; min-width: 17px; height: 17px; display: grid; place-items: center; border-radius: 50%; background: #e8b94c; color: #173532; font-size: 0.58rem; }
+  .client-table-workspace > .client-conversation { min-height: calc(100dvh - 230px); }
+  .restaurant-guest-payment-portal { place-items: start center; padding: 0; background: #fff; }
+  .restaurant-guest-payment-shell { min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .restaurant-guest-payment-intro h1,
+  .restaurant-guest-payment-success h1 { font-size: 1.3rem; }
+}
+
 .pms-booking-steps button strong,
 .pms-frontdesk-lane button span,
 .pms-frontdesk-lane button small,

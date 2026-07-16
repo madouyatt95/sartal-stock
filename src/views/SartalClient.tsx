@@ -1,18 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, BedDouble, CalendarDays, CheckCircle, ChefHat, CircleDollarSign, Clock3,
-  Camera, Gift, Heart, HeartHandshake, MapPin, MessageCircle, Mic, Minus, PackageCheck, Phone,
-  Plus, ReceiptText, Search, Send, ShoppingBag, Sparkles, Star, Store, Truck, UserPlus, UserRound,
-  UtensilsCrossed, WalletCards
+  Camera, Copy, Gift, Heart, HeartHandshake, Link2, LogOut, MapPin, MessageCircle, Mic, Minus, PackageCheck, Phone,
+  Plus, ReceiptText, Search, Send, ShieldCheck, ShoppingBag, Sparkles, Star, Store, Truck, UserPlus, UserRound,
+  UtensilsCrossed, WalletCards, X
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
 import { DeliveryOrderStatus, PAYMENT_TYPE_LABELS, PaymentType, RestaurantGuestOrder } from '../types';
 import SartalClientAccessGateway from './SartalClientAccessGateway';
 import SartalClientHub from './SartalClientHub';
+import { getRestaurantProductAlternatives, getRestaurantProductAvailability, getRestaurantProductPresentation } from '../utils/restaurantService';
 
 type ClientMode = 'restaurant' | 'delivery';
 type RestaurantTab = 'welcome' | 'reserve' | 'menu' | 'order';
 type DeliveryTab = 'shop' | 'basket' | 'tracking' | 'help';
+type RestaurantTablePanel = 'overview' | 'service' | 'payment' | 'chat';
+type RestaurantSplitMode = 'free' | 'equal' | 'seat' | 'item';
 
 interface SartalClientProps {
   state: StockState;
@@ -21,6 +24,8 @@ interface SartalClientProps {
   initialCustomerId?: string;
   initialHub?: boolean;
   requireAccess?: boolean;
+  initialRestaurantTab?: RestaurantTab;
+  initialRestaurantTablePanel?: RestaurantTablePanel;
 }
 
 const formatFCFA = (value: number) => `${new Intl.NumberFormat('fr-FR').format(Math.round(value))} FCFA`;
@@ -54,14 +59,16 @@ const normalizeSearchTerm = (value: string) => value
   .replace(/[^a-z0-9]+/g, ' ')
   .trim();
 
-export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode = 'restaurant', standalone = false, initialCustomerId, initialHub = false, requireAccess = false }) => {
+export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode = 'restaurant', standalone = false, initialCustomerId, initialHub = false, requireAccess = false, initialRestaurantTab = 'welcome', initialRestaurantTablePanel = 'overview' }) => {
   const {
     db, createRestaurantReservation, updateRestaurantReservation, cancelRestaurantReservation,
     placeRestaurantGuestOrder, addRestaurantGuestOrderPayment, createDeliveryCustomerOrder,
     updateConfirmedDeliveryOrder, decideDeliverySubstitution, reorderDeliveryOrder, sendSartalCustomerMessage,
     submitSartalCustomerFeedback, requestSartalService, inviteRestaurantGuest,
-    payRestaurantGuestShare, toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus,
-    appendRestaurantGuestOrderItems, updateRestaurantGuestOrderItemNote
+    toggleFavoriteProduct, saveSartalHouseholdCart, toggleSartalDeliveryPlus,
+    appendRestaurantGuestOrderItems, updateRestaurantGuestOrderItemNote,
+    attachRestaurantOrderFolio, updateCustomerSartalServiceRequest, cancelCustomerSartalServiceRequest,
+    requestRestaurantCashPayment, revokeSartalClientAccess
   } = state;
   const brandSettings = db.sartalBrandSettings;
   const restaurantEnabled = brandSettings.enabledModules.includes('restaurant');
@@ -74,7 +81,8 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const [space, setSpace] = useState<'hub' | 'service'>(initialHub || !standalone ? 'hub' : 'service');
   const [hubInitialTab, setHubInitialTab] = useState<'today' | 'passport' | 'wallet' | 'history'>('today');
   const [mode, setMode] = useState<ClientMode>(availableInitialMode);
-  const [restaurantTab, setRestaurantTab] = useState<RestaurantTab>('welcome');
+  const [restaurantTab, setRestaurantTab] = useState<RestaurantTab>(initialRestaurantTab);
+  const [restaurantTablePanel, setRestaurantTablePanel] = useState<RestaurantTablePanel>(initialRestaurantTablePanel);
   const [deliveryTab, setDeliveryTab] = useState<DeliveryTab>('shop');
   const [customerId, setCustomerId] = useState(initialCustomerId || (availableInitialMode === 'restaurant' ? 'customer-aminata' : 'customer-awa'));
   const [accessGranted, setAccessGranted] = useState(!requireAccess || Boolean(initialCustomerId));
@@ -96,7 +104,23 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const [inviteForm, setInviteForm] = useState({ fullName: '', phone: '' });
   const [inviteShareAmount, setInviteShareAmount] = useState('');
   const [splitPayment, setSplitPayment] = useState({ payerName: '', amount: '', method: 'wave' as PaymentType });
+  const [splitMode, setSplitMode] = useState<RestaurantSplitMode>('free');
+  const [splitPeople, setSplitPeople] = useState(2);
+  const [selectedSeatNumbers, setSelectedSeatNumbers] = useState<Set<number>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [tipMode, setTipMode] = useState<'none' | '5' | '10' | 'custom'>('none');
+  const [customTip, setCustomTip] = useState('');
+  const [receiptChannel, setReceiptChannel] = useState<'whatsapp' | 'email' | 'none'>('whatsapp');
+  const [folioConsent, setFolioConsent] = useState(false);
+  const [paymentPending, setPaymentPending] = useState(false);
+  const [restaurantSubmitting, setRestaurantSubmitting] = useState(false);
+  const [tableSessionClosed, setTableSessionClosed] = useState(false);
+  const [serviceNotes, setServiceNotes] = useState<Record<string, string>>({});
   const [orderNotes, setOrderNotes] = useState<Record<string, string>>({});
+  const paymentPendingRef = useRef(false);
+  const restaurantSubmittingRef = useRef(false);
+  const paymentOperationRef = useRef(`CLIENT-PAY-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`);
+  const restaurantOrderOperationRef = useRef(`CLIENT-ORDER-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`);
   const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
   const [reservationForm, setReservationForm] = useState({ date: tomorrow, time: '20:00', guests: 2, occasion: 'meal' as const, notes: '' });
 
@@ -121,17 +145,20 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const conversations = db.sartalCustomerMessages.filter(item => item.customerId === customer?.id && item.context === mode).sort((a, b) => a.sentAt.localeCompare(b.sentAt));
   const activeServiceRequests = db.sartalServiceRequests.filter(item => item.customerId === customer?.id && item.referenceId === (mode === 'restaurant' ? activeRestaurantOrder?.id : activeDeliveryOrder?.id) && !['completed', 'cancelled'].includes(item.status));
   const restaurantInvites = db.restaurantGuestInvites.filter(item => item.orderId === activeRestaurantOrder?.id);
-  const activeFeedback = db.sartalCustomerFeedback.find(item => item.customerId === customer?.id && item.referenceId === activeDeliveryOrder?.id);
+  const activeRestaurantFeedback = db.sartalCustomerFeedback.find(item => item.customerId === customer?.id && item.referenceId === activeRestaurantOrder?.id);
+  const activeDeliveryFeedback = db.sartalCustomerFeedback.find(item => item.customerId === customer?.id && item.referenceId === activeDeliveryOrder?.id);
+  const activeTableAccess = db.sartalClientAccess.find(item => item.customerId === customer?.id && item.status === 'active' && item.destination === `Table ${activeRestaurantOrder?.tableNumber}` && new Date(item.expiresAt).getTime() > Date.now());
+  const pendingCashRequest = activeServiceRequests.find(item => item.type === 'cash_payment');
 
   const restaurantMenu = useMemo(() => {
     if (!restaurant) return [];
     return db.posPricing.filter(item => item.posId === restaurant.id && item.isAvailable).map(item => {
       const product = db.products.find(productItem => productItem.id === item.productId);
-      const warehouseId = item.defaultWarehouseId || restaurant.defaultWarehouseId;
-      const stock = db.stocks.find(stockItem => stockItem.productId === item.productId && stockItem.warehouseId === warehouseId);
       const recipe = db.recipes.find(recipeItem => recipeItem.productId === item.productId);
-      const available = product?.isStockable ? (stock?.quantityAvailable || 0) > 0 : recipe ? recipe.ingredients.every(ingredient => (db.stocks.find(stockItem => stockItem.productId === ingredient.productId && stockItem.warehouseId === warehouseId)?.quantityAvailable || 0) >= ingredient.quantity) : true;
-      return { product, price: item.salePrice, available, recipe };
+      const availability = getRestaurantProductAvailability(db, restaurant.id, item.productId);
+      const presentation = getRestaurantProductPresentation(item.productId, product?.category || '');
+      const alternatives = availability.status === 'out' ? getRestaurantProductAlternatives(db, restaurant.id, item.productId) : [];
+      return { product, price: item.salePrice, available: availability.status !== 'out', availability, presentation, alternatives, recipe };
     }).filter(item => item.product && ['Plats', 'Desserts', 'Boissons'].includes(item.product.category));
   }, [db, restaurant]);
 
@@ -193,6 +220,19 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const deliveryFee = deliveryPlusActive ? 0 : zoneDeliveryFee + (selectedSlot?.feeDelta || 0);
   const household = db.sartalHouseholds.find(item => item.id === customer.householdId || item.memberCustomerIds.includes(customer.id));
   const currentTab = mode === 'restaurant' ? restaurantTab : deliveryTab;
+  const activeOrderLines = activeRestaurantOrder?.items.filter(item => item.status !== 'voided') || [];
+  const isOrderLinePaid = (line: RestaurantGuestOrder['items'][number]) => activeRestaurantOrder?.payments.some(payment => (
+    Boolean(line.id && payment.itemIds?.includes(line.id)) || Boolean(line.seatNumber && payment.seatNumbers?.includes(line.seatNumber))
+  ));
+  const unpaidSeatNumbers = Array.from(new Set(activeOrderLines.map(item => item.seatNumber).filter((value): value is number => Boolean(value))))
+    .filter(seat => !activeOrderLines.some(line => line.seatNumber === seat && isOrderLinePaid(line)));
+  const selectableOrderLines = activeOrderLines.filter(item => item.id && !isOrderLinePaid(item));
+  const selectedSeatTotal = activeOrderLines.filter(item => item.seatNumber && selectedSeatNumbers.has(item.seatNumber)).reduce((sum, item) => sum + item.quantity * item.salePrice, 0);
+  const selectedItemTotal = activeOrderLines.filter(item => item.id && selectedItemIds.has(item.id)).reduce((sum, item) => sum + item.quantity * item.salePrice, 0);
+  const equalShareAmount = splitPeople > 0 ? Math.ceil(restaurantRemaining / splitPeople) : restaurantRemaining;
+  const resolvedShareAmount = splitMode === 'seat' ? selectedSeatTotal : splitMode === 'item' ? selectedItemTotal : splitMode === 'equal' ? equalShareAmount : Number(splitPayment.amount);
+  const resolvedTipAmount = tipMode === '5' ? Math.round(resolvedShareAmount * 0.05) : tipMode === '10' ? Math.round(resolvedShareAmount * 0.1) : tipMode === 'custom' ? Math.max(0, Number(customTip) || 0) : 0;
+  const customerAllergyTerms = normalizeSearchTerm(customer.allergies || '').split(' ').filter(term => term.length > 2);
 
   const switchMode = (nextMode: ClientMode) => {
     if (nextMode === 'restaurant' ? !restaurantEnabled : !deliveryEnabled) return;
@@ -215,7 +255,10 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   const changeQuantity = (kind: ClientMode, productId: string, delta: number) => {
     const setter = kind === 'restaurant' ? setRestaurantCart : setDeliveryCart;
     setter(current => {
-      const quantity = Math.max(0, (current[productId] || 0) + delta);
+      const maximum = kind === 'restaurant'
+        ? restaurantMenu.find(item => item.product?.id === productId)?.availability.availableUnits ?? 0
+        : onlineCatalog.find(item => item.product?.id === productId)?.available ?? 0;
+      const quantity = Math.min(maximum, Math.max(0, (current[productId] || 0) + delta));
       const next = { ...current, [productId]: quantity };
       if (quantity === 0) delete next[productId];
       return next;
@@ -227,20 +270,39 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
     setRestaurantTab('welcome');
   };
   const placeRestaurantOrder = () => {
+    if (restaurantSubmittingRef.current) return;
+    restaurantSubmittingRef.current = true;
+    setRestaurantSubmitting(true);
     try {
       const items = Object.entries(restaurantCart).map(([productId, quantity]) => ({ productId, quantity }));
+      if (!items.length) throw new Error('Ajoutez au moins un article avant de commander');
+      const unavailableItem = items.find(item => {
+        const availability = getRestaurantProductAvailability(db, restaurant.id, item.productId);
+        return availability.status === 'out' || item.quantity > availability.availableUnits;
+      });
+      if (unavailableItem) throw new Error('Le stock vient de changer. Vérifiez les quantités proposées dans la carte.');
+      if (paymentMethod === 'room_charge' && (!activePmsFolio || !folioConsent)) throw new Error('Confirmez la chambre avant l’imputation sur le folio');
       if (activeRestaurantOrder && activeRestaurantOrder.serviceType === 'dine_in' && ['placed', 'confirmed'].includes(activeRestaurantOrder.status)) {
-        const amount = appendRestaurantGuestOrderItems(activeRestaurantOrder.id, customer.id, items);
+        const amount = appendRestaurantGuestOrderItems(activeRestaurantOrder.id, customer.id, items, restaurantOrderOperationRef.current);
         setRestaurantCart({});
         setMessage(`Complément de ${formatFCFA(amount)} ajouté en direct à la table ${activeRestaurantOrder.tableNumber || ''}.`);
         setRestaurantTab('order');
+        setRestaurantTablePanel('overview');
         return;
       }
-      const id = placeRestaurantGuestOrder({ customerId: customer.id, posId: restaurant.id, reservationId: upcomingReservation?.id, tableNumber: upcomingReservation?.tableNumber, folioId: paymentMethod === 'room_charge' ? activePmsFolio?.id : undefined, roomNumber: paymentMethod === 'room_charge' ? activePmsRoom?.roomNumber : undefined, serviceType, items, paymentMethod });
+      const id = placeRestaurantGuestOrder({ customerId: customer.id, posId: restaurant.id, operationId: restaurantOrderOperationRef.current, reservationId: upcomingReservation?.id, tableNumber: upcomingReservation?.tableNumber, folioId: paymentMethod === 'room_charge' ? activePmsFolio?.id : undefined, roomNumber: paymentMethod === 'room_charge' ? activePmsRoom?.roomNumber : undefined, serviceType, items, paymentMethod });
       setRestaurantCart({});
       setMessage(`Commande ${id} transmise directement à la cuisine.`);
       setRestaurantTab('order');
+      setRestaurantTablePanel('overview');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Commande impossible'); }
+    finally {
+      window.setTimeout(() => {
+        restaurantSubmittingRef.current = false;
+        setRestaurantSubmitting(false);
+        restaurantOrderOperationRef.current = `CLIENT-ORDER-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      }, 500);
+    }
   };
   const placeDeliveryOrder = () => {
     if (!defaultAddress) {
@@ -401,6 +463,11 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
   };
   const requestService = (type: 'water' | 'waiter' | 'bill' | 'delivery_help' | 'product_help', label: string) => {
     const referenceId = mode === 'restaurant' ? activeRestaurantOrder?.id : activeDeliveryOrder?.id;
+    const existing = activeServiceRequests.find(item => item.type === type);
+    if (existing) {
+      setMessage(`${existing.label} · ${existing.status === 'accepted' ? 'déjà pris en charge' : 'déjà transmis'}.`);
+      return;
+    }
     requestSartalService({ customerId: customer.id, context: mode, referenceId, type, label });
     setMessage(`${label} · l’équipe vous répond avant ${new Date(Date.now() + (type === 'bill' ? 3 : 5) * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`);
   };
@@ -413,31 +480,101 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
       setMessage('Invitation envoyée avec un accès personnel à l’addition.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Invitation impossible'); }
   };
-  const saveOrderNote = (productId: string) => {
+  const shareGuestInvite = (inviteId: string, channel: 'copy' | 'whatsapp') => {
+    const invite = db.restaurantGuestInvites.find(item => item.id === inviteId);
+    if (!invite?.linkToken) return;
+    const link = `${window.location.origin}${window.location.pathname}?invite=${encodeURIComponent(invite.linkToken)}`;
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/${invite.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Bonjour ${invite.fullName}, voici votre lien personnel pour régler votre part de ${formatFCFA(invite.shareAmount)} : ${link}`)}`, '_blank', 'noopener,noreferrer');
+      setMessage(`Lien personnel préparé pour ${invite.fullName}.`);
+      return;
+    }
+    navigator.clipboard?.writeText(link).catch(() => undefined);
+    setMessage(`Lien personnel de ${invite.fullName} copié.`);
+  };
+  const saveOrderNote = (itemId: string) => {
     if (!activeRestaurantOrder) return;
     try {
-      updateRestaurantGuestOrderItemNote(activeRestaurantOrder.id, customer.id, productId, orderNotes[productId] || '');
+      updateRestaurantGuestOrderItemNote(activeRestaurantOrder.id, customer.id, itemId, orderNotes[itemId] || '');
       setMessage('Votre consigne a été transmise en direct à la salle et à la cuisine.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Consigne non modifiée'); }
   };
-  const requestLineRemoval = (productId: string) => {
+  const requestLineRemoval = (itemId: string, productId: string) => {
     if (!activeRestaurantOrder) return;
     const product = db.products.find(item => item.id === productId);
-    requestSartalService({ customerId: customer.id, context: 'restaurant', referenceId: activeRestaurantOrder.id, type: 'other', label: `Valider le retrait de ${product?.name || 'cet article'}`, note: 'Demande client transmise avant modification du ticket et du stock.', priority: 'urgent' });
+    requestSartalService({ customerId: customer.id, context: 'restaurant', referenceId: activeRestaurantOrder.id, type: 'other', label: `Valider le retrait de ${product?.name || 'cet article'}`, note: 'Demande client transmise avant modification du ticket et du stock.', itemId, priority: 'urgent' });
     setMessage('Demande de retrait envoyée. La cuisine confirme avant de corriger le ticket et le stock.');
   };
+  const saveServiceRequestNote = (requestId: string) => {
+    try {
+      updateCustomerSartalServiceRequest(requestId, customer.id, { note: serviceNotes[requestId] || '' });
+      setMessage('Votre précision a été ajoutée à la demande.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Demande non modifiée'); }
+  };
+  const cancelServiceRequest = (requestId: string) => {
+    try {
+      cancelCustomerSartalServiceRequest(requestId, customer.id);
+      setMessage('La demande a été annulée avant sa prise en charge.');
+    } catch (error) { setMessage(error instanceof Error ? error.message : 'Demande non annulée'); }
+  };
+  const closeTableSession = (wrongTable = false) => {
+    if (wrongTable && activeRestaurantOrder) {
+      requestSartalService({ customerId: customer.id, context: 'restaurant', referenceId: activeRestaurantOrder.id, type: 'other', label: `Vérifier l’accès à la table ${activeRestaurantOrder.tableNumber || ''}`, note: 'Le client signale que le QR code ne correspond pas à sa table.', priority: 'urgent' });
+    }
+    if (activeTableAccess) revokeSartalClientAccess(activeTableAccess.id);
+    setTableSessionClosed(true);
+    setRestaurantTab('welcome');
+    setMessage(wrongTable ? 'Accès fermé. L’équipe vérifie immédiatement votre table.' : 'Votre session à table a été fermée sur cet appareil.');
+  };
   const payCustomShare = () => {
-    if (!activeRestaurantOrder) return;
-    const requestedAmount = Number(splitPayment.amount);
+    if (!activeRestaurantOrder || paymentPendingRef.current) return;
+    const requestedAmount = Math.round(resolvedShareAmount);
     if (!splitPayment.payerName.trim() || !Number.isFinite(requestedAmount) || requestedAmount <= 0) {
       setMessage('Indiquez le nom du payeur et un montant valide.');
       return;
     }
+    if (requestedAmount > restaurantRemaining) {
+      setMessage(`Le montant ne peut pas dépasser le solde de ${formatFCFA(restaurantRemaining)}.`);
+      return;
+    }
+    if (splitMode === 'seat' && selectedSeatNumbers.size === 0) { setMessage('Sélectionnez au moins un convive.'); return; }
+    if (splitMode === 'item' && selectedItemIds.size === 0) { setMessage('Sélectionnez au moins un article.'); return; }
+    if (splitPayment.method === 'room_charge' && (!activePmsFolio || !folioConsent)) { setMessage('Vérifiez et autorisez la chambre avant l’imputation.'); return; }
+    paymentPendingRef.current = true;
+    setPaymentPending(true);
     try {
-      const accepted = addRestaurantGuestOrderPayment(activeRestaurantOrder.id, requestedAmount, splitPayment.method, splitPayment.payerName.trim());
+      if (splitPayment.method === 'room_charge' && !activeRestaurantOrder.folioId && activePmsFolio) {
+        attachRestaurantOrderFolio(activeRestaurantOrder.id, customer.id, activePmsFolio.id);
+      }
+      if (splitPayment.method === 'cash') {
+        requestRestaurantCashPayment(activeRestaurantOrder.id, customer.id, requestedAmount, splitPayment.payerName.trim(), paymentOperationRef.current, resolvedTipAmount, receiptChannel);
+        setMessage(`Demande espèces de ${formatFCFA(requestedAmount)} transmise. Le montant sera comptabilisé après contrôle par l’équipe.`);
+      } else {
+        const accepted = addRestaurantGuestOrderPayment(activeRestaurantOrder.id, requestedAmount, splitPayment.method, splitPayment.payerName.trim(), undefined, {
+          seatNumbers: splitMode === 'seat' ? [...selectedSeatNumbers] : undefined,
+          itemIds: splitMode === 'item' ? [...selectedItemIds] : undefined,
+          tipAmount: resolvedTipAmount,
+          receiptChannel,
+          source: splitPayment.method === 'room_charge' ? 'folio' : 'pay_at_table',
+          operationId: paymentOperationRef.current,
+          reference: `client-table-${activeRestaurantOrder.tableNumber || activeRestaurantOrder.id}`
+        });
+        setMessage(`${splitPayment.payerName} a réglé ${formatFCFA(accepted)} par ${PAYMENT_TYPE_LABELS[splitPayment.method]}${resolvedTipAmount ? ` · pourboire ${formatFCFA(resolvedTipAmount)}` : ''}.`);
+      }
       setSplitPayment({ ...splitPayment, payerName: '', amount: '' });
-      setMessage(`${splitPayment.payerName} a réglé ${formatFCFA(accepted)} par ${PAYMENT_TYPE_LABELS[splitPayment.method]}.`);
+      setSelectedSeatNumbers(new Set());
+      setSelectedItemIds(new Set());
+      setTipMode('none');
+      setCustomTip('');
+      if (splitMode === 'equal') setSplitPeople(current => Math.max(1, current - 1));
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Paiement impossible'); }
+    finally {
+      window.setTimeout(() => {
+        paymentPendingRef.current = false;
+        setPaymentPending(false);
+        paymentOperationRef.current = `CLIENT-PAY-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+      }, 500);
+    }
   };
   const sendFeedback = () => {
     const referenceId = mode === 'restaurant' ? activeRestaurantOrder?.id : activeDeliveryOrder?.id;
@@ -484,41 +621,92 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
 
         {mode === 'restaurant' && restaurantTab === 'reserve' && <section className="client-split-layout"><div className="client-form-panel"><span>RÉSERVATION DIRECTE</span><h1>Choisissez votre table</h1><p>Confirmation immédiate, modification possible depuis votre espace.</p><div className="client-form-grid"><label>Date<input className="form-control" type="date" min={tomorrow} value={reservationForm.date} onChange={event => setReservationForm({ ...reservationForm, date: event.target.value })} /></label><label>Heure<select className="form-control" value={reservationForm.time} onChange={event => setReservationForm({ ...reservationForm, time: event.target.value })}>{['12:30', '13:00', '13:30', '19:30', '20:00', '20:30', '21:00'].map(time => <option key={time}>{time}</option>)}</select></label><label>Personnes<input className="form-control" type="number" min="1" max="20" value={reservationForm.guests} onChange={event => setReservationForm({ ...reservationForm, guests: Number(event.target.value) })} /></label><label>Occasion<select className="form-control" value={reservationForm.occasion} onChange={event => setReservationForm({ ...reservationForm, occasion: event.target.value as typeof reservationForm.occasion })}><option value="meal">Repas</option><option value="birthday">Anniversaire</option><option value="business">Déjeuner professionnel</option><option value="family">Repas familial</option></select></label></div><label>Une attention particulière ?<textarea className="form-control" placeholder="Table calme, poussette, anniversaire…" value={reservationForm.notes} onChange={event => setReservationForm({ ...reservationForm, notes: event.target.value })} /></label><button className="btn btn-primary" onClick={reserveTable}>Confirmer ma table <ArrowRight size={17} /></button></div><aside className="client-trust-panel"><Clock3 size={25} /><h2>Simple et flexible</h2><p>Vous recevez un rappel avant votre venue et gardez la main sur votre réservation.</p>{restaurantReservations.map(item => <article key={item.id}><strong>{formatDate(item.date)} à {item.time}</strong><span>{item.guests} personne(s) · {item.status === 'seated' ? 'Installé' : 'Confirmé'}</span>{item.status === 'confirmed' && <div><button onClick={() => updateRestaurantReservation(item.id, { time: item.time === '20:00' ? '20:30' : '20:00' })}>Décaler de 30 min</button><button onClick={() => cancelRestaurantReservation(item.id)}>Annuler</button></div>}</article>)}</aside></section>}
 
-        {mode === 'restaurant' && restaurantTab === 'menu' && <><section className="client-section-title"><div><span>DISPONIBLE MAINTENANT</span><h1>La carte de La Terrasse</h1><p>Les indisponibilités de cuisine sont actualisées automatiquement.</p></div><div className="client-service-choice">{(['dine_in', 'takeaway', ...(activePmsFolio ? ['room_service' as const] : [])] as const).map(type => <button key={type} className={serviceType === type ? 'active' : ''} onClick={() => setServiceType(type)}>{type === 'dine_in' ? 'À table' : type === 'takeaway' ? 'À emporter' : `En chambre ${activePmsRoom?.roomNumber}`}</button>)}</div></section>{activePmsFolio && <div className="client-room-link"><BedDouble size={18} /><span>Séjour reconnu</span><strong>Chambre {activePmsRoom?.roomNumber} · imputation folio disponible</strong></div>}<div className="client-product-grid restaurant-menu">{restaurantMenu.map(item => <article className={!item.available ? 'unavailable' : ''} key={item.product!.id}><div className="client-menu-photo" style={{ backgroundImage: customer.lowBandwidthMode ? 'none' : `url('./sartal-client-restaurant.jpg')` }}><span>{item.product!.category}</span><button className={customer.favoriteProductIds?.includes(item.product!.id) ? 'client-favorite-button active' : 'client-favorite-button'} title="Ajouter aux favoris" onClick={() => toggleFavorite(item.product!.id)}><Heart size={15} fill={customer.favoriteProductIds?.includes(item.product!.id) ? 'currentColor' : 'none'} /></button></div><div><h3>{item.product!.name}</h3><p>{item.recipe ? `${item.recipe.ingredients.length} ingrédients suivis en stock` : 'Préparé à la demande'}</p>{customer.allergies && item.recipe?.ingredients.some(ingredient => db.products.find(product => product.id === ingredient.productId)?.name.toLowerCase().includes('arachide')) && <small className="allergy-alert">Contient votre allergène</small>}<footer><strong>{formatFCFA(item.price)}</strong><div className="client-quantity"><button onClick={() => changeQuantity('restaurant', item.product!.id, -1)}><Minus size={15} /></button><span>{restaurantCart[item.product!.id] || 0}</span><button disabled={!item.available} onClick={() => changeQuantity('restaurant', item.product!.id, 1)}><Plus size={15} /></button></div></footer></div></article>)}</div>{restaurantTotal > 0 && <div className="client-sticky-cart"><div><span>{Object.values(restaurantCart).reduce((sum, value) => sum + value, 0)} article(s)</span><strong>{formatFCFA(restaurantTotal)}</strong></div><select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value as PaymentType)}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select><button onClick={placeRestaurantOrder}>Commander <ArrowRight size={16} /></button></div>}</>}
+        {mode === 'restaurant' && restaurantTab === 'menu' && <>
+          <section className="client-section-title">
+            <div><span>DISPONIBLE MAINTENANT</span><h1>La carte de La Terrasse</h1><p>Les quantités suivent le dépôt et les recettes réellement disponibles.</p></div>
+            <div className="client-service-choice">{(['dine_in', 'takeaway', ...(activePmsFolio ? ['room_service' as const] : [])] as const).map(type => <button key={type} className={serviceType === type ? 'active' : ''} onClick={() => setServiceType(type)}>{type === 'dine_in' ? 'À table' : type === 'takeaway' ? 'À emporter' : `En chambre ${activePmsRoom?.roomNumber}`}</button>)}</div>
+          </section>
+          {activePmsFolio && <label className="client-room-link"><BedDouble size={18} /><span><small>Séjour vérifié</small><strong>Chambre {activePmsRoom?.roomNumber}</strong></span><input type="checkbox" checked={folioConsent} onChange={event => setFolioConsent(event.target.checked)} /><b>Autoriser l’imputation sur le folio</b></label>}
+          <div className="client-product-grid restaurant-menu">{restaurantMenu.map(item => {
+            const product = item.product!;
+            const quantity = restaurantCart[product.id] || 0;
+            const allergenConflict = item.presentation.allergens.some(allergen => customerAllergyTerms.some(term => normalizeSearchTerm(allergen).includes(term)));
+            return <article className={`${!item.available ? 'unavailable' : ''} ${item.availability.status}`} key={product.id}>
+              <div className="client-menu-photo" style={{ backgroundImage: customer.lowBandwidthMode ? 'none' : `url('${product.imageUrl || item.presentation.imageUrl}')`, backgroundPosition: item.presentation.imagePosition }}>
+                <span>{product.category}</span>
+                <button className={customer.favoriteProductIds?.includes(product.id) ? 'client-favorite-button active' : 'client-favorite-button'} title="Ajouter aux favoris" onClick={() => toggleFavorite(product.id)}><Heart size={15} fill={customer.favoriteProductIds?.includes(product.id) ? 'currentColor' : 'none'} /></button>
+              </div>
+              <div>
+                <div className="client-menu-title"><h3>{product.name}</h3><small><Clock3 size={12} /> {item.presentation.preparationMinutes} min</small></div>
+                <p>{item.presentation.description}</p>
+                <div className="client-menu-tags">{item.presentation.dietaryTags.map(tag => <span key={tag}>{tag}</span>)}</div>
+                {allergenConflict && <small className="allergy-alert">Attention : contient {item.presentation.allergens.join(', ').toLowerCase()}</small>}
+                <small className={`client-menu-availability ${item.availability.status}`}>{item.availability.status === 'out' ? 'Indisponible pour le moment' : item.availability.status === 'low' ? `Encore ${item.availability.availableUnits} portion(s)` : 'Disponible maintenant'}</small>
+                {!item.available && item.alternatives.length > 0 && <div className="client-menu-alternatives"><small>À la place</small>{item.alternatives.map(alternative => <button key={alternative.product!.id} onClick={() => changeQuantity('restaurant', alternative.product!.id, 1)}>{alternative.product!.name} · {formatFCFA(alternative.pricing.salePrice)}</button>)}</div>}
+                <footer><strong>{formatFCFA(item.price)}</strong><div className="client-quantity"><button aria-label={`Retirer ${product.name}`} disabled={quantity <= 0} onClick={() => changeQuantity('restaurant', product.id, -1)}><Minus size={15} /></button><span>{quantity}</span><button aria-label={`Ajouter ${product.name}`} disabled={!item.available || quantity >= item.availability.availableUnits} onClick={() => changeQuantity('restaurant', product.id, 1)}><Plus size={15} /></button></div></footer>
+              </div>
+            </article>;
+          })}</div>
+          {restaurantTotal > 0 && <div className="client-sticky-cart"><div><span>{Object.values(restaurantCart).reduce((sum, value) => sum + value, 0)} article(s)</span><strong>{formatFCFA(restaurantTotal)}</strong></div><select value={paymentMethod} onChange={event => setPaymentMethod(event.target.value as PaymentType)}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select><button disabled={restaurantSubmitting} onClick={placeRestaurantOrder}>{restaurantSubmitting ? 'Transmission…' : 'Commander'} <ArrowRight size={16} /></button></div>}
+        </>}
 
-        {mode === 'restaurant' && restaurantTab === 'order' && <section className="client-order-layout">
-          <div>{activeRestaurantOrder ? <>
-            <div className="client-order-heading">
-              <span>COMMANDE {activeRestaurantOrder.id}</span>
-              <h1>{restaurantStatus[activeRestaurantOrder.status]}</h1>
-              <p>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'} · environ {activeRestaurantOrder.estimatedMinutes} min</p>
-              <b className={restaurantOrderEditable ? 'live' : 'locked'}>{restaurantOrderEditable ? 'Modifiable en direct' : 'Préparation verrouillée'}</b>
-            </div>
-            <div className="client-progress">{(['confirmed', 'preparing', 'ready', 'served'] as const).map((status, index) => { const ranks = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'paid']; const done = ranks.indexOf(activeRestaurantOrder.status) >= ranks.indexOf(status); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={17} /> : index + 1}</span><strong>{restaurantStatus[status]}</strong></article>; })}</div>
-            <section className="client-live-basket">
-              <header><div><ShoppingBag size={19} /><span><strong>Mon panier en direct</strong><small>Ajoutez un complément ou transmettez une consigne avant le verrouillage cuisine.</small></span></div>{restaurantOrderEditable && <button onClick={() => setRestaurantTab('menu')}><Plus size={15} /> Ajouter un article</button>}</header>
-              <div className="client-order-lines">{activeRestaurantOrder.items.map((item, index) => {
-                const product = db.products.find(productItem => productItem.id === item.productId);
-                return <article key={`${item.productId}-${index}`}>
-                  <div><span>{item.quantity} × {product?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></div>
-                  {item.note && <small>Consigne : {item.note}</small>}
-                  {restaurantOrderEditable && <div className="client-order-line-tools"><input className="form-control" value={orderNotes[item.productId] ?? item.note ?? ''} onChange={event => setOrderNotes({ ...orderNotes, [item.productId]: event.target.value })} placeholder="Sans sauce, cuisson, allergie…" /><button onClick={() => saveOrderNote(item.productId)}>Transmettre</button><button className="danger" onClick={() => requestLineRemoval(item.productId)}>Demander le retrait</button></div>}
-                </article>;
-              })}<footer><span>Total actualisé</span><strong>{formatFCFA(activeRestaurantOrder.total)}</strong></footer></div>
+        {mode === 'restaurant' && restaurantTab === 'order' && <section className="client-order-layout client-table-workspace" data-panel={restaurantTablePanel}>
+          <div className="client-table-main">{tableSessionClosed ? <div className="client-table-session-closed"><ShieldCheck size={34} /><h2>Session à table fermée</h2><p>Cette addition n’est plus visible sur cet appareil. Scannez le QR de votre table ou demandez un nouvel accès à l’équipe.</p><button onClick={() => setRestaurantTab('welcome')}>Revenir à l’accueil</button></div> : activeRestaurantOrder ? <>
+            <section className={`client-table-pane overview ${restaurantTablePanel === 'overview' ? 'is-active' : ''}`}>
+              <div className="client-table-session">
+                <ShieldCheck size={18} /><span><small>SESSION SÉCURISÉE</small><strong>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'}</strong><b>{activeTableAccess ? `Accès jusqu’à ${new Date(activeTableAccess.expiresAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : 'Accès personnel actif'}</b></span>
+                {activeRestaurantOrder.tableNumber && <div><button onClick={() => closeTableSession(true)}>Mauvaise table</button><button onClick={() => closeTableSession(false)}><LogOut size={14} /> Quitter</button></div>}
+              </div>
+              <div className="client-order-heading"><span>COMMANDE {activeRestaurantOrder.id}</span><h1>{restaurantStatus[activeRestaurantOrder.status]}</h1><p>{activeRestaurantOrder.tableNumber ? `Table ${activeRestaurantOrder.tableNumber}` : activeRestaurantOrder.roomNumber ? `Chambre ${activeRestaurantOrder.roomNumber}` : 'Commande personnelle'} · environ {activeRestaurantOrder.estimatedMinutes} min</p><b className={restaurantOrderEditable ? 'live' : 'locked'}>{restaurantOrderEditable ? 'Modifiable en direct' : 'Préparation verrouillée'}</b></div>
+              <div className="client-progress">{(['confirmed', 'preparing', 'ready', 'served'] as const).map((status, index) => { const ranks = ['placed', 'confirmed', 'preparing', 'ready', 'served', 'paid']; const done = ranks.indexOf(activeRestaurantOrder.status) >= ranks.indexOf(status); return <article className={done ? 'done' : ''} key={status}><span>{done ? <CheckCircle size={17} /> : index + 1}</span><strong>{restaurantStatus[status]}</strong></article>; })}</div>
+              <section className="client-live-basket">
+                <header><div><ShoppingBag size={19} /><span><strong>Mon panier en direct</strong><small>Chaque ligne garde son convive, ses options et sa consigne.</small></span></div>{restaurantOrderEditable && <button onClick={() => setRestaurantTab('menu')}><Plus size={15} /> Ajouter un article</button>}</header>
+                <div className="client-order-lines">{activeRestaurantOrder.items.filter(item => item.status !== 'voided').map(item => {
+                  const product = db.products.find(productItem => productItem.id === item.productId);
+                  const itemId = item.id || `${item.productId}-${item.seatNumber || 'table'}-${item.addedAt || ''}`;
+                  return <article key={itemId}>
+                    <div><span>{item.quantity} × {product?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></div>
+                    <div className="client-order-line-meta"><span>{item.guestName || (item.seatNumber ? `Convive ${item.seatNumber}` : 'Pour la table')}</span><span>{item.course === 'drinks' ? 'Boissons' : item.course === 'starter' ? 'Entrée' : item.course === 'dessert' ? 'Dessert' : 'Plat'}</span>{item.modifiers?.map(modifier => <span key={modifier}>{modifier}</span>)}</div>
+                    {item.note && <small>Consigne : {item.note}</small>}
+                    {restaurantOrderEditable && item.id && <div className="client-order-line-tools"><input className="form-control" value={orderNotes[item.id] ?? item.note ?? ''} onChange={event => setOrderNotes({ ...orderNotes, [item.id!]: event.target.value })} placeholder="Sans sauce, cuisson, allergie…" /><button onClick={() => saveOrderNote(item.id!)}>Transmettre</button><button className="danger" onClick={() => requestLineRemoval(item.id!, item.productId)}>Demander le retrait</button></div>}
+                  </article>;
+                })}<footer><span>Total actualisé</span><strong>{formatFCFA(activeRestaurantOrder.total)}</strong></footer></div>
+              </section>
             </section>
-            <div className="client-table-actions"><button onClick={() => requestService('water', 'Apporter une carafe d’eau')}><Phone size={17} /> Demander de l’eau</button><button onClick={() => requestService('bill', 'Préparer et apporter l’addition')}><ReceiptText size={17} /> Demander l’addition</button><button onClick={() => requestService('waiter', 'Passage du serveur à table')}><MessageCircle size={17} /> Appeler le serveur</button></div>
-            {activeServiceRequests.length > 0 && <div className="client-live-requests">{activeServiceRequests.map(item => <article key={item.id}><span className={item.status}><i />{item.status === 'accepted' ? 'Pris en charge' : 'Reçu'}</span><div><strong>{item.label}</strong><small>{item.assignedTo} · avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div></article>)}</div>}
-            <section className="client-split-payment">
-              <header><CircleDollarSign size={21} /><div><strong>Partager l’addition librement</strong><small>{restaurantRemaining > 0 ? `${formatFCFA(restaurantRemaining)} reste à répartir` : 'Addition entièrement réglée'}</small></div><b>{formatFCFA(restaurantPaid)} payé</b></header>
-              {restaurantRemaining > 0 && <>
-                <div className="client-split-shortcuts"><button onClick={() => setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(Math.ceil(restaurantRemaining / 2)) })}>Moitié · {formatFCFA(Math.ceil(restaurantRemaining / 2))}</button><button onClick={() => { const people = upcomingReservation?.guests || customer.restaurantPreferences?.defaultPartySize || 2; setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(Math.ceil(restaurantRemaining / people)) }); }}>Par convive</button><button onClick={() => setSplitPayment({ ...splitPayment, payerName: splitPayment.payerName || customer.fullName, amount: String(restaurantRemaining) })}>Tout le solde</button></div>
-                <div className="client-split-form"><label>Qui paie ?<input className="form-control" value={splitPayment.payerName} onChange={event => setSplitPayment({ ...splitPayment, payerName: event.target.value })} placeholder="Prénom ou nom" /></label><label>Montant<input className="form-control" type="number" min="1" max={restaurantRemaining} value={splitPayment.amount} onChange={event => setSplitPayment({ ...splitPayment, amount: event.target.value })} /></label><label>Moyen<select className="form-control" value={splitPayment.method} onChange={event => setSplitPayment({ ...splitPayment, method: event.target.value as PaymentType })}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option><option value="cash">Espèces</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select></label><button onClick={payCustomShare}>Régler cette part</button></div>
-              </>}
-              {activeRestaurantOrder.payments.length > 0 && <div className="client-payment-history">{activeRestaurantOrder.payments.map(payment => <article key={payment.id}><CheckCircle size={15} /><span><strong>{payment.payerName || 'Payeur'}</strong><small>{PAYMENT_TYPE_LABELS[payment.method]}</small></span><b>{formatFCFA(payment.amount)}</b></article>)}</div>}
+
+            <section className={`client-table-pane service ${restaurantTablePanel === 'service' ? 'is-active' : ''}`}>
+              <header className="client-table-pane-heading"><Phone size={20} /><div><span>SERVICE À TABLE</span><h2>Une demande, un responsable, un délai</h2></div></header>
+              <div className="client-table-actions">
+                <button disabled={activeServiceRequests.some(item => item.type === 'water')} onClick={() => requestService('water', 'Apporter une carafe d’eau')}><Phone size={17} /> {activeServiceRequests.some(item => item.type === 'water') ? 'Eau demandée' : 'Demander de l’eau'}</button>
+                <button disabled={activeServiceRequests.some(item => item.type === 'bill')} onClick={() => requestService('bill', 'Préparer et apporter l’addition')}><ReceiptText size={17} /> {activeServiceRequests.some(item => item.type === 'bill') ? 'Addition demandée' : 'Demander l’addition'}</button>
+                <button disabled={activeServiceRequests.some(item => item.type === 'waiter')} onClick={() => requestService('waiter', 'Passage du serveur à table')}><MessageCircle size={17} /> {activeServiceRequests.some(item => item.type === 'waiter') ? 'Serveur appelé' : 'Appeler le serveur'}</button>
+              </div>
+              {activeServiceRequests.length > 0 ? <div className="client-live-requests">{activeServiceRequests.map(item => <article key={item.id}><span className={item.status}><i />{item.status === 'accepted' ? 'Pris en charge' : 'Reçu'}</span><div><strong>{item.label}</strong><small>{item.assignedTo} · avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small>{item.note && <p>{item.note}</p>}{item.status === 'requested' && <div className="client-request-controls"><input className="form-control" placeholder="Ajouter une précision" value={serviceNotes[item.id] ?? item.note ?? ''} onChange={event => setServiceNotes({ ...serviceNotes, [item.id]: event.target.value })} /><button onClick={() => saveServiceRequestNote(item.id)}>Modifier</button><button className="danger" onClick={() => cancelServiceRequest(item.id)}><X size={14} /> Annuler</button></div>}</div></article>)}</div> : <div className="client-table-empty-pane"><CheckCircle size={28} /><strong>Aucune demande en attente</strong><small>L’équipe reste joignable depuis ces trois actions.</small></div>}
             </section>
-            <section className="client-group-bill"><header><UserPlus size={20} /><div><strong>Inviter un convive à payer</strong><small>Choisissez sa part puis envoyez un accès personnel par téléphone.</small></div></header><div className="client-invite-form"><input className="form-control" placeholder="Prénom et nom" value={inviteForm.fullName} onChange={event => setInviteForm({ ...inviteForm, fullName: event.target.value })} /><input className="form-control" placeholder="+221 77…" value={inviteForm.phone} onChange={event => setInviteForm({ ...inviteForm, phone: event.target.value })} /><input className="form-control" type="number" min="1" max={restaurantRemaining} placeholder="Montant FCFA" value={inviteShareAmount} onChange={event => setInviteShareAmount(event.target.value)} /><button disabled={restaurantRemaining <= 0} onClick={inviteGuest}>Inviter</button></div>{restaurantInvites.map(invite => <article key={invite.id}><div><strong>{invite.fullName}</strong><small>Code {invite.accessCode} · {invite.status === 'paid' ? `réglé par ${PAYMENT_TYPE_LABELS[invite.paymentMethod || 'other']}` : invite.status === 'joined' ? 'a rejoint la table' : 'invitation envoyée'}</small></div><b>{formatFCFA(invite.paidAmount ?? invite.shareAmount)}</b>{invite.status !== 'paid' && <div className="client-invite-payments"><button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'wave'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Wave.`); }}>Wave</button><button onClick={() => { const amount = payRestaurantGuestShare(invite.id, 'orange_money'); setMessage(`${invite.fullName} a réglé ${formatFCFA(amount)} par Orange Money.`); }}>Orange Money</button></div>}</article>)}</section>
+
+            <section className={`client-table-pane payment ${restaurantTablePanel === 'payment' ? 'is-active' : ''}`}>
+              <section className="client-split-payment">
+                <header><CircleDollarSign size={21} /><div><strong>Partager l’addition précisément</strong><small>{restaurantRemaining > 0 ? `${formatFCFA(restaurantRemaining)} reste à répartir` : 'Addition entièrement réglée'}</small></div><b>{formatFCFA(restaurantPaid)} payé</b></header>
+                {restaurantRemaining > 0 && <>
+                  <div className="client-split-mode"><button className={splitMode === 'free' ? 'active' : ''} onClick={() => setSplitMode('free')}>Montant</button><button className={splitMode === 'equal' ? 'active' : ''} onClick={() => { setSplitMode('equal'); setSplitPeople(upcomingReservation?.guests || customer.restaurantPreferences?.defaultPartySize || 2); }}>Parts égales</button><button className={splitMode === 'seat' ? 'active' : ''} disabled={!unpaidSeatNumbers.length} onClick={() => setSplitMode('seat')}>Par convive</button><button className={splitMode === 'item' ? 'active' : ''} onClick={() => setSplitMode('item')}>Par article</button></div>
+                  {splitMode === 'equal' && <div className="client-equal-split"><label>Parts restantes<input type="number" min="1" max="20" value={splitPeople} onChange={event => setSplitPeople(Math.max(1, Number(event.target.value) || 1))} /></label><div><span>Part suivante</span><strong>{formatFCFA(equalShareAmount)}</strong><small>La dernière part absorbe automatiquement l’arrondi.</small></div></div>}
+                  {splitMode === 'seat' && <div className="client-split-seats">{unpaidSeatNumbers.map(seat => { const total = activeOrderLines.filter(item => item.seatNumber === seat).reduce((sum, item) => sum + item.quantity * item.salePrice, 0); return <button className={selectedSeatNumbers.has(seat) ? 'active' : ''} key={seat} onClick={() => { const next = new Set(selectedSeatNumbers); if (next.has(seat)) next.delete(seat); else next.add(seat); setSelectedSeatNumbers(next); }}><span>Convive {seat}</span><strong>{formatFCFA(total)}</strong></button>; })}</div>}
+                  {splitMode === 'item' && <div className="client-split-items">{selectableOrderLines.map(item => { const product = db.products.find(productItem => productItem.id === item.productId); return <button className={item.id && selectedItemIds.has(item.id) ? 'active' : ''} disabled={!item.id} key={item.id || item.productId} onClick={() => { const next = new Set(selectedItemIds); if (next.has(item.id!)) next.delete(item.id!); else next.add(item.id!); setSelectedItemIds(next); }}><span>{item.quantity} × {product?.name}</span><strong>{formatFCFA(item.quantity * item.salePrice)}</strong></button>; })}</div>}
+                  <div className="client-split-form"><label>Qui paie ?<input className="form-control" value={splitPayment.payerName} onChange={event => setSplitPayment({ ...splitPayment, payerName: event.target.value })} placeholder="Prénom ou nom" /></label><label>Montant<input className="form-control" type="number" min="1" max={restaurantRemaining} readOnly={splitMode !== 'free'} value={splitMode === 'free' ? splitPayment.amount : resolvedShareAmount || ''} onChange={event => setSplitPayment({ ...splitPayment, amount: event.target.value })} /></label><label>Moyen<select className="form-control" value={splitPayment.method} onChange={event => setSplitPayment({ ...splitPayment, method: event.target.value as PaymentType })}><option value="wave">Wave</option><option value="orange_money">Orange Money</option><option value="card">Carte</option><option value="cash">Espèces à confirmer</option>{activePmsFolio && <option value="room_charge">Chambre {activePmsRoom?.roomNumber}</option>}</select></label></div>
+                  {splitPayment.method === 'room_charge' && activePmsFolio && <label className="client-folio-confirmation"><BedDouble size={18} /><span><strong>Chambre {activePmsRoom?.roomNumber} · {activePmsFolio.guestName}</strong><small>Le séjour sera vérifié puis rattaché à cette addition.</small></span><input type="checkbox" checked={folioConsent} onChange={event => setFolioConsent(event.target.checked)} /></label>}
+                  <div className="client-tip-choice"><span>Ajouter un pourboire</span>{(['none', '5', '10', 'custom'] as const).map(value => <button className={tipMode === value ? 'active' : ''} key={value} onClick={() => setTipMode(value)}>{value === 'none' ? 'Non merci' : value === 'custom' ? 'Libre' : `${value} %`}</button>)}{tipMode === 'custom' && <input inputMode="numeric" placeholder="Montant FCFA" value={customTip} onChange={event => setCustomTip(event.target.value.replace(/\D/g, ''))} />}</div>
+                  <div className="client-receipt-choice"><span>Recevoir le reçu</span>{(['whatsapp', 'email', 'none'] as const).map(value => <button className={receiptChannel === value ? 'active' : ''} key={value} onClick={() => setReceiptChannel(value)}>{value === 'whatsapp' ? 'WhatsApp' : value === 'email' ? 'E-mail' : 'Non'}</button>)}</div>
+                  {pendingCashRequest && <div className="client-cash-pending"><Clock3 size={17} /><span><strong>{formatFCFA(pendingCashRequest.requestedAmount || 0)} en espèces à remettre</strong><small>{pendingCashRequest.status === 'accepted' ? `${pendingCashRequest.assignedTo} vient confirmer l’encaissement.` : 'Demande reçue par la caisse.'}</small></span></div>}
+                  <button className="client-pay-share-button" disabled={paymentPending || Boolean(pendingCashRequest && splitPayment.method === 'cash')} onClick={payCustomShare}>{paymentPending ? 'Sécurisation en cours…' : splitPayment.method === 'cash' ? `Demander l’encaissement de ${formatFCFA(Math.max(0, resolvedShareAmount || 0))}` : `Régler ${formatFCFA(Math.max(0, resolvedShareAmount || 0))}${resolvedTipAmount ? ` + ${formatFCFA(resolvedTipAmount)} de pourboire` : ''}`}</button>
+                </>}
+                {activeRestaurantOrder.payments.length > 0 && <div className="client-payment-history">{activeRestaurantOrder.payments.map(payment => <article key={payment.id}><CheckCircle size={15} /><span><strong>{payment.payerName || 'Payeur'}</strong><small>{PAYMENT_TYPE_LABELS[payment.method]}{payment.tipAmount ? ` · pourboire ${formatFCFA(payment.tipAmount)}` : ''}{payment.receiptChannel && payment.receiptChannel !== 'none' ? ` · reçu ${payment.receiptChannel}` : ''}</small></span><b>{formatFCFA(payment.amount)}</b></article>)}</div>}
+              </section>
+              <section className="client-group-bill"><header><UserPlus size={20} /><div><strong>Inviter un convive à payer</strong><small>Chaque invité reçoit un lien privé et règle lui-même sa part.</small></div></header><div className="client-invite-form"><input className="form-control" placeholder="Prénom et nom" value={inviteForm.fullName} onChange={event => setInviteForm({ ...inviteForm, fullName: event.target.value })} /><input className="form-control" placeholder="+221 77…" value={inviteForm.phone} onChange={event => setInviteForm({ ...inviteForm, phone: event.target.value })} /><input className="form-control" type="number" min="1" max={restaurantRemaining} placeholder="Montant FCFA" value={inviteShareAmount} onChange={event => setInviteShareAmount(event.target.value)} /><button disabled={restaurantRemaining <= 0} onClick={inviteGuest}>Créer le lien</button></div>{restaurantInvites.map(invite => <article key={invite.id}><div><strong>{invite.fullName}</strong><small>Code {invite.accessCode} · {invite.status === 'paid' ? `réglé par ${PAYMENT_TYPE_LABELS[invite.paymentMethod || 'other']}` : invite.status === 'joined' ? 'lien ouvert' : 'invitation prête'}</small></div><b>{formatFCFA(invite.paidAmount ?? invite.shareAmount)}</b>{invite.status !== 'paid' && <div className="client-invite-payments"><button onClick={() => shareGuestInvite(invite.id, 'copy')}><Copy size={14} /> Copier</button><button onClick={() => shareGuestInvite(invite.id, 'whatsapp')}><Link2 size={14} /> WhatsApp</button></div>}</article>)}</section>
+              {restaurantRemaining <= 0 && <section className="client-restaurant-closeout"><CheckCircle size={34} /><span>ADDITION RÉGLÉE</span><h2>Merci {customer.fullName.split(' ')[0]}</h2><p>Les règlements, les pourboires et les reçus sont conservés dans votre historique.</p>{activeRestaurantFeedback ? <div className="client-feedback-confirmed"><HeartHandshake size={21} /><strong>{activeRestaurantFeedback.recoveryStatus === 'open' ? 'Votre retour est suivi par un responsable' : 'Merci pour votre retour'}</strong><small>{activeRestaurantFeedback.note || `${activeRestaurantFeedback.score}/5`}</small></div> : <><div className="client-rating">{[1, 2, 3, 4, 5].map(score => <button className={feedbackScore >= score ? 'active' : ''} key={score} onClick={() => setFeedbackScore(score)}><Star size={22} /></button>)}</div><textarea className="form-control" placeholder="Comment s’est passé votre repas ?" value={feedbackNote} onChange={event => setFeedbackNote(event.target.value)} /><button onClick={sendFeedback}>Envoyer mon retour</button></>}</section>}
+            </section>
           </> : <div className="client-empty"><ChefHat size={32} /><h2>Aucune commande en cours</h2><button onClick={() => setRestaurantTab('menu')}>Découvrir la carte</button></div>}</div>
-          <aside className="client-conversation"><header><span>M</span><div><strong>Moussa · Votre serveur</strong><small>Disponible maintenant</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button title="Envoyer une note vocale" onClick={() => sendRichMessage('voice')}><Mic size={16} /></button><button title="Joindre une photo" onClick={() => sendRichMessage('photo')}><Camera size={16} /></button></div><footer><input className="form-control" placeholder="Écrire à l’équipe…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer></aside>
+          {!tableSessionClosed && activeRestaurantOrder && <aside className={`client-conversation client-table-pane chat ${restaurantTablePanel === 'chat' ? 'is-active' : ''}`}><header><span>M</span><div><strong>Moussa · Votre serveur</strong><small>Disponible maintenant</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button title="Envoyer une note vocale" onClick={() => sendRichMessage('voice')}><Mic size={16} /></button><button title="Joindre une photo" onClick={() => sendRichMessage('photo')}><Camera size={16} /></button></div><footer><input className="form-control" placeholder="Écrire à l’équipe…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer></aside>}
+          {!tableSessionClosed && activeRestaurantOrder && <nav className="client-table-mobile-nav" aria-label="Actions de la table"><button className={restaurantTablePanel === 'overview' ? 'active' : ''} onClick={() => setRestaurantTablePanel('overview')}><UtensilsCrossed size={18} /><span>Table</span></button><button className={restaurantTablePanel === 'service' ? 'active' : ''} onClick={() => setRestaurantTablePanel('service')}><Phone size={18} /><span>Service</span>{activeServiceRequests.length > 0 && <b>{activeServiceRequests.length}</b>}</button><button className={restaurantTablePanel === 'payment' ? 'active' : ''} onClick={() => setRestaurantTablePanel('payment')}><ReceiptText size={18} /><span>Addition</span></button><button className={restaurantTablePanel === 'chat' ? 'active' : ''} onClick={() => setRestaurantTablePanel('chat')}><MessageCircle size={18} /><span>Messages</span></button></nav>}
         </section>}
 
         {mode === 'delivery' && deliveryTab === 'shop' && <>
@@ -582,7 +770,7 @@ export const SartalClient: React.FC<SartalClientProps> = ({ state, initialMode =
           </div>
         </> : <div className="client-empty"><Truck size={34} /><h2>Aucune livraison à suivre</h2><button onClick={() => setDeliveryTab('shop')}>Découvrir la boutique</button></div>}</section>}
 
-        {mode === 'delivery' && deliveryTab === 'help' && <section className="client-help-layout"><div className="client-conversation"><header><span>F</span><div><strong>Fatou · Service client</strong><small>Réponse moyenne : 4 min</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button onClick={() => sendRichMessage('voice')}><Mic size={16} /> Note vocale</button><button onClick={() => sendRichMessage('photo')}><Camera size={16} /> Photo</button><button onClick={() => requestService('delivery_help', 'Être rappelé par le service livraison')}><Phone size={16} /> Me rappeler</button></div><footer><input className="form-control" placeholder="Écrire au service client…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer>{activeServiceRequests.map(item => <div className="client-help-request" key={item.id}><Clock3 size={16} /><span><strong>{item.label}</strong><small>{item.assignedTo} · réponse promise avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></span></div>)}</div><div className="client-feedback-panel">{activeFeedback ? <><HeartHandshake size={25} /><span className={`client-recovery-status ${activeFeedback.recoveryStatus}`}>{activeFeedback.recoveryStatus === 'open' ? 'Suivi prioritaire en cours' : 'Situation résolue'}</span><h2>{activeFeedback.assignedTo || 'Relation client'}</h2><p>{activeFeedback.recoveryStatus === 'open' ? `Vous recontacte avant ${activeFeedback.promisedAt ? new Date(activeFeedback.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'quelques minutes'}.` : activeFeedback.solution}</p>{activeFeedback.compensationPoints ? <strong>+{activeFeedback.compensationPoints} points offerts</strong> : null}<small>Votre dossier reste lié à la commande {activeFeedback.referenceId}.</small></> : <><HeartHandshake size={25} /><h2>Tout s’est bien passé ?</h2><p>Un problème signalé est suivi jusqu’à sa résolution.</p><div className="client-rating">{[1, 2, 3, 4, 5].map(score => <button className={feedbackScore >= score ? 'active' : ''} key={score} onClick={() => setFeedbackScore(score)}><Star size={22} /></button>)}</div><textarea className="form-control" placeholder="Article manquant, endommagé, retard…" value={feedbackNote} onChange={event => setFeedbackNote(event.target.value)} /><button className="btn btn-primary" disabled={!activeDeliveryOrder} onClick={sendFeedback}>Envoyer mon retour</button></>}</div></section>}
+        {mode === 'delivery' && deliveryTab === 'help' && <section className="client-help-layout"><div className="client-conversation"><header><span>F</span><div><strong>Fatou · Service client</strong><small>Réponse moyenne : 4 min</small></div></header><div className="client-message-thread">{conversations.map(item => <div className={item.sender} key={item.id}><span>{item.content}</span>{item.attachmentLabel && <b>{item.channel === 'voice' ? <Mic size={13} /> : <Camera size={13} />}{item.attachmentLabel}</b>}<small>{item.senderName}</small></div>)}</div><div className="client-rich-message"><button onClick={() => sendRichMessage('voice')}><Mic size={16} /> Note vocale</button><button onClick={() => sendRichMessage('photo')}><Camera size={16} /> Photo</button><button onClick={() => requestService('delivery_help', 'Être rappelé par le service livraison')}><Phone size={16} /> Me rappeler</button></div><footer><input className="form-control" placeholder="Écrire au service client…" value={chat} onChange={event => setChat(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') sendMessage(); }} /><button onClick={sendMessage}><Send size={17} /></button></footer>{activeServiceRequests.map(item => <div className="client-help-request" key={item.id}><Clock3 size={16} /><span><strong>{item.label}</strong><small>{item.assignedTo} · réponse promise avant {new Date(item.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></span></div>)}</div><div className="client-feedback-panel">{activeDeliveryFeedback ? <><HeartHandshake size={25} /><span className={`client-recovery-status ${activeDeliveryFeedback.recoveryStatus}`}>{activeDeliveryFeedback.recoveryStatus === 'open' ? 'Suivi prioritaire en cours' : 'Situation résolue'}</span><h2>{activeDeliveryFeedback.assignedTo || 'Relation client'}</h2><p>{activeDeliveryFeedback.recoveryStatus === 'open' ? `Vous recontacte avant ${activeDeliveryFeedback.promisedAt ? new Date(activeDeliveryFeedback.promisedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : 'quelques minutes'}.` : activeDeliveryFeedback.solution}</p>{activeDeliveryFeedback.compensationPoints ? <strong>+{activeDeliveryFeedback.compensationPoints} points offerts</strong> : null}<small>Votre dossier reste lié à la commande {activeDeliveryFeedback.referenceId}.</small></> : <><HeartHandshake size={25} /><h2>Tout s’est bien passé ?</h2><p>Un problème signalé est suivi jusqu’à sa résolution.</p><div className="client-rating">{[1, 2, 3, 4, 5].map(score => <button className={feedbackScore >= score ? 'active' : ''} key={score} onClick={() => setFeedbackScore(score)}><Star size={22} /></button>)}</div><textarea className="form-control" placeholder="Article manquant, endommagé, retard…" value={feedbackNote} onChange={event => setFeedbackNote(event.target.value)} /><button className="btn btn-primary" disabled={!activeDeliveryOrder} onClick={sendFeedback}>Envoyer mon retour</button></>}</div></section>}
 
       </main>
       </>}

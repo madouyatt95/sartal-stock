@@ -400,14 +400,19 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
       const orderIds = new Set(assignedRestaurantOrders.map(item => item.id));
       db.sartalServiceRequests.filter(item => item.context === 'restaurant' && (!item.referenceId || orderIds.has(item.referenceId)) && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
+        const isCashRequest = item.type === 'cash_payment';
         tasks.push({
           id: item.id,
           title: item.label,
           detail: `${customer?.fullName || 'Client'} · ${item.assignedTo || 'À affecter'}`,
           meta: `Promis à ${formatTime(item.promisedAt)}`,
           tone: item.priority === 'urgent' || new Date(item.promisedAt).getTime() < Date.now() ? 'urgent' : 'active',
-          actionLabel: item.status === 'requested' ? 'Prendre' : 'Terminer',
-          action: () => execute(() => state.updateSartalServiceRequest(item.id, item.status === 'requested' ? 'accepted' : 'completed', employee.name), item.status === 'requested' ? 'Demande prise en charge.' : 'Demande client terminée.')
+          actionLabel: item.status === 'requested' ? 'Prendre' : isCashRequest ? 'Confirmer espèces' : 'Terminer',
+          action: () => execute(() => item.status === 'requested'
+            ? state.updateSartalServiceRequest(item.id, 'accepted', employee.name)
+            : isCashRequest
+              ? state.confirmRestaurantCashPayment(item.id, employee.id)
+              : state.updateSartalServiceRequest(item.id, 'completed', employee.name), item.status === 'requested' ? 'Demande prise en charge.' : isCashRequest ? 'Espèces confirmées, addition et caisse mises à jour.' : 'Demande client terminée.')
         });
       });
       db.restaurantReservations.filter(item => item.posId === assignedPosId && ['confirmed', 'seated'].includes(item.status)).forEach(item => {
@@ -417,6 +422,21 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     }
 
     if (employee.role === 'cashier') {
+      const orderIds = new Set(assignedRestaurantOrders.map(item => item.id));
+      db.sartalServiceRequests.filter(item => item.type === 'cash_payment' && item.referenceId && orderIds.has(item.referenceId) && !['completed', 'cancelled'].includes(item.status)).forEach(item => {
+        const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
+        tasks.push({
+          id: item.id,
+          title: item.label,
+          detail: `${item.payerName || customer?.fullName || 'Client'} · table ${db.restaurantGuestOrders.find(order => order.id === item.referenceId)?.tableNumber || ''}`,
+          meta: item.status === 'requested' ? 'À prendre en charge' : 'Espèces à contrôler',
+          tone: 'urgent',
+          actionLabel: item.status === 'requested' ? 'Prendre' : 'Confirmer espèces',
+          action: () => execute(() => item.status === 'requested'
+            ? state.updateSartalServiceRequest(item.id, 'accepted', employee.name)
+            : state.confirmRestaurantCashPayment(item.id, employee.id), item.status === 'requested' ? 'Demande espèces prise en charge.' : 'Espèces confirmées et ajoutées à la caisse.')
+        });
+      });
       assignedRestaurantOrders.filter(item => !['paid', 'cancelled'].includes(item.status)).forEach(item => {
         const paid = item.payments.reduce((sum, payment) => sum + payment.amount, 0);
         tasks.push({ id: item.id, title: `Addition ${item.tableNumber || item.id}`, detail: `${formatFCFA(item.total - paid)} à encaisser`, meta: `${item.payments.length} paiement(s) enregistré(s)`, tone: item.status === 'served' ? 'active' : 'waiting', actionLabel: 'Encaisser', action: () => { setSelectedOrderId(item.id); setPaymentAmount(String(item.total - paid)); setTab('action'); } });

@@ -1244,8 +1244,8 @@ const initialDB = (): DatabaseState => {
   ];
 
   const restaurantGuestInvites: RestaurantGuestInvite[] = [
-    { id: 'invite-mame-t12', orderId: 'REST-CLIENT-204', fullName: 'Mame Diop', phone: '+221 77 600 20 10', status: 'joined', shareAmount: 6500, accessCode: 'T12-61', invitedAt: `${today}T20:01:00.000Z` },
-    { id: 'invite-ibra-t12', orderId: 'REST-CLIENT-204', fullName: 'Ibrahima Diop', phone: '+221 76 410 20 30', status: 'invited', shareAmount: 6500, accessCode: 'T12-84', invitedAt: `${today}T20:03:00.000Z` }
+    { id: 'invite-mame-t12', orderId: 'REST-CLIENT-204', fullName: 'Mame Diop', phone: '+221 77 600 20 10', status: 'joined', shareAmount: 6500, accessCode: 'T12-61', linkToken: 'invite-mame-t12-secure', invitedAt: `${today}T20:01:00.000Z`, expiresAt: `${hotelDate(1)}T02:00:00.000Z`, openedAt: `${today}T20:02:00.000Z` },
+    { id: 'invite-ibra-t12', orderId: 'REST-CLIENT-204', fullName: 'Ibrahima Diop', phone: '+221 76 410 20 30', status: 'invited', shareAmount: 6500, accessCode: 'T12-84', linkToken: 'invite-ibra-t12-secure', invitedAt: `${today}T20:03:00.000Z`, expiresAt: `${hotelDate(1)}T02:00:00.000Z` }
   ];
 
   const sartalLoyaltyTransactions: SartalLoyaltyTransaction[] = [
@@ -2467,9 +2467,13 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     sartalServiceRequests: state.sartalServiceRequests || [
       { id: 'service-water-t12', customerId: 'customer-aminata', context: 'restaurant', referenceId: 'REST-CLIENT-204', type: 'water', label: 'Carafe d’eau à table', status: 'accepted', priority: 'normal', assignedTo: 'Moussa · Salle', requestedAt: new Date().toISOString(), promisedAt: new Date(Date.now() + 5 * 60000).toISOString() }
     ],
-    restaurantGuestInvites: state.restaurantGuestInvites || [
+    restaurantGuestInvites: (state.restaurantGuestInvites || [
       { id: 'invite-mame-t12', orderId: 'REST-CLIENT-204', fullName: 'Mame Diop', phone: '+221 77 600 20 10', status: 'joined', shareAmount: 6500, accessCode: 'T12-61', invitedAt: new Date().toISOString() }
-    ],
+    ]).map(invite => ({
+      ...invite,
+      linkToken: invite.linkToken || `invite-${invite.id}-secure`,
+      expiresAt: invite.expiresAt || new Date(Date.now() + 6 * 3600000).toISOString()
+    })),
     sartalLoyaltyTransactions: state.sartalLoyaltyTransactions || [
       { id: 'loyalty-aminata-welcome', customerId: 'customer-aminata', type: 'bonus', points: 150, label: 'Attention Teranga Signature', date: new Date().toISOString() },
       { id: 'loyalty-awa-delivery', customerId: 'customer-awa', type: 'earned', points: 90, label: 'Commande épicerie', referenceId: 'CMD-1024', date: new Date().toISOString() }

@@ -99,6 +99,7 @@ type PMSConfigRecord =
 
 const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 const createRuntimeId = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+const normalizePhoneIdentity = (value?: string) => (value || '').replace(/\D/g, '').slice(-9);
 const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
 const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
 
@@ -3110,6 +3111,7 @@ export const useStockState = () => {
   const placeRestaurantGuestOrder = (payload: {
     customerId: string;
     posId: string;
+    operationId?: string;
     reservationId?: string;
     tableNumber?: string;
     folioId?: string;
@@ -3122,6 +3124,8 @@ export const useStockState = () => {
     const customer = snapshot.sartalCustomers.find(item => item.id === payload.customerId);
     const pos = snapshot.posList.find(item => item.id === payload.posId && item.type === 'restaurant');
     if (!customer || !pos || payload.items.length === 0) throw new Error('Commande restaurant invalide');
+    const existingOrder = payload.operationId ? snapshot.restaurantGuestOrders.find(item => item.operationId === payload.operationId && item.customerId === payload.customerId && item.posId === payload.posId) : undefined;
+    if (existingOrder) return existingOrder.id;
     const now = new Date().toISOString();
     const items = payload.items.map((item, index) => {
       const price = snapshot.posPricing.find(rule => rule.posId === pos.id && rule.productId === item.productId && rule.isAvailable);
@@ -3132,8 +3136,11 @@ export const useStockState = () => {
     const total = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     if (payload.paymentMethod === 'room_charge') {
       const folio = snapshot.pmsFolios.find(item => item.id === payload.folioId && item.status === 'open');
-      const room = snapshot.pmsRooms.find(item => item.id === folio?.roomId);
-      if (!folio || !room || room.roomNumber !== payload.roomNumber) {
+      const room = snapshot.pmsRooms.find(item => item.id === folio?.roomId && item.status === 'occupied');
+      const guest = snapshot.pmsGuests.find(item => item.id === folio?.guestId);
+      const customerPhone = normalizePhoneIdentity(customer.phone);
+      const guestPhone = normalizePhoneIdentity(guest?.phone);
+      if (!folio || !room || !guest || room.roomNumber !== payload.roomNumber || customerPhone.length < 8 || customerPhone !== guestPhone) {
         throw new Error('Aucun séjour actif ne permet une imputation sur chambre');
       }
     }
@@ -3160,7 +3167,7 @@ export const useStockState = () => {
       sale.paymentBreakdown = deferredPayment ? [] : [{ amount: total, method: payload.paymentMethod, payerName: customer.fullName, paidAt: now }];
     }
     const payments = deferredPayment ? [] : [{ id: createRuntimeId('rest-payment'), amount: total, method: payload.paymentMethod, paidAt: now, payerName: customer.fullName }];
-    newDb.restaurantGuestOrders.unshift({ id, customerId: customer.id, posId: pos.id, reservationId: payload.reservationId, tableNumber: payload.tableNumber, folioId: payload.folioId, roomNumber: payload.roomNumber, serviceType: payload.serviceType, intendedPaymentMethod: payload.paymentMethod, status: 'confirmed', paymentStatus: deferredPayment ? 'pending' : 'paid', loyaltyCreditedAt: deferredPayment ? undefined : now, items, payments, total, grossTotal: total, discountTotal: 0, complimentaryTotal: 0, tipTotal: 0, currentCourse: items[0]?.course || 'drinks', servicePace: customer.restaurantPreferences?.servicePace || 'standard', trainingMode: false, serviceEvents: [{ id: createRuntimeId('REST-EVENT'), type: 'items_sent', label: `${items.length} ligne(s) envoyée(s) en préparation`, actor: customer.fullName, createdAt: now, itemIds: items.map(item => item.id) }], estimatedMinutes: 30, createdAt: now, updatedAt: now });
+    newDb.restaurantGuestOrders.unshift({ id, operationId: payload.operationId, customerId: customer.id, posId: pos.id, reservationId: payload.reservationId, tableNumber: payload.tableNumber, folioId: payload.folioId, roomNumber: payload.roomNumber, serviceType: payload.serviceType, intendedPaymentMethod: payload.paymentMethod, status: 'confirmed', paymentStatus: deferredPayment ? 'pending' : 'paid', loyaltyCreditedAt: deferredPayment ? undefined : now, items, payments, total, grossTotal: total, discountTotal: 0, complimentaryTotal: 0, tipTotal: 0, currentCourse: items[0]?.course || 'drinks', servicePace: customer.restaurantPreferences?.servicePace || 'standard', trainingMode: false, serviceEvents: [{ id: createRuntimeId('REST-EVENT'), type: 'items_sent', label: `${items.length} ligne(s) envoyée(s) en préparation`, actor: customer.fullName, createdAt: now, itemIds: items.map(item => item.id), operationId: payload.operationId }], estimatedMinutes: 30, createdAt: now, updatedAt: now });
     const storedCustomer = newDb.sartalCustomers.find(item => item.id === customer.id);
     if (storedCustomer && !deferredPayment) {
       const earnedPoints = Math.floor(total / 500);
@@ -3215,15 +3222,39 @@ export const useStockState = () => {
     return additionTotal;
   };
 
-  const updateRestaurantGuestOrderItemNote = (orderId: string, customerId: string, productId: string, note: string) => {
+  const updateRestaurantGuestOrderItemNote = (orderId: string, customerId: string, itemId: string, note: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && item.customerId === customerId);
-    const line = order?.items.find(item => item.productId === productId);
+    const line = order?.items.find(item => item.id === itemId) || order?.items.find(item => item.productId === itemId);
     if (!order || !line || !['placed', 'confirmed'].includes(order.status)) throw new Error('La cuisine ne peut plus modifier cette ligne');
     line.note = note.trim();
     order.updatedAt = new Date().toISOString();
     saveDB(newDb);
     refresh();
+  };
+
+  const attachRestaurantOrderFolio = (orderId: string, customerId: string, folioId: string) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && item.customerId === customerId && !['paid', 'cancelled'].includes(item.status));
+    const customer = newDb.sartalCustomers.find(item => item.id === customerId);
+    const folio = newDb.pmsFolios.find(item => item.id === folioId && item.status === 'open');
+    const guest = newDb.pmsGuests.find(item => item.id === folio?.guestId);
+    const room = newDb.pmsRooms.find(item => item.id === folio?.roomId && item.status === 'occupied');
+    const customerPhone = normalizePhoneIdentity(customer?.phone);
+    if (!order || !customer || !folio || !guest || !room || customerPhone.length < 8 || customerPhone !== normalizePhoneIdentity(guest.phone)) {
+      throw new Error('Le séjour actif ne correspond pas au client de cette table');
+    }
+    if (order.folioId && order.folioId !== folio.id) throw new Error('Un autre folio est déjà rattaché à cette addition');
+    order.folioId = folio.id;
+    order.roomNumber = room.roomNumber;
+    order.updatedAt = new Date().toISOString();
+    if (!order.serviceEvents?.some(item => item.type === 'folio_linked' && item.label.includes(room.roomNumber))) {
+      appendRestaurantServiceEvent(order, { type: 'folio_linked', label: `Séjour vérifié · chambre ${room.roomNumber}`, actor: customer.fullName });
+    }
+    appendRestaurantFloorAudit(newDb, order.posId, 'item_updated', `${order.tableNumber || order.id} rattachée à la chambre ${room.roomNumber}`, customer.fullName, { orderId, folioId: folio.id, roomNumber: room.roomNumber });
+    saveDB(newDb);
+    refresh();
+    return room.roomNumber;
   };
 
   const sendRestaurantOrderItems = (orderId: string, itemIds: string[], actor: string, operationId?: string) => {
@@ -3331,7 +3362,7 @@ export const useStockState = () => {
     refresh();
   };
 
-  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio'; operatorId?: string; operationId?: string }) => {
+  const addRestaurantGuestOrderPayment = (orderId: string, amount: number, method: PaymentType, payerName?: string, cashSessionId?: string, allocation?: { seatNumbers?: number[]; itemIds?: string[]; tipAmount?: number; reference?: string; source?: 'cashier' | 'pay_at_table' | 'terminal' | 'folio'; operatorId?: string; operationId?: string; receiptChannel?: 'whatsapp' | 'email' | 'none' }) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
     if (!order || amount <= 0) throw new Error('Paiement invalide');
@@ -3353,6 +3384,13 @@ export const useStockState = () => {
     if (itemIds.some(itemId => !order.items.some(item => item.id === itemId && item.status !== 'voided'))) throw new Error('Une ligne sélectionnée n’appartient pas à cette addition');
     if (itemIds.some(itemId => order.payments.some(payment => payment.itemIds?.includes(itemId)))) throw new Error('Une ligne sélectionnée a déjà été réglée');
     if (seatNumbers.some(seatNumber => order.payments.some(payment => payment.seatNumbers?.includes(seatNumber)))) throw new Error('Un convive sélectionné a déjà réglé sa part');
+    if (itemIds.some(itemId => {
+      const line = order.items.find(item => item.id === itemId);
+      return Boolean(line?.seatNumber && order.payments.some(payment => payment.seatNumbers?.includes(line.seatNumber!)));
+    })) throw new Error('Cette ligne est déjà comprise dans la part réglée de son convive');
+    if (seatNumbers.some(seatNumber => order.items.some(line => line.seatNumber === seatNumber && line.id && order.payments.some(payment => payment.itemIds?.includes(line.id!))))) {
+      throw new Error('Ce convive a déjà réglé un article séparément');
+    }
     const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
     const remainingBeforePayment = Math.max(0, order.total - paid);
     const accepted = Math.min(amount, remainingBeforePayment);
@@ -3367,7 +3405,8 @@ export const useStockState = () => {
     }
     const tipAmount = Math.max(0, allocation?.tipAmount || 0);
     const paidAt = new Date().toISOString();
-    order.payments.push({ id: createRuntimeId('rest-payment'), operationId: allocation?.operationId, amount: accepted, method, paidAt, payerName, cashSessionId, seatNumbers: seatNumbers.length ? seatNumbers : undefined, itemIds: itemIds.length ? itemIds : undefined, tipAmount: tipAmount || undefined, reference: allocation?.reference?.trim() || undefined, source: allocation?.source || (method === 'room_charge' ? 'folio' : cashSessionId ? 'cashier' : 'pay_at_table') });
+    const receiptChannel = allocation?.receiptChannel || 'none';
+    order.payments.push({ id: createRuntimeId('rest-payment'), operationId: allocation?.operationId, amount: accepted, method, paidAt, payerName, cashSessionId, seatNumbers: seatNumbers.length ? seatNumbers : undefined, itemIds: itemIds.length ? itemIds : undefined, tipAmount: tipAmount || undefined, reference: allocation?.reference?.trim() || undefined, source: allocation?.source || (method === 'room_charge' ? 'folio' : cashSessionId ? 'cashier' : 'pay_at_table'), receiptChannel, receiptSentAt: receiptChannel === 'none' ? undefined : paidAt });
     order.tipTotal = (order.tipTotal || 0) + tipAmount;
     const linkedSales = newDb.externalSales.filter(item => item.posId === order.posId && (item.externalSaleId === order.id || item.externalSaleId.startsWith(`${order.id}-ADD-`)));
     const deferredPayment = linkedSales.some(item => item.paymentStatus === 'pending' || item.paymentStatus === 'partial');
@@ -3409,7 +3448,7 @@ export const useStockState = () => {
     appendRestaurantServiceEvent(order, { type: 'payment', label: `${accepted} FCFA réglé${tipAmount ? ` + ${tipAmount} FCFA de pourboire` : ''}`, actor: payerName || 'Client', amount: accepted, operationId: allocation?.operationId });
     order.updatedAt = new Date().toISOString();
     appendRestaurantFloorAudit(newDb, order.posId, 'payment_recorded', `${order.tableNumber || order.id} · ${accepted} FCFA via ${method}`, payerName || newDb.currentUser.name, { orderId, amount: accepted, tipAmount, method });
-    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: operator?.id, actorName: operator?.name || payerName, posId: order.posId, entityId: order.id, operationId: allocation?.operationId, actionType: 'restaurant_payment', summary: `${accepted} FCFA en espèces à rapprocher · ${order.tableNumber || order.id}` });
+    queueRestaurantOfflineAction(newDb, { customerId: order.customerId, actorId: operator?.id, actorName: operator?.name || payerName, posId: order.posId, entityId: order.id, operationId: allocation?.operationId, actionType: 'restaurant_payment', summary: `${accepted} FCFA via ${method} · ${order.tableNumber || order.id}` });
     saveDB(newDb);
     refresh();
     return accepted;
@@ -3726,15 +3765,15 @@ export const useStockState = () => {
     refresh();
   };
 
-  const requestSartalService = (payload: { customerId: string; context: SartalServiceRequest['context']; referenceId?: string; type: SartalServiceRequest['type']; label: string; note?: string; priority?: SartalServiceRequest['priority'] }) => {
+  const requestSartalService = (payload: { customerId: string; context: SartalServiceRequest['context']; referenceId?: string; type: SartalServiceRequest['type']; label: string; note?: string; itemId?: string; requestedAmount?: number; requestedTipAmount?: number; receiptChannel?: 'whatsapp' | 'email' | 'none'; payerName?: string; paymentMethod?: PaymentType; operationId?: string; priority?: SartalServiceRequest['priority'] }) => {
     const newDb = getDB();
     if (!newDb.sartalCustomers.some(item => item.id === payload.customerId)) throw new Error('Client introuvable');
-    const existing = newDb.sartalServiceRequests.find(item => item.customerId === payload.customerId && item.referenceId === payload.referenceId && item.type === payload.type && (payload.type !== 'other' || item.label === payload.label) && ['requested', 'accepted'].includes(item.status));
+    const existing = newDb.sartalServiceRequests.find(item => (payload.operationId ? item.operationId === payload.operationId : item.customerId === payload.customerId && item.referenceId === payload.referenceId && item.type === payload.type && (payload.type !== 'other' || item.label === payload.label)) && ['requested', 'accepted'].includes(item.status));
     if (existing) return existing.id;
     const now = new Date();
     const priority = payload.priority || (payload.type === 'bill' || payload.type === 'reception' ? 'urgent' : 'normal');
     const assignedTo = payload.context === 'restaurant' ? 'Moussa · Salle' : payload.context === 'delivery' ? 'Fatou · Service client' : 'Awa · Réception';
-    const id = `service-${Date.now()}`;
+    const id = createRuntimeId('service');
     newDb.sartalServiceRequests.unshift({ ...payload, id, priority, assignedTo, status: 'requested', requestedAt: now.toISOString(), promisedAt: new Date(now.getTime() + (priority === 'urgent' ? 3 : 5) * 60000).toISOString() });
     if (isOffline()) newDb.sartalOfflineActions.unshift({ id: `offline-${Date.now()}`, customerId: payload.customerId, actionType: 'service_request', summary: payload.label, status: 'queued', createdAt: now.toISOString() });
     saveDB(newDb);
@@ -3746,11 +3785,86 @@ export const useStockState = () => {
     const newDb = getDB();
     const request = newDb.sartalServiceRequests.find(item => item.id === requestId);
     if (!request) throw new Error('Demande client introuvable');
+    if (request.type === 'cash_payment' && status === 'completed') throw new Error('Confirmez les espèces depuis l’encaissement afin de mettre à jour la caisse et l’addition');
     request.status = status;
     if (assignedTo) request.assignedTo = assignedTo;
     if (status === 'completed') request.completedAt = new Date().toISOString();
     saveDB(newDb);
     refresh();
+  };
+
+  const updateCustomerSartalServiceRequest = (requestId: string, customerId: string, patch: { label?: string; note?: string }) => {
+    const newDb = getDB();
+    const request = newDb.sartalServiceRequests.find(item => item.id === requestId && item.customerId === customerId && item.status === 'requested');
+    if (!request) throw new Error('Cette demande est déjà prise en charge et ne peut plus être modifiée');
+    if (patch.label?.trim()) request.label = patch.label.trim();
+    if (patch.note !== undefined) request.note = patch.note.trim();
+    saveDB(newDb);
+    refresh();
+  };
+
+  const cancelCustomerSartalServiceRequest = (requestId: string, customerId: string) => {
+    const newDb = getDB();
+    const request = newDb.sartalServiceRequests.find(item => item.id === requestId && item.customerId === customerId && item.status === 'requested');
+    if (!request) throw new Error('Cette demande est déjà prise en charge et ne peut plus être annulée');
+    request.status = 'cancelled';
+    request.completedAt = new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+  };
+
+  const requestRestaurantCashPayment = (orderId: string, customerId: string, amount: number, payerName: string, operationId: string, tipAmount = 0, receiptChannel: 'whatsapp' | 'email' | 'none' = 'none') => {
+    const snapshot = getDB();
+    const order = snapshot.restaurantGuestOrders.find(item => item.id === orderId && item.customerId === customerId && !['paid', 'cancelled'].includes(item.status));
+    if (!order) throw new Error('Addition introuvable');
+    const remaining = Math.max(0, order.total - order.payments.reduce((sum, payment) => sum + payment.amount, 0));
+    const requestedAmount = Math.min(remaining, Math.max(0, Math.round(amount)));
+    if (requestedAmount <= 0) throw new Error('Indiquez un montant espèces valide');
+    const existing = snapshot.sartalServiceRequests.find(item => item.referenceId === order.id && item.customerId === customerId && item.type === 'cash_payment' && ['requested', 'accepted'].includes(item.status));
+    if (existing) return existing.id;
+    return requestSartalService({
+      customerId,
+      context: 'restaurant',
+      referenceId: order.id,
+      type: 'cash_payment',
+      label: `Encaisser ${requestedAmount} FCFA en espèces${tipAmount ? ` + ${Math.round(tipAmount)} FCFA de pourboire` : ''}`,
+      note: 'Le règlement sera comptabilisé uniquement après confirmation par un collaborateur habilité.',
+      requestedAmount,
+      requestedTipAmount: Math.max(0, Math.round(tipAmount)),
+      receiptChannel,
+      payerName: payerName.trim() || 'Client',
+      paymentMethod: 'cash',
+      operationId,
+      priority: 'urgent'
+    });
+  };
+
+  const confirmRestaurantCashPayment = (requestId: string, operatorId: string, cashSessionId?: string) => {
+    const snapshot = getDB();
+    const request = snapshot.sartalServiceRequests.find(item => item.id === requestId && item.type === 'cash_payment');
+    const order = snapshot.restaurantGuestOrders.find(item => item.id === request?.referenceId);
+    const operator = snapshot.employeeProfiles.find(item => item.id === operatorId && item.active);
+    if (!request || !order || !operator) throw new Error('Demande espèces ou collaborateur introuvable');
+    if (!hasEmployeePermission(operator, 'table_payment')) throw new Error('Votre profil ne permet pas de confirmer cet encaissement');
+    if (request.status === 'cancelled') throw new Error('Cette demande espèces a été annulée par le client');
+    const operationId = `cash-confirm-${request.operationId || request.id}`;
+    const existingPayment = order.payments.find(item => item.operationId === operationId);
+    if (existingPayment) return existingPayment.amount;
+    const cashSession = cashSessionId
+      ? snapshot.cashSessions.find(item => item.id === cashSessionId && item.posId === order.posId && item.status === 'open')
+      : snapshot.cashSessions.find(item => item.posId === order.posId && item.status === 'open');
+    if (!cashSession) throw new Error('Ouvrez la caisse de ce point de vente avant de confirmer les espèces');
+    const accepted = addRestaurantGuestOrderPayment(order.id, request.requestedAmount || 0, 'cash', request.payerName, cashSession.id, { operatorId, operationId, source: operator.role === 'cashier' ? 'cashier' : 'pay_at_table', receiptChannel: request.receiptChannel || 'none', tipAmount: request.requestedTipAmount });
+    const newDb = getDB();
+    const storedRequest = newDb.sartalServiceRequests.find(item => item.id === request.id);
+    if (storedRequest) {
+      storedRequest.status = 'completed';
+      storedRequest.assignedTo = operator.name;
+      storedRequest.completedAt = new Date().toISOString();
+    }
+    saveDB(newDb);
+    refresh();
+    return accepted;
   };
 
   const inviteRestaurantGuest = (orderId: string, payload: { fullName: string; phone: string; shareAmount?: number }) => {
@@ -3762,27 +3876,44 @@ export const useStockState = () => {
     const suggestedShare = Math.ceil(remaining / (newDb.restaurantGuestInvites.filter(item => item.orderId === orderId && item.status !== 'paid').length + 2));
     const shareAmount = Math.min(remaining, Math.max(1, Math.round(payload.shareAmount || suggestedShare)));
     const id = createRuntimeId('invite');
-    newDb.restaurantGuestInvites.push({ id, orderId, fullName: payload.fullName.trim(), phone: payload.phone.trim(), status: 'invited', shareAmount, accessCode: `${order.tableNumber || 'ST'}-${Math.floor(10 + Math.random() * 90)}`, invitedAt: new Date().toISOString() });
+    const now = new Date();
+    newDb.restaurantGuestInvites.push({ id, orderId, fullName: payload.fullName.trim(), phone: payload.phone.trim(), status: 'invited', shareAmount, accessCode: `${order.tableNumber || 'ST'}-${Math.floor(10 + Math.random() * 90)}`, linkToken: createRuntimeId(`invite-${order.tableNumber || 'table'}`), invitedAt: now.toISOString(), expiresAt: new Date(now.getTime() + 6 * 3600000).toISOString() });
     saveDB(newDb);
     refresh();
     return id;
   };
 
-  const payRestaurantGuestShare = (inviteId: string, method: PaymentType) => {
+  const joinRestaurantGuestInvite = (inviteId: string) => {
+    const newDb = getDB();
+    const invite = newDb.restaurantGuestInvites.find(item => item.id === inviteId);
+    if (!invite || (invite.expiresAt && new Date(invite.expiresAt).getTime() <= Date.now())) throw new Error('Ce lien invité a expiré');
+    if (invite.status === 'invited') invite.status = 'joined';
+    invite.openedAt ||= new Date().toISOString();
+    saveDB(newDb);
+    refresh();
+    return invite.id;
+  };
+
+  const payRestaurantGuestShare = (inviteId: string, method: PaymentType, operationId?: string) => {
     const snapshot = getDB();
-    const invite = snapshot.restaurantGuestInvites.find(item => item.id === inviteId && item.status !== 'paid');
+    const invite = snapshot.restaurantGuestInvites.find(item => item.id === inviteId);
     const order = snapshot.restaurantGuestOrders.find(item => item.id === invite?.orderId);
     if (!invite || !order) throw new Error('Part invité introuvable');
+    if (invite.status === 'paid') return invite.paidAmount || 0;
+    if (invite.expiresAt && new Date(invite.expiresAt).getTime() <= Date.now()) throw new Error('Ce lien invité a expiré');
+    if (!['wave', 'orange_money', 'card'].includes(method)) throw new Error('Choisissez un paiement électronique sécurisé');
     const paid = order.payments.reduce((sum, item) => sum + item.amount, 0);
     const amount = Math.min(invite.shareAmount, Math.max(0, order.total - paid));
     if (amount <= 0) throw new Error('Addition déjà soldée');
-    const accepted = addRestaurantGuestOrderPayment(order.id, amount, method, invite.fullName);
+    const paymentOperationId = operationId || invite.paymentOperationId || createRuntimeId(`invite-payment-${invite.id}`);
+    const accepted = addRestaurantGuestOrderPayment(order.id, amount, method, invite.fullName, undefined, { operationId: paymentOperationId, source: 'pay_at_table', receiptChannel: 'whatsapp', reference: invite.id });
     const newDb = getDB();
     const storedInvite = newDb.restaurantGuestInvites.find(item => item.id === invite.id)!;
     const now = new Date().toISOString();
     storedInvite.status = 'paid';
     storedInvite.paidAmount = accepted;
     storedInvite.paymentMethod = method;
+    storedInvite.paymentOperationId = paymentOperationId;
     storedInvite.paidAt = now;
     saveDB(newDb);
     refresh();
@@ -4287,6 +4418,7 @@ export const useStockState = () => {
     placeRestaurantGuestOrder,
     appendRestaurantGuestOrderItems,
     updateRestaurantGuestOrderItemNote,
+    attachRestaurantOrderFolio,
     sendRestaurantOrderItems,
     fireRestaurantOrderCourse,
     updateRestaurantOrderItemStatus,
@@ -4311,7 +4443,12 @@ export const useStockState = () => {
     revokeSartalClientAccess,
     requestSartalService,
     updateSartalServiceRequest,
+    updateCustomerSartalServiceRequest,
+    cancelCustomerSartalServiceRequest,
+    requestRestaurantCashPayment,
+    confirmRestaurantCashPayment,
     inviteRestaurantGuest,
+    joinRestaurantGuestInvite,
     payRestaurantGuestShare,
     redeemSartalPoints,
     resolveSartalCustomerFeedback,

@@ -12,6 +12,85 @@ export interface RestaurantProductAvailability {
   label: string;
 }
 
+export interface RestaurantProductPresentation {
+  description: string;
+  dietaryTags: string[];
+  allergens: string[];
+  preparationMinutes: number;
+  imageUrl: string;
+  imagePosition: string;
+}
+
+const PRODUCT_PRESENTATIONS: Record<string, RestaurantProductPresentation> = {
+  'prod-thieb-signature': {
+    description: 'Riz parfumé, poisson rôti et légumes mijotés, dressés minute.',
+    dietaryTags: ['Signature', 'Poisson'],
+    allergens: ['Poisson'],
+    preparationMinutes: 24,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '63% 78%'
+  },
+  'prod-yassa-poulet': {
+    description: 'Poulet tendre, oignons fondants et citron, servi avec son accompagnement.',
+    dietaryTags: ['Maison', 'Sans arachides'],
+    allergens: [],
+    preparationMinutes: 20,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '22% 65%'
+  },
+  'prod-mafe-boeuf': {
+    description: 'Boeuf mijoté dans une sauce onctueuse aux arachides et légumes.',
+    dietaryTags: ['Mijoté'],
+    allergens: ['Arachides'],
+    preparationMinutes: 22,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '52% 44%'
+  },
+  'prod-thiakry': {
+    description: 'Dessert frais au mil et lait parfumé, préparé dans notre cuisine.',
+    dietaryTags: ['Dessert frais', 'Végétarien'],
+    allergens: ['Lait'],
+    preparationMinutes: 5,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '88% 48%'
+  },
+  'prod-jus-gingembre': {
+    description: 'Gingembre pressé, citron et sucre dosé à la demande.',
+    dietaryTags: ['Local', 'Sans alcool'],
+    allergens: [],
+    preparationMinutes: 3,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '73% 34%'
+  },
+  'prod-jus-bissap': {
+    description: 'Infusion d’hibiscus bien fraîche, délicatement parfumée.',
+    dietaryTags: ['Local', 'Sans alcool'],
+    allergens: [],
+    preparationMinutes: 3,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '30% 32%'
+  },
+  'prod-jus-ditakh': {
+    description: 'Jus de ditakh frais aux notes acidulées, servi très frais.',
+    dietaryTags: ['Local', 'Sans alcool'],
+    allergens: [],
+    preparationMinutes: 3,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: '73% 34%'
+  }
+};
+
+export const getRestaurantProductPresentation = (productId: string, category: string): RestaurantProductPresentation => (
+  PRODUCT_PRESENTATIONS[productId] || {
+    description: category === 'Boissons' ? 'Servi frais et préparé selon votre préférence.' : category === 'Desserts' ? 'Préparé avec soin par notre équipe.' : 'Préparé à la commande avec des produits suivis en cuisine.',
+    dietaryTags: category === 'Boissons' ? ['Sans alcool'] : [],
+    allergens: [],
+    preparationMinutes: category === 'Boissons' ? 3 : category === 'Desserts' ? 6 : 18,
+    imageUrl: './sartal-client-restaurant.jpg',
+    imagePosition: category === 'Boissons' ? '30% 32%' : category === 'Desserts' ? '88% 48%' : '63% 76%'
+  }
+);
+
 const usableStock = (database: DatabaseState, productId: string, warehouseId: string) => {
   const stock = database.stocks.find(item => item.productId === productId && item.warehouseId === warehouseId);
   return Math.max(0, (stock?.quantityAvailable || 0) - (stock?.quantityReserved || 0));

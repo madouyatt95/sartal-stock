@@ -76,6 +76,7 @@ const PMSHotel = lazy(() => import('./views/PMSHotel'));
 const PMSGuestExperiencePortal = lazy(() => import('./views/PMSSignatureExperience').then(module => ({ default: module.PMSGuestExperiencePortal })));
 const PMSPublicBooking = lazy(() => import('./views/PMSPublicBooking'));
 const SartalClient = lazy(() => import('./views/SartalClient'));
+const RestaurantGuestPaymentPortal = lazy(() => import('./views/RestaurantGuestPaymentPortal'));
 const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
 const TeamManagement = lazy(() => import('./views/TeamManagement'));
@@ -251,6 +252,14 @@ export const App: React.FC = () => {
   }
   const publicClientMode = queryParams.get('client');
   const publicEmployeeMode = queryParams.get('equipe');
+  const restaurantInviteToken = queryParams.get('invite');
+  const restaurantInvite = db.restaurantGuestInvites.find(item => item.linkToken === restaurantInviteToken && (!item.expiresAt || new Date(item.expiresAt).getTime() > Date.now()));
+  if (restaurantInviteToken !== null) {
+    if (restaurantInvite) {
+      return <Suspense fallback={<AppLoading />}><main className="sartal-public-client-app"><RestaurantGuestPaymentPortal state={state} inviteId={restaurantInvite.id} /></main></Suspense>;
+    }
+    return <PublicAccessError eyebrow="ADDITION PARTAGÉE" title="Cette invitation n’est plus disponible" message="Le lien a expiré ou a été remplacé. Demandez simplement une nouvelle invitation à l’hôte de la table." supportPhone={db.sartalBrandSettings.supportPhone} />;
+  }
   const publicAccessToken = queryParams.get('access');
   const publicAccess = db.sartalClientAccess.find(item => item.linkToken === publicAccessToken && item.status === 'active' && new Date(item.expiresAt).getTime() > Date.now());
   if (publicAccessToken !== null) {
