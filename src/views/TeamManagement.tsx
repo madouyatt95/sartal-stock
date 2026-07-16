@@ -52,6 +52,7 @@ const ROLE_LABELS: Record<EmployeeRole, string> = {
 
 const POS_ROLES: EmployeeRole[] = ['waiter', 'cashier', 'kitchen'];
 const WAREHOUSE_ROLES: EmployeeRole[] = ['storekeeper', 'picker', 'dispatcher', 'driver'];
+const HOTEL_ROLES: EmployeeRole[] = ['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance', 'customer_experience'];
 
 const ROLE_COLORS: Record<EmployeeRole, string> = {
   waiter: '#17786c',
@@ -130,7 +131,7 @@ interface TeamManagementProps {
 export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const { db } = state;
   const initialWeekStart = weekStartFor();
-  const [tab, setTab] = useState<TeamTab>(db.currentUser.role === 'pos_manager' ? 'planning' : 'directory');
+  const [tab, setTab] = useState<TeamTab>(['pos_manager', 'pms_manager'].includes(db.currentUser.role) ? 'planning' : 'directory');
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<EmployeeRole | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -147,13 +148,14 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft | null>(null);
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<EmployeeSchedule | null>(null);
   const canEditProfiles = ['admin', 'director'].includes(db.currentUser.role);
-  const canAssign = ['admin', 'director', 'stock_manager', 'pos_manager'].includes(db.currentUser.role);
+  const canAssign = ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager'].includes(db.currentUser.role);
   const canConfigureRights = canEditProfiles;
   const managerPOS = db.currentUser.role === 'pos_manager' ? db.posList.find(item => item.id === db.currentUser.posId) : undefined;
   const managedEmployees = db.employeeProfiles.filter(employee => {
     if (canEditProfiles) return true;
     if (db.currentUser.role === 'pos_manager') return POS_ROLES.includes(employee.role) && employee.posId === managerPOS?.id;
     if (db.currentUser.role === 'stock_manager') return WAREHOUSE_ROLES.includes(employee.role);
+    if (db.currentUser.role === 'pms_manager') return HOTEL_ROLES.includes(employee.role) && (!db.currentUser.siteId || employee.siteId === db.currentUser.siteId);
     return false;
   });
   const visibleShifts = db.employeeShifts.filter(shift => managedEmployees.some(employee => employee.id === shift.employeeId));

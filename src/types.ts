@@ -1548,11 +1548,12 @@ export interface EmployeeApproval {
   decisionNote?: string;
 }
 
-export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'auditor';
+export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'pms_manager' | 'auditor';
 
 export interface User {
   id: string;
   name: string;
   role: UserRole;
+  siteId?: string;
   posId?: string; // For pos_manager, limits access to this POS only
 }

@@ -908,6 +908,7 @@ const initialDB = (): DatabaseState => {
     { id: 'user-stock-mgr', name: 'Responsable Stock', role: 'stock_manager' },
     { id: 'user-keeper', name: 'Magasinier Central', role: 'storekeeper' },
     { id: 'user-pos-mgr', name: 'Responsable Resto', role: 'pos_manager', posId: 'pos-1' },
+    { id: 'user-pms-mgr', name: 'Manager PMS', role: 'pms_manager', siteId: 'site-1' },
     { id: 'user-auditor', name: 'Auditeur Externe', role: 'auditor' }
   ];
 
@@ -2239,6 +2240,10 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       preparationMinutes: routing.preparationMinutes
     };
   });
+  const users = [...(state.users || [])];
+  if (!users.some(user => user.role === 'pms_manager')) {
+    users.push({ id: 'user-pms-mgr', name: 'Manager PMS', role: 'pms_manager', siteId: 'site-1' });
+  }
 
   const cashSessions = (state.cashSessions || []).map(session => ({
     ...session,
@@ -2645,7 +2650,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       allowOverbooking: false,
       overbookingLimit: 0
     },
-    users: state.users || [],
+    users,
     currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
   };
 

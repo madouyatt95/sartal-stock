@@ -103,7 +103,8 @@ const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine ===
 const createRuntimeId = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 const normalizePhoneIdentity = (value?: string) => (value || '').replace(/\D/g, '').slice(-9);
 const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
-const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'dispatcher', 'driver'];
+const HOTEL_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance', 'customer_experience'];
 
 const queueRestaurantOfflineAction = (
   database: DatabaseState,
@@ -225,6 +226,9 @@ const canManageEmployeeSchedule = (database: DatabaseState, employee: EmployeePr
     return Boolean(managerPOS && employee.posId === managerPOS.id && POS_EMPLOYEE_ROLES.includes(employee.role));
   }
   if (database.currentUser.role === 'stock_manager') return WAREHOUSE_EMPLOYEE_ROLES.includes(employee.role);
+  if (database.currentUser.role === 'pms_manager') {
+    return HOTEL_EMPLOYEE_ROLES.includes(employee.role) && (!database.currentUser.siteId || database.currentUser.siteId === employee.siteId);
+  }
   return false;
 };
 
@@ -291,7 +295,7 @@ export const useStockState = () => {
     }
 
     const posRoles: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
-    const warehouseRoles: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+    const warehouseRoles: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'dispatcher', 'driver'];
     const posId = posRoles.includes(payload.role) ? payload.posId : undefined;
     const warehouseId = warehouseRoles.includes(payload.role) ? payload.warehouseId : undefined;
     if (posRoles.includes(payload.role) && !newDb.posList.some(item => item.id === posId && item.siteId === payload.siteId)) {
@@ -381,8 +385,8 @@ export const useStockState = () => {
       throw new Error('Terminez le service ouvert avant de modifier cette affectation');
     }
 
-    const posRoles: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
-    const warehouseRoles: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'driver'];
+    const posRoles = POS_EMPLOYEE_ROLES;
+    const warehouseRoles = WAREHOUSE_EMPLOYEE_ROLES;
     if (posRoles.includes(employee.role)) {
       const target = newDb.posList.find(item => item.id === assignmentId && item.siteId === employee.siteId);
       if (!target) throw new Error('Choisissez un point de vente de cet établissement');

@@ -43,24 +43,24 @@ interface BackofficeAccessRule {
   anyModule?: readonly SartalModule[];
 }
 
-const everyRole: readonly UserRole[] = ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'];
+const everyRole: readonly UserRole[] = ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'];
 
 export const BACKOFFICE_ACCESS_RULES: Record<BackofficeViewId, BackofficeAccessRule> = {
   pulse: { roles: everyRole },
   dashboard: { roles: everyRole },
   'guided-demo': { roles: everyRole },
   'business-problems': { roles: everyRole },
-  client: { roles: ['admin', 'director', 'pos_manager'], anyModule: ['restaurant', 'delivery'] },
-  crm: { roles: ['admin', 'director', 'pos_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
-  employees: { roles: ['admin', 'director', 'stock_manager', 'pos_manager'] },
+  client: { roles: ['admin', 'director', 'pos_manager', 'pms_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
+  crm: { roles: ['admin', 'director', 'pos_manager', 'pms_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
+  employees: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager'] },
   finance: { roles: ['admin', 'director', 'stock_manager', 'auditor'], anyModule: ['restaurant', 'delivery', 'pms'] },
-  answer: { roles: everyRole, module: 'restaurant' },
-  simulation: { roles: everyRole, module: 'restaurant' },
+  answer: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'restaurant' },
+  simulation: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'restaurant' },
   connectors: { roles: ['admin'], module: 'restaurant' },
   'pos-imports': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'restaurant' },
-  pms: { roles: ['admin', 'director', 'pos_manager', 'auditor'], module: 'pms' },
+  pms: { roles: ['admin', 'director', 'pms_manager', 'auditor'], module: 'pms' },
   delivery: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], module: 'delivery' },
-  'stock-control': { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'stock' },
+  'stock-control': { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
   products: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
   pricing: { roles: ['admin', 'director', 'stock_manager', 'pos_manager'], module: 'stock' },
   warehouses: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
@@ -75,8 +75,8 @@ export const BACKOFFICE_ACCESS_RULES: Record<BackofficeViewId, BackofficeAccessR
   'stock-audit': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
   'smart-alerts': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
   'mapping-control': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
-  movements: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'stock' },
-  exports: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'auditor'], module: 'stock' },
+  movements: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
+  exports: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
   settings: { roles: ['admin'] }
 };
 

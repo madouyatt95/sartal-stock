@@ -167,7 +167,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const departuresToday = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
   const dirtyRooms = db.pmsRooms.filter(room => room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'in_progress');
   const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
-  const pmsWorkspaceRole = db.currentUser.role === 'auditor' ? 'night' : db.currentUser.role === 'director' ? 'manager' : 'reception';
+  const pmsWorkspaceRole = db.currentUser.role === 'auditor' ? 'night' : ['director', 'pms_manager'].includes(db.currentUser.role) ? 'manager' : 'reception';
   const pmsWorkspaceRoles = db.currentUser.role === 'admin' ? ['reception', 'manager', 'housekeeping', 'night'] as const : [pmsWorkspaceRole] as const;
 
   const folioTotals = (folioId: string) => {

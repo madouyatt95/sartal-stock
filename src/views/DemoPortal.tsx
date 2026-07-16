@@ -33,6 +33,26 @@ export const DemoPortal: React.FC<DemoPortalProps> = ({ initialUniverseId }) => 
   const queryUniverse = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('univers') : null;
   const [selectedUniverseId, setSelectedUniverseId] = useState(initialUniverseId || queryUniverse || '');
   const selectedUniverse = getDemoUniverse(selectedUniverseId);
+  const perspectiveGroups = selectedUniverse ? [
+    {
+      id: 'pilotage',
+      label: 'Pilotage et responsables',
+      description: 'Direction, managers, finance, stock et contrôle.',
+      perspectives: selectedUniverse.perspectives.filter(item => item.target.type === 'backoffice')
+    },
+    {
+      id: 'operations',
+      label: 'Équipes opérationnelles',
+      description: 'Les postes utilisés chaque jour sur le terrain.',
+      perspectives: selectedUniverse.perspectives.filter(item => item.target.type === 'employee')
+    },
+    {
+      id: 'clients',
+      label: 'Expériences client',
+      description: 'Les interfaces accessibles sans ouvrir le back-office.',
+      perspectives: selectedUniverse.perspectives.filter(item => ['client', 'hotel-client'].includes(item.target.type))
+    }
+  ].filter(group => group.perspectives.length > 0) : [];
 
   const selectUniverse = (universe: DemoUniverse) => {
     setSelectedUniverseId(universe.id);
@@ -114,14 +134,19 @@ export const DemoPortal: React.FC<DemoPortalProps> = ({ initialUniverseId }) => 
             <div><small>{selectedUniverse.eyebrow}</small><strong>{selectedUniverse.label}</strong><p>{selectedUniverse.features.join(' · ')}</p></div>
           </div>
           <header><div><span>{selectedUniverse.perspectives.length} INTERFACES DISPONIBLES</span><h2>Qui souhaitez-vous incarner ?</h2></div><p>Un clic ouvre le poste avec son rôle, ses droits et les modules de l’offre.</p></header>
-          <div className="demo-perspective-grid">
-            {selectedUniverse.perspectives.map(perspective => (
-              <button key={perspective.id} onClick={() => launchPerspective(selectedUniverse, perspective.id)}>
-                <span className="demo-perspective-icon"><CircleUserRound size={22} /></span>
-                <div><strong>{perspective.label}</strong><p>{perspective.description}</p></div>
-                <ArrowRight size={18} />
-              </button>
-            ))}
+          <div className="demo-perspective-groups">
+            {perspectiveGroups.map(group => <section key={group.id} aria-labelledby={`demo-group-${group.id}`}>
+              <header><div><span>{group.perspectives.length}</span><h3 id={`demo-group-${group.id}`}>{group.label}</h3></div><p>{group.description}</p></header>
+              <div className="demo-perspective-grid">
+                {group.perspectives.map(perspective => (
+                  <button key={perspective.id} onClick={() => launchPerspective(selectedUniverse, perspective.id)}>
+                    <span className="demo-perspective-icon"><CircleUserRound size={22} /></span>
+                    <div><strong>{perspective.label}</strong><p>{perspective.description}</p></div>
+                    <ArrowRight size={18} />
+                  </button>
+                ))}
+              </div>
+            </section>)}
           </div>
         </section>
       )}

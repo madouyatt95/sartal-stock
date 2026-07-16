@@ -248,6 +248,24 @@ try {
   assert(getDB().employeeSchedules.filter(item => copiedScheduleIds.includes(item.id)).every(item => item.status === 'confirmed'), 'La publication groupée du planning ne confirme pas les services');
   state.deleteEmployeeSchedule(plannedServiceId, 'user-pos-mgr');
   assert(!getDB().employeeSchedules.some(item => item.id === plannedServiceId), 'Le manager restaurant ne peut pas retirer un service futur');
+  const receptionist = getDB().employeeProfiles.find(item => item.role === 'receptionist');
+  state.changeCurrentUser('user-pms-mgr');
+  const pmsServiceId = state.saveEmployeeSchedule({ employeeId: receptionist.id, siteId: receptionist.siteId, date: planningDateKey, startTime: '08:00', endTime: '16:00', assignmentLabel: 'Hôtel / PMS · Réception', status: 'confirmed' }, 'user-pms-mgr');
+  assert(getDB().employeeSchedules.some(item => item.id === pmsServiceId), 'Le manager PMS ne peut pas planifier son équipe hôtel');
+  let pmsRestaurantScheduleBlocked = false;
+  try {
+    state.saveEmployeeSchedule({ employeeId: waiter.id, siteId: waiter.siteId, date: planningDateKey, startTime: '08:00', endTime: '16:00', assignmentLabel: 'Restaurant La Terrasse', status: 'confirmed' }, 'user-pms-mgr');
+  } catch {
+    pmsRestaurantScheduleBlocked = true;
+  }
+  assert(pmsRestaurantScheduleBlocked, 'Le manager PMS peut modifier le planning restaurant');
+  state.deleteEmployeeSchedule(pmsServiceId, 'user-pms-mgr');
+  const dispatcher = getDB().employeeProfiles.find(item => item.role === 'dispatcher');
+  state.changeCurrentUser('user-stock-mgr');
+  state.updateEmployeeAssignment(dispatcher.id, dispatcher.warehouseId);
+  const dispatchServiceId = state.saveEmployeeSchedule({ employeeId: dispatcher.id, siteId: dispatcher.siteId, date: planningDateKey, startTime: '07:00', endTime: '15:00', assignmentLabel: 'Dépôt livraison · Dispatch', status: 'confirmed' }, 'user-stock-mgr');
+  assert(getDB().employeeSchedules.some(item => item.id === dispatchServiceId), 'Le responsable stock voit le dispatch mais ne peut pas le planifier');
+  state.deleteEmployeeSchedule(dispatchServiceId, 'user-stock-mgr');
   state.changeCurrentUser('user-admin');
   state.deleteEmployeeProfile(outsideEmployeeId);
   const shiftId = state.startEmployeeShift(waiter.id, waiter.posId, 'Tablette de service');

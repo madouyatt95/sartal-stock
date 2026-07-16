@@ -13527,6 +13527,13 @@ button, input, select, textarea {
 .demo-selected-universe small { color: var(--demo-accent); font-size: 0.64rem; font-weight: 900; }
 .demo-selected-universe strong { font-size: 1.05rem; }
 .demo-selected-universe p { margin: 0; color: #6b7e79; font-size: 0.71rem; }
+.demo-perspective-groups { display: grid; gap: 24px; }
+.demo-perspective-groups > section { display: grid; gap: 11px; }
+.demo-perspective-groups > section > header { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding-bottom: 9px; border-bottom: 1px solid #cadbd7; }
+.demo-perspective-groups > section > header > div { display: flex; align-items: center; gap: 9px; }
+.demo-perspective-groups > section > header span { min-width: 30px; min-height: 30px; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--demo-accent) 12%, white); color: var(--demo-accent); font-size: 0.76rem; font-weight: 900; }
+.demo-perspective-groups > section > header h3 { margin: 0; font-size: 1rem; }
+.demo-perspective-groups > section > header p { margin: 0; color: #677c76; font-size: 0.76rem; text-align: right; }
 .demo-perspective-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
 .demo-perspective-grid > button { min-width: 0; min-height: 118px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 15px; border: 1px solid #ceddd9; border-radius: 7px; background: #fff; color: var(--demo-ink); cursor: pointer; text-align: left; transition: border-color 150ms ease, box-shadow 150ms ease; }
 .demo-perspective-grid > button:hover { border-color: var(--demo-accent); box-shadow: 0 9px 24px rgb(26 64 58 / 0.09); }
@@ -13593,6 +13600,9 @@ button, input, select, textarea {
   .demo-perspective-section > header p { text-align: left; }
   .demo-universe-grid,
   .demo-perspective-grid { grid-template-columns: 1fr; }
+  .demo-perspective-groups { gap: 20px; }
+  .demo-perspective-groups > section > header { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .demo-perspective-groups > section > header p { padding-left: 39px; text-align: left; }
   .demo-universe-card { min-height: 0; padding: 17px; }
   .demo-universe-card > p { min-height: 0; }
   .demo-perspective-grid > button { min-height: 104px; }
