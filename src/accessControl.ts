@@ -1,4 +1,4 @@
-import type { SartalModule, UserRole } from './types';
+import type { SartalModule, User, UserRole } from './types';
 
 export const BACKOFFICE_VIEW_IDS = [
   'pulse',
@@ -43,40 +43,55 @@ interface BackofficeAccessRule {
   anyModule?: readonly SartalModule[];
 }
 
-const everyRole: readonly UserRole[] = ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'];
+export const USER_ROLES: readonly UserRole[] = [
+  'admin',
+  'director',
+  'stock_manager',
+  'storekeeper',
+  'pos_manager',
+  'pms_manager',
+  'purchasing_manager',
+  'finance_manager',
+  'crm_manager',
+  'ecommerce_manager',
+  'night_auditor',
+  'auditor'
+];
+
+const everyRole = USER_ROLES;
 
 export const BACKOFFICE_ACCESS_RULES: Record<BackofficeViewId, BackofficeAccessRule> = {
   pulse: { roles: everyRole },
   dashboard: { roles: everyRole },
   'guided-demo': { roles: everyRole },
   'business-problems': { roles: everyRole },
-  client: { roles: ['admin', 'director', 'pos_manager', 'pms_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
-  crm: { roles: ['admin', 'director', 'pos_manager', 'pms_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
-  employees: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager'] },
-  finance: { roles: ['admin', 'director', 'stock_manager', 'auditor'], anyModule: ['restaurant', 'delivery', 'pms'] },
+  client: { roles: ['admin', 'director', 'pos_manager', 'pms_manager', 'crm_manager', 'ecommerce_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
+  crm: { roles: ['admin', 'director', 'pos_manager', 'pms_manager', 'crm_manager', 'ecommerce_manager'], anyModule: ['restaurant', 'delivery', 'pms'] },
+  employees: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager', 'ecommerce_manager'] },
+  finance: { roles: ['admin', 'director', 'stock_manager', 'finance_manager', 'ecommerce_manager', 'night_auditor', 'auditor'], anyModule: ['restaurant', 'delivery', 'pms'] },
   answer: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'restaurant' },
   simulation: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'auditor'], module: 'restaurant' },
   connectors: { roles: ['admin'], module: 'restaurant' },
   'pos-imports': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'restaurant' },
-  pms: { roles: ['admin', 'director', 'pms_manager', 'auditor'], module: 'pms' },
-  delivery: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'auditor'], module: 'delivery' },
-  'stock-control': { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
-  products: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
-  pricing: { roles: ['admin', 'director', 'stock_manager', 'pos_manager'], module: 'stock' },
-  warehouses: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
-  stocks: { roles: everyRole, module: 'stock' },
-  reorder: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
-  purchases: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
+  pms: { roles: ['admin', 'director', 'pms_manager', 'finance_manager', 'night_auditor', 'auditor'], module: 'pms' },
+  delivery: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'ecommerce_manager', 'auditor'], module: 'delivery' },
+  'stock-control': { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'purchasing_manager', 'finance_manager', 'ecommerce_manager', 'night_auditor', 'auditor'], module: 'stock' },
+  products: { roles: ['admin', 'director', 'stock_manager', 'purchasing_manager', 'ecommerce_manager'], module: 'stock' },
+  pricing: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'ecommerce_manager'], module: 'stock' },
+  warehouses: { roles: ['admin', 'director', 'stock_manager', 'purchasing_manager', 'ecommerce_manager'], module: 'stock' },
+  stocks: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'purchasing_manager', 'finance_manager', 'ecommerce_manager', 'night_auditor', 'auditor'], module: 'stock' },
+  reorder: { roles: ['admin', 'director', 'stock_manager', 'purchasing_manager', 'ecommerce_manager'], module: 'stock' },
+  purchases: { roles: ['admin', 'director', 'stock_manager', 'purchasing_manager'], module: 'stock' },
   receiving: { roles: ['admin', 'storekeeper'], module: 'stock' },
   transfers: { roles: ['admin', 'stock_manager', 'storekeeper'], module: 'stock' },
   inventories: { roles: ['admin', 'stock_manager', 'storekeeper'], module: 'stock' },
   losses: { roles: ['admin', 'stock_manager'], module: 'stock' },
-  suppliers: { roles: ['admin', 'director', 'stock_manager'], module: 'stock' },
-  'stock-audit': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
-  'smart-alerts': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
-  'mapping-control': { roles: ['admin', 'director', 'stock_manager', 'auditor'], module: 'stock' },
-  movements: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
-  exports: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager', 'auditor'], module: 'stock' },
+  suppliers: { roles: ['admin', 'director', 'stock_manager', 'purchasing_manager'], module: 'stock' },
+  'stock-audit': { roles: ['admin', 'director', 'stock_manager', 'finance_manager', 'night_auditor', 'auditor'], module: 'stock' },
+  'smart-alerts': { roles: ['admin', 'director', 'stock_manager', 'ecommerce_manager', 'auditor'], module: 'stock' },
+  'mapping-control': { roles: ['admin', 'director', 'stock_manager', 'finance_manager', 'night_auditor', 'auditor'], module: 'stock' },
+  movements: { roles: ['admin', 'director', 'stock_manager', 'storekeeper', 'pos_manager', 'pms_manager', 'purchasing_manager', 'finance_manager', 'ecommerce_manager', 'night_auditor', 'auditor'], module: 'stock' },
+  exports: { roles: ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager', 'purchasing_manager', 'finance_manager', 'crm_manager', 'ecommerce_manager', 'night_auditor', 'auditor'], module: 'stock' },
   settings: { roles: ['admin'] }
 };
 
@@ -94,5 +109,21 @@ export const canAccessBackofficeView = (
   if (!rule.roles.includes(role)) return false;
   if (rule.module && !enabledModules.includes(rule.module)) return false;
   if (rule.anyModule && !rule.anyModule.some(module => enabledModules.includes(module))) return false;
+  return true;
+};
+
+export const getUserEnabledModules = (user: User, enabledModules: readonly SartalModule[]) => {
+  const scopedModules = user.scope?.modules?.length ? user.scope.modules : enabledModules;
+  return enabledModules.filter(module => scopedModules.includes(module));
+};
+
+export const canUserAccessBackofficeView = (
+  user: User,
+  enabledModules: readonly SartalModule[],
+  view: string
+) => {
+  if (user.status === 'suspended' || user.status === 'invited') return false;
+  if (!canAccessBackofficeView(user.role, getUserEnabledModules(user, enabledModules), view)) return false;
+  if (user.allowedViews && !user.allowedViews.includes(view)) return false;
   return true;
 };

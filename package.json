@@ -10,6 +10,7 @@
     "test:pms": "node scripts/pms-smoke.mjs",
     "test:client": "node scripts/client-smoke.mjs",
     "test:employee": "node scripts/employee-smoke.mjs",
+    "test:access": "node scripts/access-governance-smoke.mjs",
     "test:platform": "node scripts/platform-smoke.mjs",
     "test:demo": "node scripts/demo-portal-smoke.mjs",
     "preview": "vite preview"

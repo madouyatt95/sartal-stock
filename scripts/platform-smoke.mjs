@@ -42,7 +42,7 @@ try {
   ['SÁRTAL PULSE', 'Tous les établissements', 'Comparaison des établissements', 'Priorités maintenant', 'Flux opérationnel', 'Tenir les promesses clients', 'Sécuriser le stock'].forEach(marker => assert(pulseHtml.includes(marker), `Sártal Pulse incomplet : ${marker}`));
 
   const settingsHtml = renderToStaticMarkup(React.createElement(Settings, { state }));
-  ['Préparation du déploiement', 'Canaux reliés aux dépôts', 'Équipes affectées', 'Données de démonstration'].forEach(marker => assert(settingsHtml.includes(marker), `Centre de déploiement incomplet : ${marker}`));
+  ['Préparation des métiers', 'Canaux reliés aux dépôts', 'Équipes affectées', 'Données de démonstration'].forEach(marker => assert(settingsHtml.includes(marker), `Centre de déploiement incomplet : ${marker}`));
   const financeHtml = renderToStaticMarkup(React.createElement(FinanceCenter, { state }));
   ['Chaque encaissement retrouve son opération', 'Répartition des flux de paiement', 'sans double comptage', 'Clôtures caisse', 'File de rapprochement'].forEach(marker => assert(financeHtml.includes(marker), `Centre finance incomplet : ${marker}`));
   const crmHtml = renderToStaticMarkup(React.createElement(CustomerGrowthCenter, { state }));
@@ -51,12 +51,20 @@ try {
   let db = getDB();
   assert(db.sartalBrandSettings.enabledModules.length === 4, 'Modules actifs absents de la configuration');
   assert(db.sartalBrandSettings.siteProfiles.some(item => item.siteId === 'site-1'), 'Identité par établissement absente');
+  let stockFoundationProtected = false;
+  try {
+    state.updateSartalBrandSettings({ enabledModules: ['restaurant'] });
+  } catch {
+    stockFoundationProtected = true;
+  }
+  assert(stockFoundationProtected, 'Le socle Sártal Stock peut être retiré d’une offre métier');
   state.updateSartalBrandSettings({
     enabledModules: ['stock', 'restaurant'],
     siteProfiles: db.sartalBrandSettings.siteProfiles.map(profile => profile.siteId === 'site-1' ? { ...profile, displayName: 'Sártal Dakar Test', welcomeMessage: 'Bienvenue au test.' } : profile)
   });
   db = getDB();
   assert(db.sartalBrandSettings.enabledModules.length === 2 && db.sartalBrandSettings.enabledModules.includes('stock'), 'Activation des modules non conservée');
+  assert(db.sartalBrandSettings.subscriptionFormula === 'restaurant-stock', 'La formule commerciale ne suit pas les modules réellement activés');
   assert(db.sartalBrandSettings.siteProfiles.find(item => item.siteId === 'site-1').displayName === 'Sártal Dakar Test', 'Personnalisation du site non conservée');
 
   const campaignMessagesBefore = db.sartalCustomerMessages.length;

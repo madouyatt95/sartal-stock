@@ -840,6 +840,14 @@ export interface SartalRecoveryPlaybook {
 
 export type SartalModule = 'stock' | 'restaurant' | 'delivery' | 'pms';
 
+export type SartalFormulaId =
+  | 'stock'
+  | 'restaurant-stock'
+  | 'delivery-stock'
+  | 'pms-stock'
+  | 'pms-restaurant-stock'
+  | 'suite-complete';
+
 export interface SartalSiteBrandProfile {
   siteId: string;
   displayName: string;
@@ -861,6 +869,8 @@ export interface SartalBrandSettings {
   supportPhone: string;
   lowBandwidthDefault: boolean;
   enabledModules: SartalModule[];
+  subscriptionFormula?: SartalFormulaId;
+  deploymentCompletedAt?: string;
   siteProfiles: SartalSiteBrandProfile[];
 }
 
@@ -1548,12 +1558,68 @@ export interface EmployeeApproval {
   decisionNote?: string;
 }
 
-export type UserRole = 'admin' | 'director' | 'stock_manager' | 'storekeeper' | 'pos_manager' | 'pms_manager' | 'auditor';
+export type UserRole =
+  | 'admin'
+  | 'director'
+  | 'stock_manager'
+  | 'storekeeper'
+  | 'pos_manager'
+  | 'pms_manager'
+  | 'purchasing_manager'
+  | 'finance_manager'
+  | 'crm_manager'
+  | 'ecommerce_manager'
+  | 'night_auditor'
+  | 'auditor';
+
+export type UserAccessStatus = 'active' | 'invited' | 'suspended';
+
+export interface UserAccessScope {
+  companyId?: string;
+  siteIds: string[];
+  posIds: string[];
+  warehouseIds: string[];
+  modules: SartalModule[];
+}
+
+export interface AccessRoleTemplate {
+  id: string;
+  name: string;
+  description: string;
+  role: UserRole;
+  modules: SartalModule[];
+  viewIds: string[];
+  scopeLevel: 'company' | 'site' | 'operational';
+  protected: boolean;
+  active: boolean;
+}
+
+export interface AccessAuditEvent {
+  id: string;
+  date: string;
+  actorId: string;
+  actorName: string;
+  action: 'invite' | 'user_updated' | 'user_status_updated' | 'rights_updated' | 'assignment_updated' | 'approval_decided' | 'preview_opened' | 'modules_updated' | 'onboarding_completed' | 'profile_updated';
+  targetType: 'user' | 'employee' | 'role_template' | 'subscription' | 'approval';
+  targetId: string;
+  targetLabel: string;
+  detail: string;
+  siteId?: string;
+  severity: 'info' | 'sensitive' | 'critical';
+}
 
 export interface User {
   id: string;
   name: string;
   role: UserRole;
+  email?: string;
+  phone?: string;
+  status?: UserAccessStatus;
+  roleTemplateId?: string;
+  scope?: UserAccessScope;
+  allowedViews?: string[];
+  invitedAt?: string;
+  lastLoginAt?: string;
   siteId?: string;
   posId?: string; // For pos_manager, limits access to this POS only
 }

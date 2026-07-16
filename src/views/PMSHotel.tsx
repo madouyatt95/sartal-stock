@@ -29,7 +29,7 @@ import {
   X
 } from 'lucide-react';
 import { StockState } from '../hooks/useStockState';
-import { PAYMENT_TYPE_LABELS, PaymentType, PMSReservation, PMSReservationStatus, PMSSettings } from '../types';
+import { PAYMENT_TYPE_LABELS, PaymentType, PMSReservation, PMSReservationStatus, PMSSettings, type UserRole } from '../types';
 import { isPMSRoomAvailable } from '../utils/pmsAvailability';
 import {
   PMSAuditTrail,
@@ -75,6 +75,14 @@ interface PMSHotelProps {
 }
 
 export type PMSTab = 'dashboard' | 'planning' | 'reservations' | 'rooms' | 'guests' | 'folios' | 'housekeeping' | 'audit' | 'reports' | 'settings';
+
+const PMS_ROLE_TABS: Partial<Record<UserRole, readonly PMSTab[]>> = {
+  director: ['dashboard', 'planning', 'reservations', 'rooms', 'guests', 'folios', 'housekeeping', 'audit', 'reports'],
+  pms_manager: ['dashboard', 'planning', 'reservations', 'rooms', 'guests', 'folios', 'housekeeping', 'audit', 'reports', 'settings'],
+  finance_manager: ['dashboard', 'reservations', 'folios', 'audit', 'reports'],
+  night_auditor: ['dashboard', 'reservations', 'folios', 'housekeeping', 'audit', 'reports'],
+  auditor: ['dashboard', 'reservations', 'folios', 'housekeeping', 'audit', 'reports']
+};
 
 const formatFCFA = (value: number) => (
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(value).replace('XOF', 'FCFA')
@@ -167,7 +175,7 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   const departuresToday = db.pmsReservations.filter(item => item.departureDate === today && item.status === 'checked_in');
   const dirtyRooms = db.pmsRooms.filter(room => room.housekeepingStatus === 'dirty' || room.housekeepingStatus === 'in_progress');
   const roomTypes = Array.from(new Set(db.pmsRooms.map(room => room.roomType)));
-  const pmsWorkspaceRole = db.currentUser.role === 'auditor' ? 'night' : ['director', 'pms_manager'].includes(db.currentUser.role) ? 'manager' : 'reception';
+  const pmsWorkspaceRole = ['auditor', 'night_auditor'].includes(db.currentUser.role) ? 'night' : ['director', 'pms_manager', 'finance_manager'].includes(db.currentUser.role) ? 'manager' : 'reception';
   const pmsWorkspaceRoles = db.currentUser.role === 'admin' ? ['reception', 'manager', 'housekeeping', 'night'] as const : [pmsWorkspaceRole] as const;
 
   const folioTotals = (folioId: string) => {
@@ -238,7 +246,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
     { id: 'reports', label: 'Rapports', icon: <FileSpreadsheet size={17} /> },
     { id: 'settings', label: 'Réglages', icon: <Settings size={17} /> }
   ];
-  const tabs = allTabs.filter(tab => !allowedTabs || allowedTabs.includes(tab.id));
+  const effectiveAllowedTabs = allowedTabs || PMS_ROLE_TABS[db.currentUser.role];
+  const tabs = allTabs.filter(tab => !effectiveAllowedTabs || effectiveAllowedTabs.includes(tab.id));
   const primaryMobileTabs: PMSTab[] = ['dashboard', 'planning', 'rooms', 'folios'];
   const secondaryMobileTabs = tabs.filter(tab => !primaryMobileTabs.includes(tab.id));
   const canOpenTab = (tab: PMSTab) => tabs.some(item => item.id === tab);
@@ -250,8 +259,8 @@ export const PMSHotel: React.FC<PMSHotelProps> = ({ state, setView, initialTab =
   };
 
   useEffect(() => {
-    if (allowedTabs && !allowedTabs.includes(activeTab) && allowedTabs[0]) setActiveTab(allowedTabs[0]);
-  }, [activeTab, allowedTabs]);
+    if (effectiveAllowedTabs && !effectiveAllowedTabs.includes(activeTab) && effectiveAllowedTabs[0]) setActiveTab(effectiveAllowedTabs[0]);
+  }, [activeTab, effectiveAllowedTabs]);
 
   const openCreateReservation = () => {
     const departure = new Date(`${today}T12:00:00`);

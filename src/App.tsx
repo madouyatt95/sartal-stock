@@ -45,8 +45,9 @@ import {
   Landmark,
   ContactRound
 } from 'lucide-react';
-import { canAccessBackofficeView, type BackofficeViewId } from './accessControl';
+import { canUserAccessBackofficeView, type BackofficeViewId } from './accessControl';
 import { DEMO_ACCESS_POLICIES, getDemoPerspective, getDemoUniverse, type DemoPerspective, type DemoUniverse } from './demoPortalConfig';
+import { USER_ROLE_LABELS, describeUserScope, scopeDatabaseForUser } from './accessGovernance';
 
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const ManagerAnswer = lazy(() => import('./views/ManagerAnswer'));
@@ -130,11 +131,27 @@ const AccessExperienceFrame: React.FC<React.PropsWithChildren> = ({ children }) 
   <div className="access-experience-frame"><AccessExperienceBar />{children}</div>
 );
 
+const leaveAccessPreview = () => {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('pilotage', '1');
+  window.location.assign(url.toString());
+};
+
+const AccessPreviewBar: React.FC<{ userName: string; roleLabel: string; scopeLabel: string }> = ({ userName, roleLabel, scopeLabel }) => (
+  <header className="access-preview-bar">
+    <button type="button" onClick={leaveAccessPreview}><ArrowLeft size={17} /><span>Quitter l’aperçu</span></button>
+    <div><small>APERÇU ISOLÉ · LECTURE SEULE</small><strong>{userName} · {roleLabel}</strong><span>{scopeLabel}</span></div>
+    <b><ShieldCheck size={15} /> Aucun impact sur la session</b>
+  </header>
+);
+
 export const App: React.FC = () => {
   const state = useStockState();
   const rawDb = state.db;
   const queryParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demoMode = queryParams.get('demo');
+  const accessPreviewId = queryParams.get('apercu');
   const pilotageMode = queryParams.get('pilotage');
   const accessCenterOrigin = queryParams.get('origine') === 'connexion';
   const demoUniverse = demoMode !== 'portal' ? getDemoUniverse(demoMode) : undefined;
@@ -142,15 +159,26 @@ export const App: React.FC = () => {
   const demoBackoffice = demoPerspective?.target.type === 'backoffice' ? demoPerspective.target : undefined;
   const demoPolicy = demoBackoffice ? DEMO_ACCESS_POLICIES[demoBackoffice.policy] : undefined;
   const demoRoleUser = demoBackoffice ? rawDb.users.find(user => user.role === demoBackoffice.role) : undefined;
-  const db = demoUniverse ? {
+  const accessPreviewUser = !demoUniverse && ['admin', 'director'].includes(rawDb.currentUser.role)
+    ? rawDb.users.find(user => user.id === accessPreviewId && user.status === 'active' && (rawDb.currentUser.role === 'admin' || user.role !== 'admin'))
+    : undefined;
+  const identityDb = demoUniverse ? {
     ...rawDb,
     currentUser: demoBackoffice
       ? { ...rawDb.currentUser, ...demoRoleUser, name: demoPerspective?.label || demoRoleUser?.name || rawDb.currentUser.name, role: demoBackoffice.role }
       : rawDb.currentUser,
     sartalBrandSettings: { ...rawDb.sartalBrandSettings, enabledModules: demoUniverse.modules }
-  } : rawDb;
-  const experienceState = demoUniverse ? { ...state, db } : state;
-  const [view, setView] = useState<string>(demoBackoffice?.view || 'pulse');
+  } : accessPreviewUser ? { ...rawDb, currentUser: accessPreviewUser } : rawDb;
+  const db = scopeDatabaseForUser(identityDb, identityDb.currentUser);
+  const scopedState = { ...state, db };
+  const experienceState = accessPreviewUser ? new Proxy(scopedState, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (property === 'db' || typeof value !== 'function') return value;
+      return () => window.alert('Mode aperçu en lecture seule : quittez l’aperçu pour effectuer une modification.');
+    }
+  }) : scopedState;
+  const [view, setView] = useState<string>(demoBackoffice?.view || accessPreviewUser?.allowedViews?.[0] || 'pulse');
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [expandedSidebarSections, setExpandedSidebarSections] = useState<Set<string>>(() => new Set());
@@ -303,7 +331,7 @@ export const App: React.FC = () => {
 
     { id: 'crm', label: 'CRM & fidélité', mobileLabel: 'CRM', icon: <ContactRound size={18} />, section: 'Clients' },
 
-    { id: 'employees', label: 'Équipes & affectations', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
+    { id: 'employees', label: ['admin', 'director'].includes(db.currentUser.role) ? 'Organisation & accès' : 'Équipes & planning', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
 
     { id: 'answer', label: 'Salle & opérations', mobileLabel: 'Salle', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
     { id: 'simulation', label: 'Simulation multi-POS', mobileLabel: 'Démo', icon: <PlayCircle size={18} />, section: 'Restaurant' },
@@ -338,7 +366,7 @@ export const App: React.FC = () => {
   ];
 
   const allowedLinks = sidebarLinks.filter(link => (
-    canAccessBackofficeView(db.currentUser.role, db.sartalBrandSettings.enabledModules, link.id)
+    canUserAccessBackofficeView(db.currentUser, db.sartalBrandSettings.enabledModules, link.id)
     && (!demoPolicy || demoPolicy.views.includes(link.id))
   ));
   const canOpenView = (candidate: string) => allowedLinks.some(link => link.id === candidate);
@@ -540,8 +568,9 @@ export const App: React.FC = () => {
   return (
     <>
     {demoBackoffice && demoUniverse && demoPerspective && <DemoExperienceBar universe={demoUniverse} perspective={demoPerspective} />}
+    {accessPreviewUser && <AccessPreviewBar userName={accessPreviewUser.name} roleLabel={USER_ROLE_LABELS[accessPreviewUser.role]} scopeLabel={describeUserScope(accessPreviewUser, rawDb).slice(0, 3).join(' · ')} />}
     {accessCenterOrigin && !demoBackoffice && <AccessExperienceBar />}
-    <div className={`app-container ${demoBackoffice ? 'demo-backoffice-app' : ''} ${accessCenterOrigin && !demoBackoffice ? 'access-backoffice-app' : ''}`} style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
+    <div className={`app-container ${demoBackoffice ? 'demo-backoffice-app' : ''} ${accessPreviewUser ? 'access-preview-app' : ''} ${accessCenterOrigin && !demoBackoffice ? 'access-backoffice-app' : ''}`} style={{ '--primary': activeSiteProfile?.primaryColor || db.sartalBrandSettings.primaryColor, '--brand-accent': activeSiteProfile?.accentColor || db.sartalBrandSettings.accentColor } as React.CSSProperties}>
       
       {/* Sidebar Panel */}
       <aside className={`sidebar ${mobileMenuOpen ? 'mobile-open' : ''}`}>
@@ -572,7 +601,7 @@ export const App: React.FC = () => {
           <div>
             <span>Session active</span>
             <strong>{db.currentUser.name}</strong>
-            <small>{db.currentUser.role.replace('_', ' ')}</small>
+            <small>{USER_ROLE_LABELS[db.currentUser.role]}</small>
           </div>
         </div>
 

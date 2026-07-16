@@ -111,6 +111,16 @@ try {
   assert(DEMO_UNIVERSES.find(item => item.id === 'restaurant-stock').perspectives.find(item => item.id === 'manager-restaurant').target.view === 'employees', 'Le manager restaurant doit arriver directement sur le planning de son équipe');
   assert(canAccessBackofficeView('director', ['stock', 'restaurant'], 'finance'), 'La direction restaurant doit accéder au rapprochement financier');
   assert(canAccessBackofficeView('director', ['stock', 'pms'], 'crm'), 'La direction hôtel doit accéder au CRM consenti');
+  assert(canAccessBackofficeView('purchasing_manager', ['stock'], 'purchases'), 'Le responsable achats doit accéder aux commandes fournisseurs');
+  assert(!canAccessBackofficeView('purchasing_manager', ['stock', 'pms'], 'finance'), 'Le responsable achats ne doit pas accéder aux rapprochements financiers');
+  assert(canAccessBackofficeView('finance_manager', ['stock', 'restaurant', 'pms'], 'finance'), 'Le responsable finance doit accéder au rapprochement');
+  assert(!canAccessBackofficeView('finance_manager', ['stock', 'restaurant', 'pms'], 'settings'), 'Le responsable finance ne doit pas accéder aux réglages système');
+  assert(canAccessBackofficeView('crm_manager', ['stock', 'restaurant'], 'crm'), 'Le responsable CRM doit accéder au pilotage client');
+  assert(!canAccessBackofficeView('crm_manager', ['stock', 'restaurant', 'pms'], 'pms'), 'Le responsable CRM ne doit pas exploiter le PMS');
+  assert(canAccessBackofficeView('ecommerce_manager', ['stock', 'delivery'], 'delivery'), 'La direction e-commerce doit accéder aux commandes en ligne');
+  assert(!canAccessBackofficeView('ecommerce_manager', ['stock', 'delivery', 'pms'], 'pms'), 'La direction e-commerce ne doit pas exploiter le PMS');
+  assert(canAccessBackofficeView('night_auditor', ['stock', 'pms'], 'pms'), 'Le contrôleur de nuit doit accéder à la clôture PMS');
+  assert(!canAccessBackofficeView('night_auditor', ['stock', 'pms'], 'settings'), 'Le contrôleur de nuit ne doit pas accéder aux réglages système');
 
   ['stock_direction', 'restaurant_direction', 'delivery_direction', 'hotel_direction', 'complex_direction', 'suite_direction'].forEach(policyId => {
     const policy = DEMO_ACCESS_POLICIES[policyId];
@@ -130,7 +140,7 @@ try {
   ['backoffice', 'employee', 'client', 'hotel-client'].forEach(type => assert(targetTypes.has(type), `Type d’interface non relié : ${type}`));
 
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  ['DemoPortal', "queryParams.get('profil')", "queryParams.get('pilotage')", "pilotageMode !== '1'", 'DemoExperienceFrame', 'demoBackoffice', 'enabledModules: demoUniverse.modules', 'canAccessBackofficeView', 'demoPolicy.views.includes', 'state={experienceState}'].forEach(marker => {
+  ['DemoPortal', "queryParams.get('profil')", "queryParams.get('pilotage')", "queryParams.get('apercu')", "pilotageMode !== '1'", 'DemoExperienceFrame', 'demoBackoffice', 'accessPreviewUser', 'AccessPreviewBar', 'scopeDatabaseForUser', 'enabledModules: demoUniverse.modules', 'canUserAccessBackofficeView', 'demoPolicy.views.includes', 'state={experienceState}'].forEach(marker => {
     assert(appSource.includes(marker), `Routage de démonstration incomplet : ${marker}`);
   });
   assert(appSource.includes('demoRoleUser') && appSource.includes("label: 'Salle & opérations'"), 'Le manager restaurant doit conserver son POS et rejoindre le cockpit de salle');
@@ -155,7 +165,7 @@ try {
     assert(clientSource.includes(marker), `Cloisonnement de l’application client incomplet : ${marker}`);
   });
   const pmsSource = readFileSync(new URL('../src/views/PMSHotel.tsx', import.meta.url), 'utf8');
-  ['allowedTabs', 'canOpenTab', "canOpenTab('settings')", "canAccessView?.('connectors')", 'pmsWorkspaceRoles', "['director', 'pms_manager']"].forEach(marker => {
+  ['allowedTabs', 'canOpenTab', "canOpenTab('settings')", "canAccessView?.('connectors')", 'PMS_ROLE_TABS', 'pmsWorkspaceRoles', "['director', 'pms_manager', 'finance_manager']"].forEach(marker => {
     assert(pmsSource.includes(marker), `Cloisonnement PMS incomplet : ${marker}`);
   });
   const deliverySource = readFileSync(new URL('../src/views/DeliveryDemo.tsx', import.meta.url), 'utf8');

@@ -85,10 +85,13 @@ import {
   EmployeeBreak,
   EmployeeRecognition,
   EmployeeLearningModule,
+  AccessRoleTemplate,
+  AccessAuditEvent,
   User,
   createEmptyPaymentTotals
 } from './types';
 import { inferRestaurantProductRouting } from './utils/restaurantRouting';
+import { FORMULA_OPTIONS, createDefaultAccessRoleTemplates, normalizeUserAccess } from './accessGovernance';
 
 export interface DatabaseState {
   companies: Company[];
@@ -179,6 +182,8 @@ export interface DatabaseState {
   pmsStayCompanions: PMSStayCompanion[];
   pmsGuestFeedback: PMSGuestFeedback[];
   pmsScenarioStep: number;
+  accessRoleTemplates: AccessRoleTemplate[];
+  accessAuditEvents: AccessAuditEvent[];
   users: User[];
   currentUser: User;
 }
@@ -902,14 +907,46 @@ const initialDB = (): DatabaseState => {
     reason: 'Initialisation de stock de départ'
   }));
 
-  const users: User[] = [
-    { id: 'user-admin', name: 'Admin', role: 'admin' },
-    { id: 'user-director', name: 'Directeur Général', role: 'director' },
-    { id: 'user-stock-mgr', name: 'Responsable Stock', role: 'stock_manager' },
-    { id: 'user-keeper', name: 'Magasinier Central', role: 'storekeeper' },
-    { id: 'user-pos-mgr', name: 'Responsable Resto', role: 'pos_manager', posId: 'pos-1' },
-    { id: 'user-pms-mgr', name: 'Manager PMS', role: 'pms_manager', siteId: 'site-1' },
-    { id: 'user-auditor', name: 'Auditeur Externe', role: 'auditor' }
+  const accessRoleTemplates = createDefaultAccessRoleTemplates();
+  const accessScopeContext = {
+    companyId: companies[0]?.id,
+    siteIds: sites.map(site => site.id),
+    posIds: posList.map(pos => pos.id),
+    warehouseIds: warehouses.map(warehouse => warehouse.id),
+    enabledModules: ['stock', 'restaurant', 'delivery', 'pms'] as const
+  };
+  const userSeeds: User[] = [
+    { id: 'user-admin', name: 'Admin Sártal', email: 'admin@sartal.sn', role: 'admin' },
+    { id: 'user-director', name: 'Directeur Général', email: 'direction@sartal.sn', role: 'director' },
+    { id: 'user-stock-mgr', name: 'Responsable Stock', email: 'stock@sartal.sn', role: 'stock_manager', siteId: 'site-1' },
+    { id: 'user-keeper', name: 'Magasinier Central', email: 'magasin@sartal.sn', role: 'storekeeper', siteId: 'site-1' },
+    { id: 'user-pos-mgr', name: 'Responsable Resto', email: 'restaurant@sartal.sn', role: 'pos_manager', siteId: 'site-1', posId: 'pos-1' },
+    { id: 'user-pms-mgr', name: 'Manager PMS', email: 'pms@sartal.sn', role: 'pms_manager', siteId: 'site-1' },
+    { id: 'user-purchasing', name: 'Responsable Achats', email: 'achats@sartal.sn', role: 'purchasing_manager', siteId: 'site-1' },
+    { id: 'user-finance', name: 'Responsable Finance', email: 'finance@sartal.sn', role: 'finance_manager' },
+    { id: 'user-crm', name: 'Responsable CRM', email: 'clients@sartal.sn', role: 'crm_manager' },
+    { id: 'user-ecommerce', name: 'Direction E-commerce', email: 'ecommerce@sartal.sn', role: 'ecommerce_manager', siteId: 'site-1', posId: 'pos-5' },
+    { id: 'user-night', name: 'Contrôleur de Nuit', email: 'nuit@sartal.sn', role: 'night_auditor', siteId: 'site-1' },
+    { id: 'user-auditor', name: 'Auditeur Externe', email: 'audit@sartal.sn', role: 'auditor' }
+  ];
+  const users = userSeeds.map(user => normalizeUserAccess(user, {
+    ...accessScopeContext,
+    preferredSiteId: user.siteId || sites[0]?.id,
+    preferredPosId: user.posId || (user.role === 'ecommerce_manager' ? 'pos-5' : undefined),
+    preferredWarehouseId: user.role === 'storekeeper'
+      ? 'wh-central'
+      : user.role === 'pos_manager'
+        ? posList.find(pos => pos.id === (user.posId || 'pos-1'))?.defaultWarehouseId
+        : user.role === 'ecommerce_manager'
+          ? 'wh-delivery'
+          : user.role === 'pms_manager' || user.role === 'night_auditor'
+            ? 'wh-central'
+            : undefined
+  }, accessRoleTemplates));
+  const accessAuditEvents: AccessAuditEvent[] = [
+    { id: 'access-audit-modules', date: new Date(Date.now() - 3 * 86400000).toISOString(), actorId: 'user-admin', actorName: 'Admin Sártal', action: 'modules_updated', targetType: 'subscription', targetId: 'suite-complete', targetLabel: 'Suite complète Sártal', detail: 'Modules Stock, Restaurant, Vente en ligne et PMS activés.', severity: 'sensitive' },
+    { id: 'access-audit-pms', date: new Date(Date.now() - 2 * 86400000).toISOString(), actorId: 'user-admin', actorName: 'Admin Sártal', action: 'rights_updated', targetType: 'user', targetId: 'user-pms-mgr', targetLabel: 'Manager PMS', detail: 'Modèle Manager PMS appliqué au Complexe Hôtelier Dakar.', siteId: 'site-1', severity: 'sensitive' },
+    { id: 'access-audit-pos', date: new Date(Date.now() - 86400000).toISOString(), actorId: 'user-director', actorName: 'Directeur Général', action: 'assignment_updated', targetType: 'user', targetId: 'user-pos-mgr', targetLabel: 'Responsable Resto', detail: 'Périmètre limité au Restaurant La Terrasse et à son dépôt.', siteId: 'site-1', severity: 'info' }
   ];
 
   const employeeProfiles: EmployeeProfile[] = [
@@ -1316,6 +1353,8 @@ const initialDB = (): DatabaseState => {
     supportPhone: '+221 33 800 00 00',
     lowBandwidthDefault: false,
     enabledModules: ['stock', 'restaurant', 'delivery', 'pms'],
+    subscriptionFormula: 'suite-complete',
+    deploymentCompletedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
     siteProfiles: [{ siteId: 'site-1', displayName: 'Complexe Hôtelier Dakar', primaryColor: '#123f3a', accentColor: '#f2bd4c', supportPhone: '+221 33 800 00 00', welcomeMessage: 'Bienvenue, toutes vos équipes sont reliées.' }]
   };
   const sartalOfflineActions: SartalOfflineAction[] = [
@@ -1709,6 +1748,8 @@ const initialDB = (): DatabaseState => {
     pmsStayCompanions,
     pmsGuestFeedback,
     pmsScenarioStep: 0,
+    accessRoleTemplates,
+    accessAuditEvents,
     users,
     currentUser: users[0] // Admin by default
   };
@@ -2240,10 +2281,58 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       preparationMinutes: routing.preparationMinutes
     };
   });
-  const users = [...(state.users || [])];
-  if (!users.some(user => user.role === 'pms_manager')) {
-    users.push({ id: 'user-pms-mgr', name: 'Manager PMS', role: 'pms_manager', siteId: 'site-1' });
-  }
+  const defaultAccessRoleTemplates = createDefaultAccessRoleTemplates();
+  const accessRoleTemplates = [...(state.accessRoleTemplates || [])];
+  defaultAccessRoleTemplates.forEach(template => {
+    if (!accessRoleTemplates.some(item => item.id === template.id)) accessRoleTemplates.push(template);
+  });
+  const userSeeds = [...(state.users || [])];
+  const requiredUsers: User[] = [
+    { id: 'user-admin', name: 'Admin Sártal', email: 'admin@sartal.sn', role: 'admin' },
+    { id: 'user-director', name: 'Directeur Général', email: 'direction@sartal.sn', role: 'director' },
+    { id: 'user-stock-mgr', name: 'Responsable Stock', email: 'stock@sartal.sn', role: 'stock_manager', siteId: 'site-1' },
+    { id: 'user-keeper', name: 'Magasinier Central', email: 'magasin@sartal.sn', role: 'storekeeper', siteId: 'site-1' },
+    { id: 'user-pos-mgr', name: 'Responsable Resto', email: 'restaurant@sartal.sn', role: 'pos_manager', siteId: 'site-1', posId: 'pos-1' },
+    { id: 'user-pms-mgr', name: 'Manager PMS', email: 'pms@sartal.sn', role: 'pms_manager', siteId: 'site-1' },
+    { id: 'user-purchasing', name: 'Responsable Achats', email: 'achats@sartal.sn', role: 'purchasing_manager', siteId: 'site-1' },
+    { id: 'user-finance', name: 'Responsable Finance', email: 'finance@sartal.sn', role: 'finance_manager' },
+    { id: 'user-crm', name: 'Responsable CRM', email: 'clients@sartal.sn', role: 'crm_manager' },
+    { id: 'user-ecommerce', name: 'Direction E-commerce', email: 'ecommerce@sartal.sn', role: 'ecommerce_manager', siteId: 'site-1', posId: 'pos-5' },
+    { id: 'user-night', name: 'Contrôleur de Nuit', email: 'nuit@sartal.sn', role: 'night_auditor', siteId: 'site-1' },
+    { id: 'user-auditor', name: 'Auditeur Externe', email: 'audit@sartal.sn', role: 'auditor' }
+  ];
+  requiredUsers.forEach(required => {
+    const existing = userSeeds.find(user => user.role === required.role);
+    if (!existing) userSeeds.push(required);
+  });
+  const enabledModules = state.sartalBrandSettings?.enabledModules || ['stock', 'restaurant', 'delivery', 'pms'];
+  const subscriptionFormula = state.sartalBrandSettings?.subscriptionFormula || FORMULA_OPTIONS.find(option => (
+    option.modules.length === enabledModules.length && option.modules.every(module => enabledModules.includes(module))
+  ))?.id || 'suite-complete';
+  const scopeContext = {
+    companyId: state.companies?.[0]?.id,
+    siteIds: (state.sites || []).map(site => site.id),
+    posIds: posList.map(pos => pos.id),
+    warehouseIds: (state.warehouses || []).map(warehouse => warehouse.id),
+    enabledModules
+  };
+  const users = userSeeds.map(user => normalizeUserAccess(user, {
+    ...scopeContext,
+    preferredSiteId: user.siteId || state.sites?.[0]?.id,
+    preferredPosId: user.posId || (user.role === 'ecommerce_manager' ? 'pos-5' : undefined),
+    preferredWarehouseId: user.role === 'storekeeper'
+      ? 'wh-central'
+      : user.role === 'pos_manager'
+        ? posList.find(pos => pos.id === (user.posId || 'pos-1'))?.defaultWarehouseId
+        : user.role === 'ecommerce_manager'
+          ? 'wh-delivery'
+          : user.role === 'pms_manager' || user.role === 'night_auditor'
+            ? 'wh-central'
+            : undefined
+  }, accessRoleTemplates));
+  const accessAuditEvents: AccessAuditEvent[] = state.accessAuditEvents?.length ? state.accessAuditEvents : [
+    { id: 'access-audit-migration', date: new Date().toISOString(), actorId: 'user-admin', actorName: 'Admin Sártal', action: 'rights_updated', targetType: 'subscription', targetId: 'access-migration', targetLabel: 'Organisation & accès', detail: 'Comptes existants normalisés avec modèles de droits et périmètres explicites.', severity: 'sensitive' }
+  ];
 
   const cashSessions = (state.cashSessions || []).map(session => ({
     ...session,
@@ -2556,6 +2645,8 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       lowBandwidthDefault: false,
       ...(state.sartalBrandSettings || {}),
       enabledModules: state.sartalBrandSettings?.enabledModules || ['stock', 'restaurant', 'delivery', 'pms'],
+      subscriptionFormula,
+      deploymentCompletedAt: state.sartalBrandSettings?.deploymentCompletedAt,
       siteProfiles: state.sartalBrandSettings?.siteProfiles || (state.sites || []).map(site => ({ siteId: site.id, displayName: site.name, primaryColor: state.sartalBrandSettings?.primaryColor || '#123f3a', accentColor: state.sartalBrandSettings?.accentColor || '#f2bd4c', supportPhone: state.sartalBrandSettings?.supportPhone || '+221 33 800 00 00', welcomeMessage: 'Bienvenue, toutes vos équipes sont reliées.' }))
     },
     sartalOfflineActions: state.sartalOfflineActions || [],
@@ -2650,8 +2741,10 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
       allowOverbooking: false,
       overbookingLimit: 0
     },
+    accessRoleTemplates,
+    accessAuditEvents,
     users,
-    currentUser: state.currentUser || state.users?.[0] || { id: 'user-admin', name: 'Admin', role: 'admin' }
+    currentUser: users.find(user => user.id === state.currentUser?.id) || users[0] || { id: 'user-admin', name: 'Admin Sártal', role: 'admin' }
   };
 
   return ensureHospitalityDemoData(migratedState);

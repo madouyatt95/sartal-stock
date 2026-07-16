@@ -90,8 +90,8 @@ export const DeliveryDemo: React.FC<DeliveryDemoProps> = ({ state, setView, canA
     cancelDeliveryOrder,
     resetAllData
   } = state;
-  const canManageStockWorkflow = ['admin', 'stock_manager', 'storekeeper'].includes(db.currentUser.role);
-  const canManageDeliveryWorkflow = db.currentUser.role === 'admin';
+  const canManageStockWorkflow = ['admin', 'stock_manager', 'storekeeper', 'ecommerce_manager'].includes(db.currentUser.role);
+  const canManageDeliveryWorkflow = ['admin', 'ecommerce_manager'].includes(db.currentUser.role);
   const canResetDemoData = db.currentUser.role === 'admin';
   const deliveryChannel = db.posList.find(pos => pos.id === 'pos-5') || db.posList.find(pos => pos.type === 'online_grocery');
   const deliveryWarehouse = db.warehouses.find(warehouse => warehouse.id === deliveryChannel?.defaultWarehouseId) || db.warehouses.find(warehouse => warehouse.id === 'wh-delivery');

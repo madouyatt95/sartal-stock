@@ -74,7 +74,9 @@ try {
   const teamSource = readFileSync(new URL('../src/views/TeamManagement.tsx', import.meta.url), 'utf8');
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
-  ['Collaborateurs', 'Affectations', 'Planning de l’équipe', 'Planifier un service', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  ['Collaborateurs', 'Affectations', 'Planning de l’équipe', 'Planifier un service', 'Organisation & accès', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  const accessGovernanceSource = readFileSync(new URL('../src/views/AccessGovernanceCenter.tsx', import.meta.url), 'utf8');
+  ['Comptes & périmètres', 'Modèles & droits', 'Mise en service', 'Scénarios & journal', 'Droits des équipes terrain', 'Vérifier avant l’envoi', 'Journal unifié des accès et décisions'].forEach(marker => assert(accessGovernanceSource.includes(marker), `Gouvernance des accès incomplète : ${marker}`));
   ['team-planning-command', 'team-planning-matrix', 'team-planning-mobile-agenda', 'Couverture des services', 'Poste de pilotage', 'Copier la semaine précédente', 'Publier la semaine', 'team-role-coverage'].forEach(marker => assert(teamSource.includes(marker), `Planning manager incomplet : ${marker}`));
   assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
   ['Arrivées & séjours', 'Nouvelle réservation', 'RÉSERVATION SUR PLACE', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));

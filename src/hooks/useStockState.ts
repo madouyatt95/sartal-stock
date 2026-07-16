@@ -4,6 +4,8 @@ import * as stockEngine from '../services/stockEngine';
 import { getDefaultEmployeePermissions, hasEmployeePermission, normalizeEmployeePermissions } from '../employeePermissions';
 import {
   createEmptyPaymentTotals,
+  AccessAuditEvent,
+  AccessRoleTemplate,
   DeliveryOrder,
   EmployeeApproval,
   EmployeeBreak,
@@ -56,6 +58,7 @@ import {
   RestaurantWaitlistEntry,
   RestaurantTableReservation,
   SartalBrandSettings,
+  SartalFormulaId,
   SartalCustomer,
   SartalCustomerFeedback,
   SartalCustomerMessage,
@@ -65,9 +68,13 @@ import {
   SartalServiceRequest,
   POSType,
   Product,
-  Supplier
+  Supplier,
+  User,
+  UserAccessStatus
 } from '../types';
 import { inferRestaurantProductRouting } from '../utils/restaurantRouting';
+import { BACKOFFICE_VIEW_IDS, canAccessBackofficeView } from '../accessControl';
+import { FORMULA_OPTIONS, createDefaultUserScope } from '../accessGovernance';
 
 type PMSConfigCollection =
   | 'pmsRooms'
@@ -105,6 +112,20 @@ const normalizePhoneIdentity = (value?: string) => (value || '').replace(/\D/g, 
 const POS_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['waiter', 'cashier', 'kitchen'];
 const WAREHOUSE_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['storekeeper', 'picker', 'dispatcher', 'driver'];
 const HOTEL_EMPLOYEE_ROLES: EmployeeProfile['role'][] = ['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance', 'customer_experience'];
+
+const appendAccessAudit = (
+  database: DatabaseState,
+  payload: Omit<AccessAuditEvent, 'id' | 'date' | 'actorId' | 'actorName'>
+) => {
+  database.accessAuditEvents.unshift({
+    id: createRuntimeId('ACCESS-AUDIT'),
+    date: new Date().toISOString(),
+    actorId: database.currentUser.id,
+    actorName: database.currentUser.name,
+    ...payload
+  });
+  database.accessAuditEvents = database.accessAuditEvents.slice(0, 500);
+};
 
 const queueRestaurantOfflineAction = (
   database: DatabaseState,
@@ -225,7 +246,8 @@ const canManageEmployeeSchedule = (database: DatabaseState, employee: EmployeePr
     const managerPOS = database.posList.find(item => item.id === database.currentUser.posId);
     return Boolean(managerPOS && employee.posId === managerPOS.id && POS_EMPLOYEE_ROLES.includes(employee.role));
   }
-  if (database.currentUser.role === 'stock_manager') return WAREHOUSE_EMPLOYEE_ROLES.includes(employee.role);
+  if (database.currentUser.role === 'stock_manager') return WAREHOUSE_EMPLOYEE_ROLES.includes(employee.role) && (!database.currentUser.scope?.warehouseIds.length || Boolean(employee.warehouseId && database.currentUser.scope.warehouseIds.includes(employee.warehouseId)));
+  if (database.currentUser.role === 'ecommerce_manager') return WAREHOUSE_EMPLOYEE_ROLES.includes(employee.role) && Boolean(employee.warehouseId && database.currentUser.scope?.warehouseIds.includes(employee.warehouseId));
   if (database.currentUser.role === 'pms_manager') {
     return HOTEL_EMPLOYEE_ROLES.includes(employee.role) && (!database.currentUser.siteId || database.currentUser.siteId === employee.siteId);
   }
@@ -265,12 +287,148 @@ export const useStockState = () => {
 
   const changeCurrentUser = (userId: string) => {
     const currentDb = getDB();
-    const user = currentDb.users.find(u => u.id === userId);
+    const user = currentDb.users.find(u => u.id === userId && u.status !== 'invited' && u.status !== 'suspended');
     if (user) {
       const newDb = { ...currentDb, currentUser: user };
       saveDB(newDb);
       setDb(newDb);
     }
+  };
+
+  const saveBackofficeUser = (payload: Omit<User, 'id'> & { id?: string }) => {
+    const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) throw new Error('Seule la direction peut gérer les accès back-office');
+    if (newDb.currentUser.role === 'director' && payload.role === 'admin') throw new Error('Seul un administrateur peut attribuer le rôle Administrateur');
+    const name = payload.name.trim();
+    const email = payload.email?.trim().toLowerCase() || '';
+    const template = newDb.accessRoleTemplates.find(item => item.id === payload.roleTemplateId && item.active);
+    if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) throw new Error('Nom et adresse e-mail valide obligatoires');
+    if (!template || template.role !== payload.role) throw new Error('Choisissez un modèle de droits compatible avec le rôle');
+    const id = payload.id?.trim() || createRuntimeId('USER');
+    if (newDb.users.some(item => item.id !== id && item.email?.toLowerCase() === email)) throw new Error('Cette adresse e-mail possède déjà un accès');
+    const scope = payload.scope;
+    if (!scope || !scope.modules.length || !scope.siteIds.length) throw new Error('Sélectionnez au moins un établissement et un module');
+    if (scope.modules.some(module => !newDb.sartalBrandSettings.enabledModules.includes(module))) throw new Error('Le périmètre contient un module non souscrit');
+    if (scope.modules.some(module => !template.modules.includes(module))) throw new Error('Le périmètre dépasse les modules autorisés par le modèle de rôle');
+    if (scope.siteIds.some(siteId => !newDb.sites.some(site => site.id === siteId))) throw new Error('Un établissement du périmètre est introuvable');
+    if (scope.posIds.some(posId => !newDb.posList.some(pos => pos.id === posId && scope.siteIds.includes(pos.siteId)))) throw new Error('Un point de vente est hors du périmètre sélectionné');
+    if (scope.warehouseIds.some(warehouseId => !newDb.warehouses.some(warehouse => warehouse.id === warehouseId && scope.siteIds.includes(warehouse.siteId)))) throw new Error('Un dépôt est hors du périmètre sélectionné');
+    if (payload.role === 'pos_manager' && (!scope.posIds.length || !scope.warehouseIds.length)) throw new Error('Un manager restaurant doit avoir au moins un POS et son dépôt');
+    if (['storekeeper', 'ecommerce_manager'].includes(payload.role) && !scope.warehouseIds.length) throw new Error('Ce rôle opérationnel doit avoir au moins un dépôt');
+    const allowedViews = [...new Set((payload.allowedViews || template.viewIds).filter(view => (
+      BACKOFFICE_VIEW_IDS.includes(view as (typeof BACKOFFICE_VIEW_IDS)[number])
+      && canAccessBackofficeView(payload.role, scope.modules, view)
+    )))];
+    if (!allowedViews.length) throw new Error('Ce profil ne possède aucune interface autorisée');
+    const existing = newDb.users.find(item => item.id === id);
+    const user: User = {
+      ...payload,
+      id,
+      name,
+      email,
+      phone: payload.phone?.trim() || '+221 ',
+      status: payload.status || (existing?.status ?? 'invited'),
+      roleTemplateId: template.id,
+      scope: { ...scope, companyId: scope.companyId || newDb.companies[0]?.id },
+      allowedViews,
+      siteId: scope.siteIds.length === 1 ? scope.siteIds[0] : undefined,
+      posId: scope.posIds.length === 1 ? scope.posIds[0] : undefined,
+      invitedAt: existing?.invitedAt || payload.invitedAt || new Date().toISOString(),
+      lastLoginAt: existing?.lastLoginAt || payload.lastLoginAt
+    };
+    if (existing) Object.assign(existing, user);
+    else newDb.users.unshift(user);
+    appendAccessAudit(newDb, {
+      action: existing ? 'user_updated' : 'invite',
+      targetType: 'user',
+      targetId: id,
+      targetLabel: name,
+      detail: `${template.name} · ${scope.modules.length} module(s) · ${scope.siteIds.length} établissement(s) · ${allowedViews.length} interface(s).`,
+      siteId: scope.siteIds.length === 1 ? scope.siteIds[0] : undefined,
+      severity: 'sensitive'
+    });
+    saveDB(newDb);
+    refresh();
+    return id;
+  };
+
+  const updateBackofficeUserStatus = (userId: string, status: UserAccessStatus) => {
+    const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) throw new Error('Seule la direction peut modifier un accès');
+    const user = newDb.users.find(item => item.id === userId);
+    if (!user) throw new Error('Compte introuvable');
+    if (newDb.currentUser.role === 'director' && user.role === 'admin') throw new Error('Seul un administrateur peut modifier un accès Administrateur');
+    if (user.id === newDb.currentUser.id && status === 'suspended') throw new Error('Vous ne pouvez pas suspendre votre propre accès');
+    if (user.role === 'admin' && status === 'suspended' && newDb.users.filter(item => item.role === 'admin' && item.status !== 'suspended').length <= 1) throw new Error('Conservez au moins un administrateur actif');
+    user.status = status;
+    if (status === 'active') user.lastLoginAt = user.lastLoginAt || new Date().toISOString();
+    appendAccessAudit(newDb, { action: 'user_status_updated', targetType: 'user', targetId: user.id, targetLabel: user.name, detail: `Statut d’accès passé à ${status}.`, siteId: user.siteId, severity: status === 'suspended' ? 'critical' : 'sensitive' });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const saveAccessRoleTemplate = (payload: AccessRoleTemplate) => {
+    const newDb = getDB();
+    if (newDb.currentUser.role !== 'admin') throw new Error('Seul un administrateur peut modifier les modèles de rôles');
+    const name = payload.name.trim();
+    const description = payload.description.trim();
+    const modules = [...new Set(payload.modules)].filter(module => newDb.sartalBrandSettings.enabledModules.includes(module));
+    const viewIds = [...new Set(payload.viewIds)].filter(view => canAccessBackofficeView(payload.role, modules, view));
+    if (!name || !description || !modules.length || !viewIds.length) throw new Error('Nom, description, modules et interfaces autorisées sont obligatoires');
+    const template = newDb.accessRoleTemplates.find(item => item.id === payload.id);
+    if (!template) throw new Error('Modèle de rôle introuvable');
+    if (template.role !== payload.role) throw new Error('Le rôle technique d’un modèle ne peut pas être remplacé');
+    Object.assign(template, { name, description, modules, viewIds, active: payload.active });
+    appendAccessAudit(newDb, { action: 'rights_updated', targetType: 'role_template', targetId: template.id, targetLabel: template.name, detail: `${viewIds.length} interface(s) et ${modules.length} module(s) autorisés.`, severity: 'sensitive' });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const recordAccessPreview = (userId: string) => {
+    const newDb = getDB();
+    if (!['admin', 'director'].includes(newDb.currentUser.role)) throw new Error('Seule la direction peut tester un accès');
+    const user = newDb.users.find(item => item.id === userId && item.status === 'active');
+    if (!user) throw new Error('Le compte doit être actif pour être prévisualisé');
+    if (newDb.currentUser.role === 'director' && user.role === 'admin') throw new Error('Seul un administrateur peut tester un accès Administrateur');
+    appendAccessAudit(newDb, { action: 'preview_opened', targetType: 'user', targetId: user.id, targetLabel: user.name, detail: 'Prévisualisation sécurisée ouverte en lecture seule.', siteId: user.siteId, severity: 'info' });
+    saveDB(newDb);
+    refresh();
+  };
+
+  const completeAccessOnboarding = (payload: { formulaId: SartalFormulaId; siteIds: string[]; adminName: string; adminEmail: string }) => {
+    const newDb = getDB();
+    if (newDb.currentUser.role !== 'admin') throw new Error('Seul un administrateur peut finaliser la mise en service');
+    const formula = FORMULA_OPTIONS.find(item => item.id === payload.formulaId);
+    const sites = newDb.sites.filter(site => payload.siteIds.includes(site.id));
+    if (!formula || !sites.length) throw new Error('Choisissez une formule et au moins un établissement');
+    if (!payload.adminName.trim() || !/^\S+@\S+\.\S+$/.test(payload.adminEmail.trim())) throw new Error('Responsable et adresse e-mail valides obligatoires');
+    const adminTemplate = newDb.accessRoleTemplates.find(item => item.role === 'admin' && item.active);
+    if (!adminTemplate) throw new Error('Modèle Administrateur indisponible');
+    const currentAdmin = newDb.users.find(item => item.id === newDb.currentUser.id);
+    if (!currentAdmin) throw new Error('Compte administrateur introuvable');
+    newDb.sartalBrandSettings.enabledModules = [...formula.modules];
+    newDb.sartalBrandSettings.subscriptionFormula = formula.id;
+    newDb.sartalBrandSettings.deploymentCompletedAt = new Date().toISOString();
+    const scopedPOS = newDb.posList.filter(pos => payload.siteIds.includes(pos.siteId)).map(pos => pos.id);
+    const scopedWarehouses = newDb.warehouses.filter(warehouse => payload.siteIds.includes(warehouse.siteId)).map(warehouse => warehouse.id);
+    Object.assign(currentAdmin, {
+      name: payload.adminName.trim(),
+      email: payload.adminEmail.trim().toLowerCase(),
+      status: 'active' as const,
+      roleTemplateId: adminTemplate.id,
+      scope: createDefaultUserScope('admin', {
+        companyId: newDb.companies[0]?.id,
+        siteIds: payload.siteIds,
+        posIds: scopedPOS,
+        warehouseIds: scopedWarehouses,
+        enabledModules: formula.modules
+      }),
+      allowedViews: adminTemplate.viewIds.filter(view => canAccessBackofficeView('admin', formula.modules, view))
+    });
+    newDb.currentUser = currentAdmin;
+    appendAccessAudit(newDb, { action: 'onboarding_completed', targetType: 'subscription', targetId: formula.id, targetLabel: formula.label, detail: `${formula.modules.length} module(s), ${sites.length} établissement(s) et compte responsable vérifiés.`, severity: 'critical' });
+    saveDB(newDb);
+    refresh();
   };
 
   const saveEmployeeProfile = (payload: Omit<EmployeeProfile, 'id'> & { id?: string }) => {
@@ -337,6 +495,7 @@ export const useStockState = () => {
     };
     if (existing) Object.assign(existing, profile);
     else newDb.employeeProfiles.unshift(profile);
+    appendAccessAudit(newDb, { action: 'profile_updated', targetType: 'employee', targetId: profile.id, targetLabel: profile.name, detail: `${existing ? 'Profil mis à jour' : 'Collaborateur créé'} · ${profile.role} · accès ${profile.active ? 'actif' : 'inactif'}.`, siteId: profile.siteId, severity: 'sensitive' });
     saveDB(newDb);
     refresh();
     return id;
@@ -370,6 +529,7 @@ export const useStockState = () => {
     newDb.employeeLearningModules.forEach(module => {
       module.completedByEmployeeIds = module.completedByEmployeeIds.filter(id => id !== employeeId);
     });
+    appendAccessAudit(newDb, { action: 'profile_updated', targetType: 'employee', targetId: employee.id, targetLabel: employee.name, detail: 'Profil supprimé sans historique opérationnel à conserver.', siteId: employee.siteId, severity: 'critical' });
     saveDB(newDb);
     refresh();
   };
@@ -378,7 +538,7 @@ export const useStockState = () => {
     const newDb = getDB();
     const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
     if (!employee) throw new Error('Collaborateur introuvable');
-    if (!['admin', 'director', 'stock_manager', 'pos_manager'].includes(newDb.currentUser.role)) {
+    if (!['admin', 'director', 'stock_manager', 'pos_manager', 'ecommerce_manager'].includes(newDb.currentUser.role)) {
       throw new Error('Votre rôle ne permet pas de modifier les affectations');
     }
     if (newDb.employeeShifts.some(item => item.employeeId === employeeId && item.status === 'open')) {
@@ -401,11 +561,13 @@ export const useStockState = () => {
       const target = newDb.warehouses.find(item => item.id === assignmentId && item.siteId === employee.siteId);
       if (!target) throw new Error('Choisissez un dépôt de cet établissement');
       if (newDb.currentUser.role === 'pos_manager') throw new Error('Le manager restaurant ne peut pas affecter les équipes stock');
+      if (newDb.currentUser.role === 'ecommerce_manager' && !newDb.currentUser.scope?.warehouseIds.includes(target.id)) throw new Error('Ce dépôt ne relève pas de votre périmètre e-commerce');
       employee.warehouseId = target.id;
       employee.posId = undefined;
     } else {
       throw new Error('Ce métier ne possède pas d’affectation POS ou dépôt');
     }
+    appendAccessAudit(newDb, { action: 'assignment_updated', targetType: 'employee', targetId: employee.id, targetLabel: employee.name, detail: `Affectation opérationnelle mise à jour : ${newDb.posList.find(item => item.id === assignmentId)?.name || newDb.warehouses.find(item => item.id === assignmentId)?.name || assignmentId}.`, siteId: employee.siteId, severity: 'sensitive' });
     saveDB(newDb);
     refresh();
   };
@@ -418,6 +580,7 @@ export const useStockState = () => {
     const employee = newDb.employeeProfiles.find(item => item.id === employeeId);
     if (!employee) throw new Error('Collaborateur introuvable');
     employee.permissions = normalizeEmployeePermissions(permissions || []);
+    appendAccessAudit(newDb, { action: 'rights_updated', targetType: 'employee', targetId: employee.id, targetLabel: employee.name, detail: `${employee.permissions.length} habilitation(s) métier enregistrée(s).`, siteId: employee.siteId, severity: 'sensitive' });
     saveDB(newDb);
     refresh();
   };
@@ -737,6 +900,7 @@ export const useStockState = () => {
     }
     schedule.status = approved ? 'change_approved' : 'change_rejected';
     schedule.managerNote = note.trim() || (approved ? `Validé par ${managerName}` : `Refusé par ${managerName}`);
+    appendAccessAudit(newDb, { action: 'approval_decided', targetType: 'approval', targetId: schedule.id, targetLabel: `Planning de ${scheduledEmployee.name}`, detail: `${approved ? 'Changement validé' : 'Changement refusé'} par ${managerName}.`, siteId: scheduledEmployee.siteId, severity: 'sensitive' });
     saveDB(newDb);
     refresh();
   };
@@ -937,6 +1101,7 @@ export const useStockState = () => {
     approval.decidedAt = new Date().toISOString();
     approval.decidedBy = manager.name;
     approval.decisionNote = note.trim();
+    appendAccessAudit(newDb, { action: 'approval_decided', targetType: 'approval', targetId: approval.id, targetLabel: approval.label, detail: `${decision === 'approved' ? 'Validation accordée' : 'Validation refusée'} par ${manager.name}${approval.amount ? ` · ${approval.amount} FCFA` : ''}.`, severity: approval.type === 'void' ? 'critical' : 'sensitive' });
     saveDB(newDb);
     refresh();
   };
@@ -4346,10 +4511,14 @@ export const useStockState = () => {
 
   const updateSartalBrandSettings = (patch: Partial<SartalBrandSettings>) => {
     const newDb = getDB();
+    const previousModules = [...newDb.sartalBrandSettings.enabledModules];
     const next = { ...newDb.sartalBrandSettings, ...patch };
     const siteProfilesValid = next.siteProfiles.every(profile => profile.displayName.trim() && profile.supportPhone.trim() && /^#[0-9a-f]{6}$/i.test(profile.primaryColor) && /^#[0-9a-f]{6}$/i.test(profile.accentColor));
-    if (!next.establishmentName.trim() || !next.backOfficeName.trim() || !next.staffAppName.trim() || !next.clientAppName.trim() || !next.hotelAppName.trim() || next.enabledModules.length === 0 || !siteProfilesValid || !/^#[0-9a-f]{6}$/i.test(next.primaryColor) || !/^#[0-9a-f]{6}$/i.test(next.accentColor)) throw new Error('Identité visuelle ou modules incomplets');
+    if (!next.establishmentName.trim() || !next.backOfficeName.trim() || !next.staffAppName.trim() || !next.clientAppName.trim() || !next.hotelAppName.trim() || !next.enabledModules.includes('stock') || !siteProfilesValid || !/^#[0-9a-f]{6}$/i.test(next.primaryColor) || !/^#[0-9a-f]{6}$/i.test(next.accentColor)) throw new Error('Identité visuelle ou modules incomplets : Sártal Stock reste le socle obligatoire');
+    const matchingFormula = FORMULA_OPTIONS.find(option => option.modules.length === next.enabledModules.length && option.modules.every(module => next.enabledModules.includes(module)));
+    next.subscriptionFormula = matchingFormula?.id;
     newDb.sartalBrandSettings = next;
+    if (previousModules.join('|') !== next.enabledModules.join('|')) appendAccessAudit(newDb, { action: 'modules_updated', targetType: 'subscription', targetId: next.subscriptionFormula || 'custom', targetLabel: 'Offre Sártal', detail: `Modules actifs : ${next.enabledModules.join(', ')}.`, severity: 'critical' });
     saveDB(newDb);
     refresh();
   };
@@ -4456,6 +4625,11 @@ export const useStockState = () => {
   return {
     db,
     changeCurrentUser,
+    saveBackofficeUser,
+    updateBackofficeUserStatus,
+    saveAccessRoleTemplate,
+    recordAccessPreview,
+    completeAccessOnboarding,
     saveEmployeeProfile,
     deleteEmployeeProfile,
     updateEmployeeAssignment,

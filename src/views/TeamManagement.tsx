@@ -24,10 +24,10 @@ import {
 } from 'lucide-react';
 import type { StockState } from '../hooks/useStockState';
 import type { EmployeeProfile, EmployeeRole, EmployeeSchedule } from '../types';
-import { EMPLOYEE_PERMISSION_DEFINITIONS, getDefaultEmployeePermissions, getEmployeePermissions } from '../employeePermissions';
 import EmployeeWorkspace from './EmployeeWorkspace';
+import AccessGovernanceCenter from './AccessGovernanceCenter';
 
-type TeamTab = 'directory' | 'assignments' | 'planning' | 'permissions' | 'services' | 'preview';
+type TeamTab = 'directory' | 'assignments' | 'planning' | 'access' | 'services' | 'preview';
 
 type ScheduleDraft = Pick<EmployeeSchedule, 'employeeId' | 'siteId' | 'date' | 'startTime' | 'endTime' | 'assignmentLabel'> & {
   id?: string;
@@ -131,7 +131,7 @@ interface TeamManagementProps {
 export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const { db } = state;
   const initialWeekStart = weekStartFor();
-  const [tab, setTab] = useState<TeamTab>(['pos_manager', 'pms_manager'].includes(db.currentUser.role) ? 'planning' : 'directory');
+  const [tab, setTab] = useState<TeamTab>(['pos_manager', 'pms_manager', 'ecommerce_manager'].includes(db.currentUser.role) ? 'planning' : 'directory');
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<EmployeeRole | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -139,8 +139,6 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const [deleteTarget, setDeleteTarget] = useState<EmployeeProfile | null>(null);
   const [formError, setFormError] = useState('');
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
-  const [permissionEmployeeId, setPermissionEmployeeId] = useState(db.employeeProfiles[0]?.id || '');
-  const [permissionDraft, setPermissionDraft] = useState(() => getEmployeePermissions(db.employeeProfiles[0] || { role: 'waiter' }));
   const [planningWeekStart, setPlanningWeekStart] = useState(initialWeekStart);
   const [selectedPlanningDay, setSelectedPlanningDay] = useState(formatDateKey(new Date()));
   const [planningRoleFilter, setPlanningRoleFilter] = useState<EmployeeRole | 'all'>('all');
@@ -148,13 +146,14 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft | null>(null);
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<EmployeeSchedule | null>(null);
   const canEditProfiles = ['admin', 'director'].includes(db.currentUser.role);
-  const canAssign = ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager'].includes(db.currentUser.role);
+  const canAssign = ['admin', 'director', 'stock_manager', 'pos_manager', 'pms_manager', 'ecommerce_manager'].includes(db.currentUser.role);
   const canConfigureRights = canEditProfiles;
   const managerPOS = db.currentUser.role === 'pos_manager' ? db.posList.find(item => item.id === db.currentUser.posId) : undefined;
   const managedEmployees = db.employeeProfiles.filter(employee => {
     if (canEditProfiles) return true;
     if (db.currentUser.role === 'pos_manager') return POS_ROLES.includes(employee.role) && employee.posId === managerPOS?.id;
     if (db.currentUser.role === 'stock_manager') return WAREHOUSE_ROLES.includes(employee.role);
+    if (db.currentUser.role === 'ecommerce_manager') return WAREHOUSE_ROLES.includes(employee.role) && Boolean(employee.warehouseId && db.currentUser.scope?.warehouseIds.includes(employee.warehouseId));
     if (db.currentUser.role === 'pms_manager') return HOTEL_ROLES.includes(employee.role) && (!db.currentUser.siteId || employee.siteId === db.currentUser.siteId);
     return false;
   });
@@ -406,27 +405,11 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
     window.open(url.toString(), '_blank', 'noopener,noreferrer');
   };
 
-  const selectPermissionEmployee = (employeeId: string) => {
-    const employee = db.employeeProfiles.find(item => item.id === employeeId);
-    if (!employee) return;
-    setPermissionEmployeeId(employee.id);
-    setPermissionDraft(getEmployeePermissions(employee));
-  };
-
-  const savePermissions = () => {
-    const employee = db.employeeProfiles.find(item => item.id === permissionEmployeeId);
-    if (!employee) return;
-    execute(() => state.updateEmployeePermissions(employee.id, permissionDraft), `Droits de ${employee.name} enregistrés.`);
-  };
-
-  const selectedPermissionEmployee = db.employeeProfiles.find(item => item.id === permissionEmployeeId) || db.employeeProfiles[0];
-  const permissionGroups = Array.from(new Set(EMPLOYEE_PERMISSION_DEFINITIONS.map(item => item.group)));
-
   const tabs: Array<{ id: TeamTab; label: string; icon: React.ReactNode; count?: number }> = [
     { id: 'directory', label: 'Collaborateurs', icon: <UsersRound size={18} />, count: managedEmployees.length },
     { id: 'assignments', label: 'Affectations', icon: <MapPin size={18} />, count: managedEmployees.filter(item => item.active).length },
     { id: 'planning', label: 'Planning', icon: <CalendarDays size={18} />, count: scheduleRequests.length },
-    ...(canConfigureRights ? [{ id: 'permissions' as const, label: 'Droits & validations', icon: <KeyRound size={18} /> }] : []),
+    ...(canConfigureRights ? [{ id: 'access' as const, label: 'Organisation & accès', icon: <KeyRound size={18} /> }] : []),
     { id: 'services', label: 'Services & passations', icon: <Clock3 size={18} />, count: db.employeeShifts.filter(item => item.status === 'open' && managedEmployees.some(employee => employee.id === item.employeeId)).length },
     ...(canEditProfiles ? [{ id: 'preview' as const, label: 'Aperçu des postes', icon: <Eye size={18} /> }] : [])
   ];
@@ -551,14 +534,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
       </section>
     </section>}
 
-    {tab === 'permissions' && canConfigureRights && selectedPermissionEmployee && <section className="team-panel team-permissions-panel">
-      <header className="team-panel-heading"><div><h2>Droits et validations</h2><p>Le métier fournit une base cohérente. La direction peut ensuite retirer ou ajouter une habilitation nominative.</p></div><b>{permissionDraft.length} droit(s) actif(s)</b></header>
-      <div className="team-permission-layout">
-        <aside><label>Collaborateur<select value={selectedPermissionEmployee.id} onChange={event => selectPermissionEmployee(event.target.value)}>{db.employeeProfiles.filter(item => item.active).map(employee => <option value={employee.id} key={employee.id}>{employee.name} · {ROLE_LABELS[employee.role]}</option>)}</select></label><div className="team-permission-person"><span className="team-avatar">{selectedPermissionEmployee.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{selectedPermissionEmployee.name}</strong><small>{ROLE_LABELS[selectedPermissionEmployee.role]}</small><span>{assignmentFor(selectedPermissionEmployee)}</span></div></div><button onClick={() => setPermissionDraft(getDefaultEmployeePermissions(selectedPermissionEmployee.role))}><RotateCcw size={15} /> Réinitialiser selon le métier</button></aside>
-        <div className="team-permission-groups">{permissionGroups.map(group => <section key={group}><header><strong>{group}</strong><small>{EMPLOYEE_PERMISSION_DEFINITIONS.filter(item => item.group === group && permissionDraft.includes(item.id)).length}/{EMPLOYEE_PERMISSION_DEFINITIONS.filter(item => item.group === group).length} actif(s)</small></header>{EMPLOYEE_PERMISSION_DEFINITIONS.filter(item => item.group === group).map(permission => <label className={permissionDraft.includes(permission.id) ? 'active' : ''} key={permission.id}><input type="checkbox" checked={permissionDraft.includes(permission.id)} onChange={() => setPermissionDraft(current => current.includes(permission.id) ? current.filter(item => item !== permission.id) : [...current, permission.id])} /><span><strong>{permission.label}</strong><small>{permission.description}</small></span></label>)}</section>)}</div>
-      </div>
-      <footer className="team-permission-actions"><span><ShieldCheck size={17} /> Les changements s’appliquent à la prochaine action du collaborateur.</span><button className="btn btn-primary" onClick={savePermissions}><CheckCircle2 size={16} /> Enregistrer les droits</button></footer>
-    </section>}
+    {tab === 'access' && canConfigureRights && <AccessGovernanceCenter state={state} />}
 
     {tab === 'services' && <section className="team-panel">
       <header className="team-panel-heading"><div><h2>Services et passations</h2><p>Suivez les postes ouverts, les appareils utilisés et les consignes transmises entre équipes.</p></div><b>{visibleShifts.length} service(s) tracé(s)</b></header>

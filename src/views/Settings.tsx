@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { BedDouble, Building2, Check, CheckCircle2, ClipboardList, Network, PackageCheck, Palette, RefreshCw, Save, Shield, Smartphone, Truck, UtensilsCrossed } from 'lucide-react';
+import { BedDouble, Building2, Check, CheckCircle2, ClipboardList, Network, PackageCheck, Palette, RefreshCw, Save, Smartphone, Truck, UtensilsCrossed } from 'lucide-react';
 import { SartalModule, SartalSiteBrandProfile } from '../types';
 
 interface SettingsProps {
@@ -34,20 +34,11 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
   const completedDeploymentChecks = deploymentChecks.filter(item => item.complete).length;
   const deploymentScore = Math.round(completedDeploymentChecks / deploymentChecks.length * 100);
   const moduleOptions: Array<{ id: SartalModule; label: string; detail: string; icon: React.ReactNode }> = [
-    { id: 'stock', label: 'Sártal Stock', detail: 'Catalogue, dépôts, achats et contrôle', icon: <PackageCheck size={20} /> },
+    { id: 'stock', label: 'Sártal Stock', detail: 'Socle commun obligatoire : catalogue, dépôts, achats et contrôle', icon: <PackageCheck size={20} /> },
     { id: 'restaurant', label: 'Restaurant', detail: 'POS, salle, cuisine et expérience client', icon: <UtensilsCrossed size={20} /> },
     { id: 'delivery', label: 'Livraison', detail: 'Boutique, préparation et tournée', icon: <Truck size={20} /> },
     { id: 'pms', label: 'Hôtel / PMS', detail: 'Réservations, chambres, folios et séjour', icon: <BedDouble size={20} /> }
   ];
-  const permissionRows = [
-    { role: 'Administrateur', badge: 'Accès complet', className: 'badge-green', detail: 'Paramètres, achats, réceptions, transferts, inventaires, pertes et ventes.' },
-    { role: 'Directeur', badge: 'Pilotage global', className: 'badge-info', detail: 'Rapports, prix, produits, fournisseurs, achats et organisation des dépôts.' },
-    { role: 'Responsable Stock', badge: 'Gestion stock', className: 'badge-blue', detail: "Commandes d'achats, transferts inter-dépôts, inventaires et pertes." },
-    { role: 'Magasinier', badge: 'Saisie logistique', className: 'badge-yellow', detail: 'Réceptions réelles, saisies physiques, inventaires et transferts sortants.' },
-    { role: 'Responsable POS', badge: 'Vue point de vente', className: 'badge-purple', detail: 'Consultation des ventes, tarifs et stocks opérationnels des points de vente.' },
-    { role: 'Auditeur', badge: 'Audit seul', className: 'badge-secondary', detail: 'Consultation en lecture seule du journal des mouvements de stock.' }
-  ];
-
   const handleReset = () => {
     if (window.confirm("Êtes-vous sûr de vouloir réinitialiser la base de données ? Toutes les ventes simulées, commandes et transferts seront perdus.")) {
       resetAllData();
@@ -66,6 +57,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
   };
 
   const toggleModule = (module: SartalModule) => {
+    if (module === 'stock') return;
     setBrand(current => ({ ...current, enabledModules: current.enabledModules.includes(module) ? current.enabledModules.filter(item => item !== module) : [...current.enabledModules, module] }));
   };
 
@@ -82,7 +74,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
       </div>
 
       <section className="card settings-deployment-center">
-        <header><div><ClipboardList size={22} /><span><small>MISE EN SERVICE</small><h2>Préparation du déploiement</h2><p>Une lecture claire des prérequis avant d’ouvrir les accès aux équipes.</p></span></div><strong>{deploymentScore}%<small> prêt</small></strong></header>
+        <header><div><ClipboardList size={22} /><span><small>ÉTAT OPÉRATIONNEL</small><h2>Préparation des métiers</h2><p>Contrôlez les données, les affectations et les référentiels après l’activation des accès.</p></span></div><strong>{deploymentScore}%<small> prêt</small></strong></header>
         <div className="settings-deployment-progress"><i style={{ width: `${deploymentScore}%` }} /></div>
         <div className="settings-deployment-checks">{deploymentChecks.map(item => <article className={item.complete ? 'complete' : 'pending'} key={item.label}>{item.complete ? <CheckCircle2 size={19} /> : <span /> }<div><strong>{item.label}</strong><small>{item.detail}</small></div></article>)}</div>
         <div className="settings-site-readiness">{db.sites.map(site => { const sitePOS = db.posList.filter(pos => pos.siteId === site.id); const siteWarehouses = db.warehouses.filter(warehouse => warehouse.siteId === site.id); const siteEmployees = db.employeeProfiles.filter(employee => employee.siteId === site.id && employee.active); return <article key={site.id}><Building2 size={20} /><div><strong>{brand.siteProfiles.find(profile => profile.siteId === site.id)?.displayName || site.name}</strong><small>{sitePOS.length} canal(aux) · {siteWarehouses.length} dépôt(s) · {siteEmployees.length} collaborateur(s)</small></div><span><Network size={15} /> {sitePOS.every(pos => siteWarehouses.some(warehouse => warehouse.id === pos.defaultWarehouseId)) ? 'Affectations cohérentes' : 'Affectations à vérifier'}</span></article>; })}</div>
@@ -90,7 +82,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
 
       <section className="card sartal-module-settings">
         <header><Building2 size={21} /><div><h2>Offre et modules activés</h2><p>Les utilisateurs ne voient que les activités souscrites par l’établissement.</p></div></header>
-        <div>{moduleOptions.map(module => <button className={brand.enabledModules.includes(module.id) ? 'active' : ''} key={module.id} onClick={() => toggleModule(module.id)}>{module.icon}<span><strong>{module.label}</strong><small>{module.detail}</small></span><i>{brand.enabledModules.includes(module.id) && <Check size={15} />}</i></button>)}</div>
+        <div>{moduleOptions.map(module => <button className={brand.enabledModules.includes(module.id) ? 'active' : ''} key={module.id} disabled={module.id === 'stock'} onClick={() => toggleModule(module.id)}>{module.icon}<span><strong>{module.label}</strong><small>{module.detail}</small></span><i>{brand.enabledModules.includes(module.id) && <Check size={15} />}</i></button>)}</div>
       </section>
 
       <section className="card sartal-brand-settings">
@@ -129,57 +121,10 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
         </div>
       </section>
 
-      <div className="grid-2">
-        
-        {/* Profile Permissions Info */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Shield size={20} color="var(--primary)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Droits par profil back-office</h3>
-          </div>
-          
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Le système restreint ou autorise les opérations en fonction du profil utilisateur sélectionné :
-          </p>
-
-          <div className="desktop-table-only">
-            <table className="custom-table" style={{ fontSize: '0.825rem' }}>
-              <thead>
-                <tr>
-                  <th>Rôle / Profil</th>
-                  <th>Permissions activées</th>
-                </tr>
-              </thead>
-              <tbody>
-                {permissionRows.map(row => (
-                  <tr key={row.role}>
-                    <td style={{ fontWeight: 700 }}>{row.role}</td>
-                    <td><span className={`badge ${row.className}`}>{row.badge}</span> • {row.detail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mobile-card-list no-padding">
-            {permissionRows.map(row => (
-              <div key={row.role} className="mobile-data-card">
-                <div className="mobile-data-header">
-                  <div className="mobile-data-title">{row.role}</div>
-                  <span className={`badge ${row.className}`}>{row.badge}</span>
-                </div>
-                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, fontSize: '0.84rem' }}>{row.detail}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <details className="card settings-demo-data">
-          <summary><RefreshCw size={19} /><span><strong>Données de démonstration</strong><small>Outils réservés à la préparation d’une présentation</small></span></summary>
-          <div><p>Repartir des exemples de départ : catalogue, stocks initiaux, commandes, prix par canal et historiques d’essai.</p><button className="btn btn-danger" onClick={handleReset}><RefreshCw size={18} /> Réinitialiser les exemples</button></div>
-        </details>
-
-      </div>
+      <details className="card settings-demo-data">
+        <summary><RefreshCw size={19} /><span><strong>Données de démonstration</strong><small>Outils réservés à la préparation d’une présentation</small></span></summary>
+        <div><p>Repartir des exemples de départ : catalogue, stocks initiaux, commandes, prix par canal et historiques d’essai.</p><button className="btn btn-danger" onClick={handleReset}><RefreshCw size={18} /> Réinitialiser les exemples</button></div>
+      </details>
 
     </div>
   );
