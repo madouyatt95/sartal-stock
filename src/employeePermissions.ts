@@ -16,6 +16,8 @@ export const EMPLOYEE_PERMISSION_DEFINITIONS: readonly EmployeePermissionDefinit
   { id: 'room_assignment', group: 'Hôtel & PMS', label: 'Attribuer une chambre', description: 'Choisir une chambre et finaliser le check-in.' },
   { id: 'folio_payment', group: 'Hôtel & PMS', label: 'Encaisser un folio', description: 'Enregistrer les règlements liés au séjour.' },
   { id: 'housekeeping_validation', group: 'Hôtel & PMS', label: 'Valider une chambre', description: 'Passer une chambre nettoyée au statut contrôlé.' },
+  { id: 'maintenance_update', group: 'Hôtel & PMS', label: 'Intervenir en maintenance', description: 'Prendre un ticket, documenter l’intervention et déclarer sa résolution.' },
+  { id: 'delivery_dispatch', group: 'Stock', label: 'Piloter les tournées', description: 'Affecter un livreur, lancer une tournée et traiter les incidents de livraison.' },
   { id: 'stock_transfer', group: 'Stock', label: 'Transférer du stock', description: 'Déplacer des produits entre deux dépôts.' },
   { id: 'stock_adjustment', group: 'Stock', label: 'Valider un inventaire', description: 'Enregistrer un comptage et son écart de stock.' },
   { id: 'stock_loss', group: 'Stock', label: 'Déclarer une perte', description: 'Déduire une casse, une perte ou un produit périmé.' },
@@ -29,9 +31,12 @@ const roleDefaults: Record<EmployeeRole, readonly EmployeePermission[]> = {
   kitchen: ['team_messages'],
   receptionist: ['team_messages', 'reservation_create', 'room_assignment', 'folio_payment'],
   housekeeper: ['team_messages'],
+  housekeeping_manager: ['team_messages', 'housekeeping_validation'],
   storekeeper: ['team_messages', 'stock_transfer', 'stock_adjustment', 'stock_loss'],
   picker: ['team_messages'],
+  dispatcher: ['team_messages', 'delivery_dispatch'],
   driver: ['team_messages'],
+  maintenance: ['team_messages', 'maintenance_update'],
   customer_experience: ['team_messages', 'customer_recovery'],
   service_manager: EMPLOYEE_PERMISSION_DEFINITIONS.map(item => item.id)
 };

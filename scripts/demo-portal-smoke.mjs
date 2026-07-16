@@ -36,13 +36,13 @@ try {
   });
 
   assert(DEMO_UNIVERSES.length === 6, 'Le portail doit présenter exactement six offres');
-  assert(DEMO_UNIVERSES.flatMap(universe => universe.perspectives).length === 41, 'Le portail doit relier exactement 41 points de vue');
-  assert(BACKOFFICE_VIEW_IDS.length === 30, 'La matrice doit couvrir les 30 vues du back-office');
+  assert(DEMO_UNIVERSES.flatMap(universe => universe.perspectives).length === 57, 'Le portail doit relier exactement 57 points de vue');
+  assert(BACKOFFICE_VIEW_IDS.length === 32, 'La matrice doit couvrir les 32 vues du back-office');
   const db = getDB();
   const moduleForEmployeeRole = {
     waiter: 'restaurant', cashier: 'restaurant', kitchen: 'restaurant',
-    receptionist: 'pms', housekeeper: 'pms', storekeeper: 'stock',
-    picker: 'delivery', driver: 'delivery'
+    receptionist: 'pms', housekeeper: 'pms', housekeeping_manager: 'pms', maintenance: 'pms', storekeeper: 'stock',
+    picker: 'delivery', dispatcher: 'delivery', driver: 'delivery'
   };
   const usedPolicies = new Set();
   DEMO_UNIVERSES.forEach(universe => {
@@ -76,7 +76,7 @@ try {
         if (requiredModule) assert(universe.modules.includes(requiredModule), `${universe.label} ouvre ${target.role} sans module ${requiredModule}`);
         if (target.role === 'customer_experience') assert(universe.modules.includes('restaurant') || universe.modules.includes('delivery'), `${universe.label} ouvre l’expérience client sans métier client`);
         if (['waiter', 'cashier', 'kitchen'].includes(target.role)) assert(profile.posId && db.posList.some(item => item.id === profile.posId), `${target.role} n’a pas de POS valide`);
-        if (['storekeeper', 'picker', 'driver'].includes(target.role)) assert(profile.warehouseId && db.warehouses.some(item => item.id === profile.warehouseId), `${target.role} n’a pas de dépôt valide`);
+        if (['storekeeper', 'picker', 'dispatcher', 'driver'].includes(target.role)) assert(profile.warehouseId && db.warehouses.some(item => item.id === profile.warehouseId), `${target.role} n’a pas de dépôt valide`);
         assert(profile.siteId && db.sites.some(item => item.id === profile.siteId), `${target.role} n’a pas d’établissement valide`);
       }
       if (target.type === 'client') assert(universe.modules.includes(target.mode), `${universe.label} ouvre le client ${target.mode} sans module actif`);
@@ -92,6 +92,9 @@ try {
   assert(canAccessBackofficeView('pos_manager', ['stock', 'restaurant'], 'employees'), 'Le manager restaurant doit accéder aux affectations de son équipe');
   assert(canAccessBackofficeView('stock_manager', ['stock'], 'employees'), 'Le responsable stock doit accéder aux affectations de son équipe');
   assert(DEMO_ACCESS_POLICIES.restaurant_manager.views.includes('employees'), 'Le parcours manager restaurant doit proposer Gestion des équipes');
+  assert(DEMO_UNIVERSES.find(item => item.id === 'restaurant-stock').perspectives.find(item => item.id === 'manager-restaurant').target.view === 'employees', 'Le manager restaurant doit arriver directement sur le planning de son équipe');
+  assert(canAccessBackofficeView('director', ['stock', 'restaurant'], 'finance'), 'La direction restaurant doit accéder au rapprochement financier');
+  assert(canAccessBackofficeView('director', ['stock', 'pms'], 'crm'), 'La direction hôtel doit accéder au CRM consenti');
 
   ['stock_direction', 'restaurant_direction', 'delivery_direction', 'hotel_direction', 'complex_direction', 'suite_direction'].forEach(policyId => {
     const policy = DEMO_ACCESS_POLICIES[policyId];
@@ -142,7 +145,7 @@ try {
     assert(deliverySource.includes(marker), `Droits du pilotage livraison incomplets : ${marker}`);
   });
 
-  console.log('Portail de démonstration: 6 offres, 41 profils et matrice complète de droits validés.');
+  console.log('Portail de démonstration: 6 offres, 57 profils et matrice complète de droits validés.');
 } finally {
   await server.close();
 }

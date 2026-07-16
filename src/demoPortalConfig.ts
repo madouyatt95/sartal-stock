@@ -17,6 +17,8 @@ export type DemoAccessPolicyId =
   | 'night_audit'
   | 'complex_direction'
   | 'complex_restaurant_manager'
+  | 'finance_manager'
+  | 'crm_manager'
   | 'suite_admin'
   | 'suite_direction';
 
@@ -48,7 +50,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   restaurant_direction: {
     label: 'Pilotage restaurant',
-    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'client', 'crm', 'employees', 'finance', 'answer', 'simulation', 'pos-imports', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports']
   },
   restaurant_manager: {
     label: 'Exploitation du restaurant',
@@ -60,7 +62,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   delivery_direction: {
     label: 'Pilotage de la vente en ligne',
-    views: ['pulse', 'dashboard', 'client', 'employees', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'smart-alerts', 'movements', 'exports']
+    views: ['pulse', 'dashboard', 'client', 'crm', 'employees', 'finance', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'smart-alerts', 'movements', 'exports']
   },
   delivery_stock_manager: {
     label: 'Stock et préparation des commandes',
@@ -68,7 +70,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   hotel_direction: {
     label: 'Pilotage hôtelier',
-    views: ['pulse', 'dashboard', 'employees', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'crm', 'employees', 'finance', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   },
@@ -80,13 +82,21 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   complex_direction: {
     label: 'Pilotage hôtel, restaurant et stock',
-    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'client', 'crm', 'employees', 'finance', 'answer', 'simulation', 'pos-imports', 'pms', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   },
   complex_restaurant_manager: {
     label: 'Exploitation du restaurant',
     views: ['client', 'employees', 'answer', 'simulation', 'pricing', 'stock-control', 'stocks', 'movements', 'exports']
+  },
+  finance_manager: {
+    label: 'Finance, clôtures et rapprochement',
+    views: ['pulse', 'finance', 'stock-audit', 'mapping-control', 'movements', 'exports']
+  },
+  crm_manager: {
+    label: 'CRM, fidélité et qualité client',
+    views: ['pulse', 'client', 'crm', 'exports']
   },
   suite_admin: {
     label: 'Administration complète',
@@ -96,7 +106,7 @@ export const DEMO_ACCESS_POLICIES: Record<DemoAccessPolicyId, DemoAccessPolicy> 
   },
   suite_direction: {
     label: 'Pilotage de la suite',
-    views: ['pulse', 'dashboard', 'client', 'employees', 'answer', 'simulation', 'pos-imports', 'pms', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
+    views: ['pulse', 'dashboard', 'client', 'crm', 'employees', 'finance', 'answer', 'simulation', 'pos-imports', 'pms', 'delivery', 'stock-control', 'products', 'pricing', 'warehouses', 'stocks', 'reorder', 'purchases', 'suppliers', 'stock-audit', 'smart-alerts', 'mapping-control', 'movements', 'exports'],
     pmsTabs: pmsManagementTabs,
     initialPmsTab: 'dashboard'
   }
@@ -154,11 +164,13 @@ export const DEMO_UNIVERSES: DemoUniverse[] = [
     accent: '#b65332',
     perspectives: [
       { id: 'direction', label: 'Direction', description: 'Ventes, expérience client, marge et alertes opérationnelles.', target: { type: 'backoffice', view: 'pulse', role: 'director', policy: 'restaurant_direction' } },
-      { id: 'manager-restaurant', label: 'Manager restaurant', description: 'Points de vente, prix, dépôts et fonctionnement du restaurant.', target: { type: 'backoffice', view: 'answer', role: 'pos_manager', policy: 'restaurant_manager' } },
+      { id: 'manager-restaurant', label: 'Manager restaurant', description: 'Planning d’équipe, couverture des services et salle en direct.', target: { type: 'backoffice', view: 'employees', role: 'pos_manager', policy: 'restaurant_manager' } },
       { id: 'serveur', label: 'Serveur', description: 'Plan de salle, commandes, demandes clients et additions.', target: { type: 'employee', role: 'waiter' } },
       { id: 'caissier', label: 'Caissier', description: 'Ouverture, encaissements, Wave, Orange Money et clôture.', target: { type: 'employee', role: 'cashier' } },
       { id: 'cuisine', label: 'Cuisine', description: 'Tickets KDS, urgences, allergies et ruptures en temps réel.', target: { type: 'employee', role: 'kitchen' } },
       { id: 'responsable-stock', label: 'Responsable stock', description: 'Impact des ventes et recettes sur chaque dépôt.', target: { type: 'backoffice', view: 'stock-control', role: 'stock_manager', policy: 'restaurant_stock_manager' } },
+      { id: 'finance', label: 'Finance & contrôle', description: 'Clôtures caisse, mobile money, écarts et rapprochements.', target: { type: 'backoffice', view: 'finance', role: 'director', policy: 'finance_manager' } },
+      { id: 'crm', label: 'CRM & fidélité', description: 'Profils consentis, fidélité, campagnes et reprises clients.', target: { type: 'backoffice', view: 'crm', role: 'director', policy: 'crm_manager' } },
       { id: 'client-restaurant', label: 'Client restaurant', description: 'Réservation, commande, demandes et fidélité côté client.', target: { type: 'client', mode: 'restaurant' } }
     ]
   },
@@ -173,9 +185,12 @@ export const DEMO_UNIVERSES: DemoUniverse[] = [
     perspectives: [
       { id: 'direction-ecommerce', label: 'Direction e-commerce', description: 'Commandes, service, disponibilité et performance de livraison.', target: { type: 'backoffice', view: 'delivery', role: 'director', policy: 'delivery_direction' } },
       { id: 'responsable-stock', label: 'Responsable stock', description: 'Réservations de stock et disponibilité par dépôt.', target: { type: 'backoffice', view: 'stock-control', role: 'stock_manager', policy: 'delivery_stock_manager' } },
+      { id: 'dispatch', label: 'Responsable dispatch', description: 'Affectation des livreurs, zones, départs et incidents de tournée.', target: { type: 'employee', role: 'dispatcher' } },
       { id: 'preparateur', label: 'Préparateur', description: 'Parcours de picking, contrôle et substitutions.', target: { type: 'employee', role: 'picker' } },
       { id: 'livreur', label: 'Livreur', description: 'Tournée, encaissement, preuve de remise et incidents.', target: { type: 'employee', role: 'driver' } },
       { id: 'service-client', label: 'Service client', description: 'Promesses, retards, insatisfaction et reprise de service.', target: { type: 'employee', role: 'customer_experience' } },
+      { id: 'crm', label: 'CRM & fidélité', description: 'Segments clients, consentements, campagnes et réactivation.', target: { type: 'backoffice', view: 'crm', role: 'director', policy: 'crm_manager' } },
+      { id: 'finance', label: 'Finance livraison', description: 'Encaissements, espèces à récupérer et anomalies de remise.', target: { type: 'backoffice', view: 'finance', role: 'director', policy: 'finance_manager' } },
       { id: 'client-en-ligne', label: 'Client vente en ligne', description: 'Catalogue, panier, créneau, paiement et suivi de commande.', target: { type: 'client', mode: 'delivery' } }
     ]
   },
@@ -190,9 +205,12 @@ export const DEMO_UNIVERSES: DemoUniverse[] = [
     perspectives: [
       { id: 'direction-hotel', label: 'Direction hôtel', description: 'Occupation, revenus, opérations et qualité de service.', target: { type: 'backoffice', view: 'pms', role: 'director', policy: 'hotel_direction' } },
       { id: 'reception', label: 'Réception', description: 'Arrivées, départs, chambres, garanties et folios.', target: { type: 'employee', role: 'receptionist' } },
-      { id: 'gouvernante', label: 'Gouvernante', description: 'Priorités chambres, nettoyage, contrôle et anomalies.', target: { type: 'employee', role: 'housekeeper' } },
+      { id: 'gouvernante', label: 'Gouvernante', description: 'Contrôle qualité, validation des chambres et anomalies.', target: { type: 'employee', role: 'housekeeping_manager' } },
+      { id: 'agent-etage', label: 'Agent d’étage', description: 'Priorités, checklist de nettoyage et transmission au contrôle.', target: { type: 'employee', role: 'housekeeper' } },
+      { id: 'maintenance', label: 'Maintenance', description: 'Tickets techniques, diagnostic, preuves et remise en service.', target: { type: 'employee', role: 'maintenance' } },
       { id: 'magasinier', label: 'Magasinier', description: 'Produits d’accueil, minibar, linge et mouvements de stock.', target: { type: 'employee', role: 'storekeeper' } },
       { id: 'controle-nuit', label: 'Contrôle de nuit', description: 'Clôture, écarts, folios et traçabilité hôtelière.', target: { type: 'backoffice', view: 'pms', role: 'auditor', policy: 'night_audit' } },
+      { id: 'finance', label: 'Finance hôtel', description: 'Folios, paiements, clôtures et rapprochement des consommations.', target: { type: 'backoffice', view: 'finance', role: 'auditor', policy: 'finance_manager' } },
       { id: 'client-hotel', label: 'Client hôtel', description: 'Séjour, chambre, services, demandes et folio personnel.', target: { type: 'hotel-client' } }
     ]
   },
@@ -208,10 +226,12 @@ export const DEMO_UNIVERSES: DemoUniverse[] = [
     perspectives: [
       { id: 'direction', label: 'Direction', description: 'Vue consolidée hôtel, restaurant, clients et stock.', target: { type: 'backoffice', view: 'pulse', role: 'director', policy: 'complex_direction' } },
       { id: 'reception', label: 'Réception', description: 'Séjours, chambres, folios et consommations imputées.', target: { type: 'employee', role: 'receptionist' } },
-      { id: 'manager-restaurant', label: 'Manager restaurant', description: 'POS, tables, prix, dépôts et ventes restaurant.', target: { type: 'backoffice', view: 'answer', role: 'pos_manager', policy: 'complex_restaurant_manager' } },
+      { id: 'manager-restaurant', label: 'Manager restaurant', description: 'Planning d’équipe, couverture des services, tables et ventes.', target: { type: 'backoffice', view: 'employees', role: 'pos_manager', policy: 'complex_restaurant_manager' } },
       { id: 'serveur', label: 'Serveur', description: 'Commande à table et imputation directe sur une chambre.', target: { type: 'employee', role: 'waiter' } },
       { id: 'cuisine', label: 'Cuisine', description: 'Tickets, urgences, allergies et disponibilité des plats.', target: { type: 'employee', role: 'kitchen' } },
-      { id: 'gouvernante', label: 'Gouvernante', description: 'État des chambres, nettoyage et contrôle qualité.', target: { type: 'employee', role: 'housekeeper' } },
+      { id: 'gouvernante', label: 'Gouvernante', description: 'Contrôle qualité et validation des chambres prêtes.', target: { type: 'employee', role: 'housekeeping_manager' } },
+      { id: 'agent-etage', label: 'Agent d’étage', description: 'Nettoyage guidé, anomalies et transmission au contrôle.', target: { type: 'employee', role: 'housekeeper' } },
+      { id: 'maintenance', label: 'Maintenance', description: 'Interventions, coûts, photos et remise en service.', target: { type: 'employee', role: 'maintenance' } },
       { id: 'client-hotel', label: 'Client hôtel', description: 'Séjour et folio incluant les consommations restaurant.', target: { type: 'hotel-client' } },
       { id: 'client-restaurant', label: 'Client restaurant', description: 'Expérience de réservation et de service à table.', target: { type: 'client', mode: 'restaurant' } }
     ]
@@ -225,13 +245,19 @@ export const DEMO_UNIVERSES: DemoUniverse[] = [
     features: ['Tous les modules', 'Toutes les équipes', 'Expérience client', 'Pilotage unifié'],
     accent: '#173f3a',
     perspectives: [
-      { id: 'administration', label: 'Administration', description: 'Configuration, référentiels, droits et opérations de toute la suite.', target: { type: 'backoffice', view: 'dashboard', role: 'admin', policy: 'suite_admin' } },
+      { id: 'administration', label: 'Administration & déploiement', description: 'Modules, établissements, référentiels, droits et préparation du déploiement.', target: { type: 'backoffice', view: 'settings', role: 'admin', policy: 'suite_admin' } },
       { id: 'direction-generale', label: 'Direction générale', description: 'Priorités de l’ensemble des activités dans une vue unique.', target: { type: 'backoffice', view: 'pulse', role: 'director', policy: 'suite_direction' } },
+      { id: 'finance', label: 'Finance & contrôle', description: 'Encaissements, folios, clôtures et rapprochement multi-activité.', target: { type: 'backoffice', view: 'finance', role: 'director', policy: 'finance_manager' } },
+      { id: 'crm', label: 'CRM & fidélité', description: 'Vue client unifiée, consentements, fidélité et campagnes.', target: { type: 'backoffice', view: 'crm', role: 'director', policy: 'crm_manager' } },
       { id: 'manager-service', label: 'Manager de service', description: 'Équipes, validations, retards et arbitrages en temps réel.', target: { type: 'employee', role: 'service_manager' } },
       { id: 'reception', label: 'Réception', description: 'Arrivées, séjours, chambres et folios.', target: { type: 'employee', role: 'receptionist' } },
       { id: 'serveur', label: 'Serveur', description: 'Tables, commandes, service et paiements.', target: { type: 'employee', role: 'waiter' } },
       { id: 'preparateur', label: 'Préparateur', description: 'Commandes en ligne, picking et remise au livreur.', target: { type: 'employee', role: 'picker' } },
+      { id: 'dispatch', label: 'Responsable dispatch', description: 'Livreurs, zones, départs, retards et incidents.', target: { type: 'employee', role: 'dispatcher' } },
       { id: 'livreur', label: 'Livreur', description: 'Tournée, contact client et preuve de livraison.', target: { type: 'employee', role: 'driver' } },
+      { id: 'gouvernante', label: 'Gouvernante', description: 'Qualité des chambres et validation avant remise en vente.', target: { type: 'employee', role: 'housekeeping_manager' } },
+      { id: 'agent-etage', label: 'Agent d’étage', description: 'Planning de chambres et checklist de nettoyage.', target: { type: 'employee', role: 'housekeeper' } },
+      { id: 'maintenance', label: 'Maintenance', description: 'Tickets techniques et preuves d’intervention.', target: { type: 'employee', role: 'maintenance' } },
       { id: 'experience-client', label: 'Expérience client', description: 'Demandes, promesses, avis et reprises de service.', target: { type: 'employee', role: 'customer_experience' } },
       { id: 'client-sartal', label: 'Client Mon Sártal', description: 'Portail client réunissant restaurant et vente en ligne.', target: { type: 'client', mode: 'delivery', initialHub: true } }
     ]

@@ -24,6 +24,9 @@ try {
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
   const { SartalAccessCenter } = await server.ssrLoadModule('/src/views/SartalAccessCenter.tsx');
   const { SartalPulse } = await server.ssrLoadModule('/src/views/SartalPulse.tsx');
+  const { Settings } = await server.ssrLoadModule('/src/views/Settings.tsx');
+  const { FinanceCenter } = await server.ssrLoadModule('/src/views/FinanceCenter.tsx');
+  const { CustomerGrowthCenter } = await server.ssrLoadModule('/src/views/CustomerGrowthCenter.tsx');
   let state;
   const Harness = ({ screen }) => {
     state = useStockState();
@@ -36,7 +39,14 @@ try {
   ['CENTRE D’ACCÈS', 'Sártal Pilotage', 'Sártal Équipe', 'Mon Sártal', 'Mon séjour Sártal', 'Accès orienté par profil'].forEach(marker => assert(accessHtml.includes(marker), `Centre d’accès incomplet : ${marker}`));
 
   const pulseHtml = renderToStaticMarkup(React.createElement(Harness, { screen: 'pulse' }));
-  ['SÁRTAL PULSE', 'Priorités maintenant', 'Flux opérationnel', 'Tenir les promesses clients', 'Sécuriser le stock'].forEach(marker => assert(pulseHtml.includes(marker), `Sártal Pulse incomplet : ${marker}`));
+  ['SÁRTAL PULSE', 'Tous les établissements', 'Comparaison des établissements', 'Priorités maintenant', 'Flux opérationnel', 'Tenir les promesses clients', 'Sécuriser le stock'].forEach(marker => assert(pulseHtml.includes(marker), `Sártal Pulse incomplet : ${marker}`));
+
+  const settingsHtml = renderToStaticMarkup(React.createElement(Settings, { state }));
+  ['Préparation du déploiement', 'Canaux reliés aux dépôts', 'Équipes affectées', 'Données de démonstration'].forEach(marker => assert(settingsHtml.includes(marker), `Centre de déploiement incomplet : ${marker}`));
+  const financeHtml = renderToStaticMarkup(React.createElement(FinanceCenter, { state }));
+  ['Chaque encaissement retrouve son opération', 'Répartition des flux de paiement', 'sans double comptage', 'Clôtures caisse', 'File de rapprochement'].forEach(marker => assert(financeHtml.includes(marker), `Centre finance incomplet : ${marker}`));
+  const crmHtml = renderToStaticMarkup(React.createElement(CustomerGrowthCenter, { state }));
+  ['Reconnaître le client avant de lui parler', 'Répertoire client', 'CAMPAGNE CONSENTIE', 'Reprises prioritaires'].forEach(marker => assert(crmHtml.includes(marker), `Centre CRM incomplet : ${marker}`));
 
   let db = getDB();
   assert(db.sartalBrandSettings.enabledModules.length === 4, 'Modules actifs absents de la configuration');
@@ -48,6 +58,15 @@ try {
   db = getDB();
   assert(db.sartalBrandSettings.enabledModules.length === 2 && db.sartalBrandSettings.enabledModules.includes('stock'), 'Activation des modules non conservée');
   assert(db.sartalBrandSettings.siteProfiles.find(item => item.siteId === 'site-1').displayName === 'Sártal Dakar Test', 'Personnalisation du site non conservée');
+
+  const campaignMessagesBefore = db.sartalCustomerMessages.length;
+  const campaignRecipients = state.launchSartalCampaign({ name: 'Test qualité CRM', segment: 'signature', context: 'restaurant', channel: 'whatsapp', content: 'Message de contrôle consenti.', bonusPoints: 25, actorName: 'Direction test' });
+  assert(campaignRecipients > 0, 'La campagne consentie ne trouve aucun destinataire');
+  assert(getDB().sartalCustomerMessages.length === campaignMessagesBefore + campaignRecipients, 'Les messages de campagne ne sont pas tracés');
+  const dispatchOrder = getDB().deliveryOrders.find(item => ['ready', 'out_for_delivery', 'failed'].includes(item.status));
+  const driver = getDB().employeeProfiles.find(item => item.role === 'driver' && item.active);
+  state.assignDeliveryDriver(dispatchOrder.id, driver.name, driver.phone, 'Responsable dispatch test');
+  assert(getDB().deliveryOrders.find(item => item.id === dispatchOrder.id).driverName === driver.name, 'L’affectation du livreur n’est pas conservée');
 
   const queuedId = state.queueSartalOfflineAction('customer-awa', 'message', 'Message créé sans réseau');
   assert(getDB().sartalOfflineActions.find(item => item.id === queuedId).status === 'queued', 'Action hors connexion non mise en file');

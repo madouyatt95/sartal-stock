@@ -429,7 +429,7 @@ export const useStockState = () => {
     const effectiveAssignmentId = assignmentId || employee.posId || employee.warehouseId;
     const assignmentLabel = newDb.posList.find(item => item.id === effectiveAssignmentId)?.name
       || newDb.warehouses.find(item => item.id === effectiveAssignmentId)?.name
-      || (['receptionist', 'housekeeper'].includes(employee.role) ? 'Hôtel / PMS' : newDb.sites.find(item => item.id === employee.siteId)?.name)
+      || (['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance'].includes(employee.role) ? 'Hôtel / PMS' : newDb.sites.find(item => item.id === employee.siteId)?.name)
       || 'Affectation générale';
     const shift: EmployeeShift = {
       id: `SHIFT-${Date.now().toString().slice(-7)}`,
@@ -2627,6 +2627,21 @@ export const useStockState = () => {
     return result;
   };
 
+  const assignDeliveryDriver = (orderId: string, driverName: string, driverPhone: string, actorName: string) => {
+    const newDb = getDB();
+    const order = newDb.deliveryOrders.find(item => item.id === orderId && ['ready', 'out_for_delivery', 'failed'].includes(item.status));
+    if (!order || !driverName.trim() || !driverPhone.trim()) throw new Error('Commande ou livreur introuvable');
+    order.driverName = driverName.trim();
+    order.driverPhone = driverPhone.trim();
+    order.updatedAt = new Date().toISOString();
+    if (order.customerId) {
+      newDb.sartalCustomerMessages.push({ id: `message-dispatch-${Date.now()}`, customerId: order.customerId, context: 'delivery', referenceId: order.id, sender: 'team', senderName: 'Sártal Livraison', content: `${order.driverName} prend en charge votre livraison. Vous serez prévenu au départ de la tournée.`, sentAt: order.updatedAt, status: 'sent' });
+    }
+    newDb.employeeMessages.unshift({ id: `dispatch-${Date.now()}`, siteId: newDb.warehouses.find(item => item.id === order.warehouseId)?.siteId || newDb.sites[0]?.id || '', senderId: newDb.currentUser.id, senderName: `${actorName} · Dispatch`, audience: 'driver', content: `${order.id} affectée à ${order.driverName} · ${order.zone || order.address} · ${order.paymentStatus === 'paid' ? 'déjà payée' : 'encaissement à sécuriser'}.`, priority: order.status === 'failed' ? 'urgent' : 'normal', sentAt: order.updatedAt, readByEmployeeIds: [] });
+    saveDB(newDb);
+    refresh();
+  };
+
   const failDeliveryOrder = (orderId: string, issue?: string, actor?: { id: string; name: string }) => {
     const result = stockEngine.updateDeliveryOrderStatus(orderId, 'failed', actor?.id || db.currentUser.id, actor?.name || db.currentUser.name, issue);
     refresh();
@@ -3607,6 +3622,42 @@ export const useStockState = () => {
     return id;
   };
 
+  const launchSartalCampaign = (payload: {
+    name: string;
+    segment: 'all' | 'signature' | 'inactive' | 'birthday' | 'restaurant' | 'delivery';
+    context: 'restaurant' | 'delivery';
+    channel: NonNullable<SartalCustomerMessage['channel']>;
+    content: string;
+    bonusPoints?: number;
+    actorName: string;
+  }) => {
+    const newDb = getDB();
+    if (!payload.name.trim() || !payload.content.trim()) throw new Error('Nom et message de campagne obligatoires');
+    const currentMonth = new Date().getMonth() + 1;
+    const eligible = newDb.sartalCustomers.filter(customer => {
+      if (!customer.profileConsent || !customer.marketingConsent || customer.guestSession) return false;
+      if (payload.segment === 'signature') return customer.loyaltyTier === 'signature';
+      if (payload.segment === 'inactive') return customer.visits <= 3;
+      if (payload.segment === 'birthday') return Number(customer.birthday?.slice(5, 7)) === currentMonth;
+      if (payload.segment === 'restaurant') return newDb.restaurantGuestOrders.some(order => order.customerId === customer.id);
+      if (payload.segment === 'delivery') return newDb.deliveryOrders.some(order => order.customerId === customer.id);
+      return true;
+    });
+    if (eligible.length === 0) throw new Error('Aucun client consentant dans ce segment');
+    const sentAt = new Date().toISOString();
+    const bonusPoints = Math.max(0, Math.round(payload.bonusPoints || 0));
+    eligible.forEach((customer, index) => {
+      newDb.sartalCustomerMessages.push({ id: `campaign-${Date.now()}-${index}`, customerId: customer.id, context: payload.context, referenceId: payload.name.trim(), sender: 'team', senderName: payload.actorName.trim() || 'Sártal Relation Client', content: payload.content.trim(), channel: payload.channel, sentAt, status: 'sent' });
+      if (bonusPoints > 0) {
+        customer.loyaltyPoints += bonusPoints;
+        newDb.sartalLoyaltyTransactions.unshift({ id: `campaign-loyalty-${Date.now()}-${index}`, customerId: customer.id, type: 'bonus', points: bonusPoints, label: payload.name.trim(), date: sentAt });
+      }
+    });
+    saveDB(newDb);
+    refresh();
+    return eligible.length;
+  };
+
   const submitSartalCustomerFeedback = (payload: Omit<SartalCustomerFeedback, 'id' | 'submittedAt' | 'recoveryStatus'>) => {
     const newDb = getDB();
     if (!newDb.sartalCustomers.some(item => item.id === payload.customerId) || payload.score < 1 || payload.score > 5) throw new Error('Avis invalide');
@@ -4391,6 +4442,7 @@ export const useStockState = () => {
     reserveDeliveryOrder,
     startDeliveryPreparation,
     markDeliveryReady,
+    assignDeliveryDriver,
     dispatchDeliveryOrder,
     failDeliveryOrder,
     returnDeliveryOrder,
@@ -4431,6 +4483,7 @@ export const useStockState = () => {
     decideDeliverySubstitution,
     reorderDeliveryOrder,
     sendSartalCustomerMessage,
+    launchSartalCampaign,
     submitSartalCustomerFeedback,
     confirmDeliveryProof,
     updateSartalCustomerProfile,

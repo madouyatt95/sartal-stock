@@ -194,9 +194,9 @@ const employeeDate = (offset: number) => {
 
 const employeeAssignmentLabel = (role: EmployeeProfile['role']) => {
   if (['waiter', 'cashier', 'kitchen'].includes(role)) return 'Restaurant La Terrasse';
-  if (['storekeeper', 'picker'].includes(role)) return 'Dépôt principal';
+  if (['storekeeper', 'picker', 'dispatcher'].includes(role)) return 'Dépôt principal';
   if (role === 'driver') return 'Tournée Dakar';
-  if (['receptionist', 'housekeeper'].includes(role)) return 'Hôtel / PMS';
+  if (['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance'].includes(role)) return 'Hôtel / PMS';
   return 'Complexe Sártal Dakar';
 };
 
@@ -220,6 +220,9 @@ const buildEmployeeLearningModules = (): EmployeeLearningModule[] => [
   { id: 'learning-service-care', title: 'Accueil attentionné', description: 'Lire une préférence client et personnaliser le premier contact.', durationMinutes: 3, skill: 'Accueil client', roles: ['waiter', 'cashier', 'receptionist', 'customer_experience'], completedByEmployeeIds: ['emp-cx'] },
   { id: 'learning-allergy', title: 'Réflexe allergie', description: 'Sécuriser la transmission entre salle, cuisine et client.', durationMinutes: 2, skill: 'Sécurité alimentaire', roles: ['waiter', 'kitchen', 'service_manager'], completedByEmployeeIds: ['emp-kitchen'] },
   { id: 'learning-pms-arrival', title: 'Arrivée sans attente', description: 'Garantie, chambre, clé et folio dans le bon ordre.', durationMinutes: 4, skill: 'Accueil PMS', roles: ['receptionist', 'service_manager'], completedByEmployeeIds: [] },
+  { id: 'learning-room-quality', title: 'Chambre prête du premier coup', description: 'Distinguer fin de nettoyage, contrôle gouvernante et remise en vente.', durationMinutes: 3, skill: 'Qualité chambre', roles: ['housekeeper', 'housekeeping_manager'], completedByEmployeeIds: ['emp-housekeeper-manager'] },
+  { id: 'learning-delivery-dispatch', title: 'Tournée sans promesse cassée', description: 'Affecter selon la zone, le délai et l’encaissement à sécuriser.', durationMinutes: 3, skill: 'Dispatch livraison', roles: ['dispatcher', 'driver'], completedByEmployeeIds: [] },
+  { id: 'learning-maintenance-proof', title: 'Intervention traçable', description: 'Documenter diagnostic, coût, photo et remise en service de la chambre.', durationMinutes: 3, skill: 'Maintenance hôtelière', roles: ['maintenance', 'housekeeping_manager'], completedByEmployeeIds: [] },
   { id: 'learning-stock-trace', title: 'Stock traçable', description: 'Scanner, contrôler le lot et expliquer un écart.', durationMinutes: 3, skill: 'Traçabilité stock', roles: ['storekeeper', 'picker', 'service_manager'], completedByEmployeeIds: ['emp-storekeeper'] },
   { id: 'learning-safe-shift', title: 'Service soutenable', description: 'Signaler une surcharge et demander un renfort au bon moment.', durationMinutes: 2, skill: 'Prévention et entraide', roles: ['all'], completedByEmployeeIds: [] }
 ];
@@ -910,8 +913,11 @@ const initialDB = (): DatabaseState => {
     { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
     { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
     { id: 'emp-housekeeper', employeeNumber: 'HOT-031', name: 'Fatou Mbaye', role: 'housekeeper', siteId: 'site-1', phone: '+221 76 270 11 31', active: true },
+    { id: 'emp-housekeeper-manager', employeeNumber: 'HOT-004', name: 'Rokhaya Seck', role: 'housekeeping_manager', siteId: 'site-1', phone: '+221 77 620 18 04', active: true },
+    { id: 'emp-maintenance', employeeNumber: 'HOT-047', name: 'Malick Faye', role: 'maintenance', siteId: 'site-1', phone: '+221 78 640 21 47', active: true },
     { id: 'emp-storekeeper', employeeNumber: 'STK-007', name: 'Ibrahima Diop', role: 'storekeeper', siteId: 'site-1', phone: '+221 77 890 24 07', warehouseId: 'wh-central', active: true },
     { id: 'emp-picker', employeeNumber: 'LIV-018', name: 'Mariama Sow', role: 'picker', siteId: 'site-1', phone: '+221 76 340 17 18', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-dispatcher', employeeNumber: 'LIV-006', name: 'Sokhna Gaye', role: 'dispatcher', siteId: 'site-1', phone: '+221 77 450 18 06', warehouseId: 'wh-delivery', active: true },
     { id: 'emp-driver', employeeNumber: 'LIV-024', name: 'Mamadou Ba', role: 'driver', siteId: 'site-1', phone: '+221 77 420 10 10', warehouseId: 'wh-delivery', active: true },
     { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
     { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
@@ -2316,8 +2322,11 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     { id: 'emp-kitchen', employeeNumber: 'SAL-116', name: 'Cheikh Ba', role: 'kitchen', siteId: 'site-1', phone: '+221 78 510 14 16', posId: 'pos-1', active: true },
     { id: 'emp-reception', employeeNumber: 'HOT-012', name: 'Awa Ndiaye', role: 'receptionist', siteId: 'site-1', phone: '+221 77 610 09 12', active: true },
     { id: 'emp-housekeeper', employeeNumber: 'HOT-031', name: 'Fatou Mbaye', role: 'housekeeper', siteId: 'site-1', phone: '+221 76 270 11 31', active: true },
+    { id: 'emp-housekeeper-manager', employeeNumber: 'HOT-004', name: 'Rokhaya Seck', role: 'housekeeping_manager', siteId: 'site-1', phone: '+221 77 620 18 04', active: true },
+    { id: 'emp-maintenance', employeeNumber: 'HOT-047', name: 'Malick Faye', role: 'maintenance', siteId: 'site-1', phone: '+221 78 640 21 47', active: true },
     { id: 'emp-storekeeper', employeeNumber: 'STK-007', name: 'Ibrahima Diop', role: 'storekeeper', siteId: 'site-1', phone: '+221 77 890 24 07', warehouseId: 'wh-central', active: true },
     { id: 'emp-picker', employeeNumber: 'LIV-018', name: 'Mariama Sow', role: 'picker', siteId: 'site-1', phone: '+221 76 340 17 18', warehouseId: 'wh-delivery', active: true },
+    { id: 'emp-dispatcher', employeeNumber: 'LIV-006', name: 'Sokhna Gaye', role: 'dispatcher', siteId: 'site-1', phone: '+221 77 450 18 06', warehouseId: 'wh-delivery', active: true },
     { id: 'emp-driver', employeeNumber: 'LIV-024', name: 'Mamadou Ba', role: 'driver', siteId: 'site-1', phone: '+221 77 420 10 10', warehouseId: 'wh-delivery', active: true },
     { id: 'emp-cx', employeeNumber: 'EXP-003', name: 'Aissatou Kane', role: 'customer_experience', siteId: 'site-1', phone: '+221 78 230 15 03', active: true },
     { id: 'emp-manager', employeeNumber: 'MGR-001', name: 'Ousmane Gueye', role: 'service_manager', siteId: 'site-1', phone: '+221 77 110 20 01', active: true }
@@ -2330,6 +2339,14 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
   if (!employeeProfiles.some(profile => profile.id === 'emp-waiter-2')) {
     employeeProfiles.push({ id: 'emp-waiter-2', employeeNumber: 'SAL-105', name: 'Adama Ndiaye', role: 'waiter', siteId: 'site-1', phone: '+221 77 310 20 15', posId: 'pos-1', active: true, experiencePreferences: { language: 'fr', highContrast: false, lowBandwidth: false, quietNotifications: true, voiceAssistance: false }, skills: ['Service en salle'], careerGoal: 'Évoluer vers chef de rang' });
   }
+  const requiredEmployeeProfiles: EmployeeProfile[] = [
+    { id: 'emp-housekeeper-manager', employeeNumber: 'HOT-004', name: 'Rokhaya Seck', role: 'housekeeping_manager', siteId: 'site-1', phone: '+221 77 620 18 04', active: true, experiencePreferences: { language: 'fr', highContrast: false, lowBandwidth: false, quietNotifications: true, voiceAssistance: false }, skills: ['Contrôle chambre', 'Organisation étages'], careerGoal: 'Développer la qualité housekeeping' },
+    { id: 'emp-maintenance', employeeNumber: 'HOT-047', name: 'Malick Faye', role: 'maintenance', siteId: 'site-1', phone: '+221 78 640 21 47', active: true, experiencePreferences: { language: 'fr', highContrast: false, lowBandwidth: false, quietNotifications: true, voiceAssistance: false }, skills: ['Diagnostic', 'Maintenance préventive'], careerGoal: 'Réduire les immobilisations de chambres' },
+    { id: 'emp-dispatcher', employeeNumber: 'LIV-006', name: 'Sokhna Gaye', role: 'dispatcher', siteId: 'site-1', phone: '+221 77 450 18 06', warehouseId: 'wh-delivery', active: true, experiencePreferences: { language: 'fr', highContrast: false, lowBandwidth: false, quietNotifications: true, voiceAssistance: false }, skills: ['Planification de tournée', 'Gestion des incidents'], careerGoal: 'Piloter la promesse de livraison' }
+  ];
+  requiredEmployeeProfiles.forEach(profile => {
+    if (!employeeProfiles.some(item => item.id === profile.id)) employeeProfiles.push(profile);
+  });
   const employeeHandovers: EmployeeHandover[] = state.employeeHandovers?.length ? state.employeeHandovers : [
     { id: 'handover-restaurant', shiftId: 'shift-restaurant-morning', employeeId: 'previous-waiter', employeeName: 'Astou Diallo', role: 'waiter', notes: 'Table T12 en cours, addition à préparer après le dessert.', incidents: 'Aucun incident bloquant.', amountsToCheck: 'Partage Wave et Orange Money demandé.', customersToFollow: 'Aminata Diop, allergie arachides confirmée.', status: 'submitted', submittedAt: new Date(Date.now() - 45 * 60000).toISOString() },
     { id: 'handover-reception', shiftId: 'shift-reception-morning', employeeId: 'previous-reception', employeeName: 'Rokhaya Seck', role: 'receptionist', notes: 'Deux arrivées à préparer et une chambre encore sans attribution.', incidents: 'Serrure chambre 102 signalée au service technique.', amountsToCheck: 'Garantie de la réservation RSV-240707.', customersToFollow: 'Jean Morel demande un départ rapide demain.', status: 'submitted', submittedAt: new Date(Date.now() - 65 * 60000).toISOString() },

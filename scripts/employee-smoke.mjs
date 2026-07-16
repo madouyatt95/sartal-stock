@@ -38,6 +38,7 @@ try {
   const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
   const { RestaurantFloorStudio } = await server.ssrLoadModule('/src/components/RestaurantFloorStudio.tsx');
   const { getRestaurantProductAvailability, getRestaurantTableSuggestions } = await server.ssrLoadModule('/src/utils/restaurantService.ts');
+  const { getDefaultEmployeePermissions } = await server.ssrLoadModule('/src/employeePermissions.ts');
   let state;
   const Harness = () => {
     state = useStockState();
@@ -45,7 +46,7 @@ try {
   };
 
   const html = renderToStaticMarkup(React.createElement(Harness));
-  ['SÁRTAL ÉQUIPE', 'Accès de démonstration', 'Code démo : 2468', 'Serveur / Chef de rang', 'Cuisine / KDS', 'Réceptionniste hôtel', 'Préparateur livraison', 'Manager de service'].forEach(marker => {
+  ['SÁRTAL ÉQUIPE', 'Accès de démonstration', 'Code démo : 2468', 'Serveur / Chef de rang', 'Cuisine / KDS', 'Réceptionniste hôtel', 'Gouvernante', 'Responsable dispatch', 'Technicien maintenance', 'Préparateur livraison', 'Manager de service'].forEach(marker => {
     assert(html.includes(marker), `Interface employé incomplète : ${marker}`);
   });
   const teamHtml = renderToStaticMarkup(React.createElement(TeamManagement, { state }));
@@ -73,6 +74,7 @@ try {
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
   ['Collaborateurs', 'Affectations', 'Planning de l’équipe', 'Planifier un service', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
+  ['team-planning-command', 'team-planning-matrix', 'team-planning-mobile-agenda', 'Couverture des services'].forEach(marker => assert(teamSource.includes(marker), `Planning manager incomplet : ${marker}`));
   assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
   ['Arrivées & séjours', 'Nouvelle réservation', 'RÉSERVATION SUR PLACE', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'CHEF D’ORCHESTRE DU SERVICE'].forEach(marker => {
@@ -81,6 +83,7 @@ try {
   ['Mon quotidien', 'Mon planning', "id: 'schedule'", 'Voir tout mon planning avant de commencer', 'RestaurantFloorStudio', 'staff-manager-floor', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
     assert(employeeSource.includes(marker), `Expérience collaborateur incomplète : ${marker}`);
   });
+  ['staff-planning-hero', 'staff-week-strip', 'Détail de mes services', 'staff-dispatch-layout', 'staff-maintenance-layout', 'staff-housekeeping-quality', 'staff-reception-payment'].forEach(marker => assert(employeeSource.includes(marker), `Poste opérationnel premium incomplet : ${marker}`));
   ['updateRestaurantOrderItemStatus', 'confirmRestaurantPassItem', 'setRestaurantIngredientAvailability', 'Mode entraînement', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval'].forEach(marker => {
     assert(employeeSource.includes(marker), `Action game changer non câblée : ${marker}`);
   });
@@ -92,8 +95,16 @@ try {
   saveDB(getDB());
   assert(databaseUpdateEvents === 1, 'Une écriture doit émettre exactement un événement de synchronisation');
   const roles = new Set(db.employeeProfiles.map(item => item.role));
-  ['waiter', 'cashier', 'kitchen', 'receptionist', 'housekeeper', 'storekeeper', 'picker', 'driver', 'customer_experience', 'service_manager'].forEach(role => {
+  ['waiter', 'cashier', 'kitchen', 'receptionist', 'housekeeper', 'housekeeping_manager', 'storekeeper', 'picker', 'dispatcher', 'driver', 'maintenance', 'customer_experience', 'service_manager'].forEach(role => {
     assert(roles.has(role), `Profil métier absent : ${role}`);
+  });
+  assert(getDefaultEmployeePermissions('housekeeper').includes('housekeeping_validation') === false, 'L’agent d’étage ne doit pas valider sa propre chambre');
+  assert(getDefaultEmployeePermissions('housekeeping_manager').includes('housekeeping_validation'), 'La gouvernante doit pouvoir valider une chambre');
+  assert(getDefaultEmployeePermissions('dispatcher').includes('delivery_dispatch'), 'Le dispatch doit pouvoir affecter une tournée');
+  assert(getDefaultEmployeePermissions('maintenance').includes('maintenance_update'), 'Le technicien doit pouvoir documenter une intervention');
+  ['housekeeping_manager', 'dispatcher', 'maintenance'].forEach(role => {
+    const profile = db.employeeProfiles.find(item => item.role === role && item.active);
+    assert(db.employeeSchedules.some(schedule => schedule.employeeId === profile.id), `Le profil ${role} doit disposer d’un vrai planning visible`);
   });
   ['employeeShifts', 'employeeHandovers', 'employeeMessages', 'employeeApprovals', 'employeeSchedules', 'employeeWellbeingCheckIns', 'employeeSupportRequests', 'employeeBreaks', 'employeeRecognitions', 'employeeLearningModules', 'restaurantFloorElements', 'restaurantFloorPlanSettings', 'restaurantFloorPlanVersions', 'restaurantFloorAudit', 'restaurantServiceSections', 'restaurantServiceIncidents', 'restaurantTrainingRuns'].forEach(collection => {
     assert(Array.isArray(db[collection]), `Collection équipe absente : ${collection}`);

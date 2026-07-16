@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
-import { BedDouble, Building2, Check, PackageCheck, Palette, RefreshCw, Save, Shield, Smartphone, Truck, UtensilsCrossed } from 'lucide-react';
+import { BedDouble, Building2, Check, CheckCircle2, ClipboardList, Network, PackageCheck, Palette, RefreshCw, Save, Shield, Smartphone, Truck, UtensilsCrossed } from 'lucide-react';
 import { SartalModule, SartalSiteBrandProfile } from '../types';
 
 interface SettingsProps {
@@ -13,6 +13,26 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
   const [selectedSiteId, setSelectedSiteId] = useState(db.sites[0]?.id || '');
   const [brandMessage, setBrandMessage] = useState('');
   const selectedSiteProfile = brand.siteProfiles.find(profile => profile.siteId === selectedSiteId);
+  const posRoles = new Set(['waiter', 'cashier', 'kitchen']);
+  const warehouseRoles = new Set(['storekeeper', 'picker', 'dispatcher', 'driver']);
+  const activeEmployees = db.employeeProfiles.filter(employee => employee.active);
+  const mappedEmployees = activeEmployees.filter(employee => (
+    Boolean(employee.siteId)
+    && (!posRoles.has(employee.role) || Boolean(employee.posId))
+    && (!warehouseRoles.has(employee.role) || Boolean(employee.warehouseId))
+  ));
+  const deploymentChecks = [
+    { label: 'Offre activée', detail: `${brand.enabledModules.length} module(s) disponible(s)`, complete: brand.enabledModules.includes('stock') },
+    { label: 'Établissements identifiés', detail: `${db.sites.length} site(s) avec identité dédiée`, complete: db.sites.length > 0 && db.sites.every(site => brand.siteProfiles.some(profile => profile.siteId === site.id && profile.displayName.trim())) },
+    { label: 'Canaux reliés aux dépôts', detail: `${db.posList.length} canal(aux) contrôlé(s)`, complete: db.posList.length > 0 && db.posList.every(pos => db.warehouses.some(warehouse => warehouse.id === pos.defaultWarehouseId && warehouse.siteId === pos.siteId)) },
+    { label: 'Équipes affectées', detail: `${mappedEmployees.length}/${activeEmployees.length} profil(s) opérationnel(s)`, complete: activeEmployees.length > 0 && mappedEmployees.length === activeEmployees.length },
+    { label: 'Catalogue exploitable', detail: `${db.products.filter(product => product.isActive).length} produit(s) actif(s)`, complete: db.products.some(product => product.isActive) && db.stocks.length > 0 },
+    { label: 'Hôtel prêt', detail: brand.enabledModules.includes('pms') ? `${db.pmsRooms.length} chambre(s) configurée(s)` : 'Module non souscrit', complete: !brand.enabledModules.includes('pms') || db.pmsRooms.length > 0 },
+    { label: 'Restaurant prêt', detail: brand.enabledModules.includes('restaurant') ? `${db.restaurantDiningTables.filter(table => table.active).length} table(s) publiée(s)` : 'Module non souscrit', complete: !brand.enabledModules.includes('restaurant') || db.restaurantDiningTables.some(table => table.active) },
+    { label: 'Livraison prête', detail: brand.enabledModules.includes('delivery') ? `${db.posList.filter(pos => pos.type === 'online_grocery').length} canal(aux) en ligne` : 'Module non souscrit', complete: !brand.enabledModules.includes('delivery') || db.posList.some(pos => pos.type === 'online_grocery' && db.warehouses.some(warehouse => warehouse.id === pos.defaultWarehouseId)) }
+  ];
+  const completedDeploymentChecks = deploymentChecks.filter(item => item.complete).length;
+  const deploymentScore = Math.round(completedDeploymentChecks / deploymentChecks.length * 100);
   const moduleOptions: Array<{ id: SartalModule; label: string; detail: string; icon: React.ReactNode }> = [
     { id: 'stock', label: 'Sártal Stock', detail: 'Catalogue, dépôts, achats et contrôle', icon: <PackageCheck size={20} /> },
     { id: 'restaurant', label: 'Restaurant', detail: 'POS, salle, cuisine et expérience client', icon: <UtensilsCrossed size={20} /> },
@@ -61,6 +81,13 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
         <p style={{ color: 'var(--text-secondary)' }}>Choisissez les modules actifs et adaptez chaque interface à vos établissements.</p>
       </div>
 
+      <section className="card settings-deployment-center">
+        <header><div><ClipboardList size={22} /><span><small>MISE EN SERVICE</small><h2>Préparation du déploiement</h2><p>Une lecture claire des prérequis avant d’ouvrir les accès aux équipes.</p></span></div><strong>{deploymentScore}%<small> prêt</small></strong></header>
+        <div className="settings-deployment-progress"><i style={{ width: `${deploymentScore}%` }} /></div>
+        <div className="settings-deployment-checks">{deploymentChecks.map(item => <article className={item.complete ? 'complete' : 'pending'} key={item.label}>{item.complete ? <CheckCircle2 size={19} /> : <span /> }<div><strong>{item.label}</strong><small>{item.detail}</small></div></article>)}</div>
+        <div className="settings-site-readiness">{db.sites.map(site => { const sitePOS = db.posList.filter(pos => pos.siteId === site.id); const siteWarehouses = db.warehouses.filter(warehouse => warehouse.siteId === site.id); const siteEmployees = db.employeeProfiles.filter(employee => employee.siteId === site.id && employee.active); return <article key={site.id}><Building2 size={20} /><div><strong>{brand.siteProfiles.find(profile => profile.siteId === site.id)?.displayName || site.name}</strong><small>{sitePOS.length} canal(aux) · {siteWarehouses.length} dépôt(s) · {siteEmployees.length} collaborateur(s)</small></div><span><Network size={15} /> {sitePOS.every(pos => siteWarehouses.some(warehouse => warehouse.id === pos.defaultWarehouseId)) ? 'Affectations cohérentes' : 'Affectations à vérifier'}</span></article>; })}</div>
+      </section>
+
       <section className="card sartal-module-settings">
         <header><Building2 size={21} /><div><h2>Offre et modules activés</h2><p>Les utilisateurs ne voient que les activités souscrites par l’établissement.</p></div></header>
         <div>{moduleOptions.map(module => <button className={brand.enabledModules.includes(module.id) ? 'active' : ''} key={module.id} onClick={() => toggleModule(module.id)}>{module.icon}<span><strong>{module.label}</strong><small>{module.detail}</small></span><i>{brand.enabledModules.includes(module.id) && <Check size={15} />}</i></button>)}</div>
@@ -108,7 +135,7 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <Shield size={20} color="var(--primary)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Matrice de Droits & Habilitations</h3>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Droits par profil back-office</h3>
           </div>
           
           <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
@@ -147,21 +174,10 @@ export const Settings: React.FC<SettingsProps> = ({ state }) => {
           </div>
         </div>
 
-        {/* Database Management Card */}
-        <div className="card" style={{ height: 'fit-content' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <RefreshCw size={20} color="var(--danger)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Remettre les exemples à zéro</h3>
-          </div>
-
-          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-            Vous pouvez repartir des exemples de départ : catalogue, stocks initiaux, commandes livraison, prix par canal et historiques d'essai.
-          </p>
-
-          <button className="btn btn-danger" onClick={handleReset} style={{ gap: '8px', width: '100%' }}>
-            <RefreshCw size={18} /> Réinitialiser les exemples
-          </button>
-        </div>
+        <details className="card settings-demo-data">
+          <summary><RefreshCw size={19} /><span><strong>Données de démonstration</strong><small>Outils réservés à la préparation d’une présentation</small></span></summary>
+          <div><p>Repartir des exemples de départ : catalogue, stocks initiaux, commandes, prix par canal et historiques d’essai.</p><button className="btn btn-danger" onClick={handleReset}><RefreshCw size={18} /> Réinitialiser les exemples</button></div>
+        </details>
 
       </div>
 

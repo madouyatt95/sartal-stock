@@ -41,7 +41,9 @@ import {
   RefreshCw,
   WifiOff,
   ChevronDown,
-  ArrowLeft
+  ArrowLeft,
+  Landmark,
+  ContactRound
 } from 'lucide-react';
 import { canAccessBackofficeView, type BackofficeViewId } from './accessControl';
 import { DEMO_ACCESS_POLICIES, getDemoPerspective, getDemoUniverse, type DemoPerspective, type DemoUniverse } from './demoPortalConfig';
@@ -78,6 +80,8 @@ const PMSPublicBooking = lazy(() => import('./views/PMSPublicBooking'));
 const SartalClient = lazy(() => import('./views/SartalClient'));
 const RestaurantGuestPaymentPortal = lazy(() => import('./views/RestaurantGuestPaymentPortal'));
 const CustomerExperienceCockpit = lazy(() => import('./views/CustomerExperienceCockpit'));
+const CustomerGrowthCenter = lazy(() => import('./views/CustomerGrowthCenter'));
+const FinanceCenter = lazy(() => import('./views/FinanceCenter'));
 const EmployeeWorkspace = lazy(() => import('./views/EmployeeWorkspace'));
 const TeamManagement = lazy(() => import('./views/TeamManagement'));
 const SartalAccessCenter = lazy(() => import('./views/SartalAccessCenter'));
@@ -297,6 +301,8 @@ export const App: React.FC = () => {
     { id: 'business-problems', label: 'Problèmes métier', mobileLabel: 'Cas', icon: <FileSearch size={18} />, section: 'Accueil' },
     { id: 'client', label: 'Suivi clients en direct', mobileLabel: 'Clients', icon: <HeartHandshake size={18} />, section: 'Accueil' },
 
+    { id: 'crm', label: 'CRM & fidélité', mobileLabel: 'CRM', icon: <ContactRound size={18} />, section: 'Clients' },
+
     { id: 'employees', label: 'Équipes & affectations', mobileLabel: 'Équipes', icon: <UsersRound size={18} />, section: 'Équipes' },
 
     { id: 'answer', label: 'Salle & opérations', mobileLabel: 'Salle', icon: <ClipboardCheck size={18} />, section: 'Restaurant' },
@@ -323,6 +329,7 @@ export const App: React.FC = () => {
     { id: 'suppliers', label: 'Fournisseurs', icon: <Users size={18} />, section: 'Opérations' },
 
     { id: 'stock-audit', label: 'Audit des écarts', mobileLabel: 'Écarts', icon: <FileSearch size={18} />, section: 'Contrôle' },
+    { id: 'finance', label: 'Finance & rapprochement', mobileLabel: 'Finance', icon: <Landmark size={18} />, section: 'Contrôle' },
     { id: 'smart-alerts', label: 'Alertes intelligentes', mobileLabel: 'Alertes', icon: <Bell size={18} />, section: 'Contrôle' },
     { id: 'mapping-control', label: 'Contrôle des données', mobileLabel: 'Dépôts', icon: <GitBranch size={18} />, section: 'Contrôle' },
     { id: 'movements', label: 'Journal stock', icon: <Activity size={18} />, section: 'Contrôle' },
@@ -337,6 +344,7 @@ export const App: React.FC = () => {
   const canOpenView = (candidate: string) => allowedLinks.some(link => link.id === candidate);
   const sidebarSections = [
     { id: 'Accueil', label: 'Accueil' },
+    { id: 'Clients', label: 'Clients & fidélité' },
     { id: 'Équipes', label: 'Gestion des équipes' },
     { id: 'Restaurant', label: 'Parcours restaurant' },
     { id: 'Hôtel', label: 'Module Hôtel / PMS' },
@@ -470,8 +478,12 @@ export const App: React.FC = () => {
         return <BusinessProblems state={experienceState} setView={openView} />;
       case 'client':
         return <CustomerExperienceCockpit state={experienceState} />;
+      case 'crm':
+        return <CustomerGrowthCenter state={experienceState} />;
       case 'employees':
         return <TeamManagement state={experienceState} />;
+      case 'finance':
+        return <FinanceCenter state={experienceState} />;
       case 'answer':
         return <ManagerAnswer state={experienceState} setView={openView} canAccessView={canOpenView} />;
       case 'simulation':

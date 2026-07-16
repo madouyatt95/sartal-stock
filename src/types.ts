@@ -662,7 +662,7 @@ export interface SartalCustomerMessage {
   sender: 'customer' | 'team';
   senderName: string;
   content: string;
-  channel?: 'portal' | 'whatsapp' | 'voice' | 'photo';
+  channel?: 'portal' | 'whatsapp' | 'sms' | 'email' | 'voice' | 'photo';
   attachmentLabel?: string;
   sentAt: string;
   status: 'sent' | 'read';
@@ -1350,9 +1350,12 @@ export type EmployeeRole =
   | 'kitchen'
   | 'receptionist'
   | 'housekeeper'
+  | 'housekeeping_manager'
   | 'storekeeper'
   | 'picker'
+  | 'dispatcher'
   | 'driver'
+  | 'maintenance'
   | 'customer_experience'
   | 'service_manager';
 
@@ -1365,6 +1368,8 @@ export type EmployeePermission =
   | 'room_assignment'
   | 'folio_payment'
   | 'housekeeping_validation'
+  | 'delivery_dispatch'
+  | 'maintenance_update'
   | 'stock_transfer'
   | 'stock_adjustment'
   | 'stock_loss'
