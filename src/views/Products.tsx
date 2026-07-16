@@ -1,10 +1,28 @@
 import React, { useState } from 'react';
 import { StockState } from '../hooks/useStockState';
 import { Filter, Pencil, Plus, Search, Settings, Trash2 } from 'lucide-react';
+import type { RestaurantProductionStation, RestaurantServiceCourse } from '../types';
+import {
+  inferRestaurantProductRouting,
+  RESTAURANT_COURSE_LABELS,
+  RESTAURANT_STATION_LABELS
+} from '../utils/restaurantRouting';
 
 interface ProductsProps {
   state: StockState;
 }
+
+const createProductDraft = () => ({
+  name: '',
+  sku: '',
+  category: 'Boissons',
+  baseUnit: 'unité',
+  isStockable: true,
+  globalAlertThreshold: 10,
+  restaurantStation: 'drinks' as RestaurantProductionStation,
+  restaurantCourse: 'drinks' as RestaurantServiceCourse,
+  preparationMinutes: 4
+});
 
 export const Products: React.FC<ProductsProps> = ({ state }) => {
   const { db, addProduct, updateProduct, deleteProduct, addRecipe } = state;
@@ -47,9 +65,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
   // Modals / forms state
   const [showAddProd, setShowAddProd] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [newProd, setNewProd] = useState({
-    name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10
-  });
+  const [newProd, setNewProd] = useState(createProductDraft);
 
   const [showAddRecipe, setShowAddRecipe] = useState(false);
   const [ingredientSearch, setIngredientSearch] = useState('');
@@ -123,12 +139,13 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
   const resetProductForm = () => {
     setShowAddProd(false);
     setEditingProductId(null);
-    setNewProd({ name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
+    setNewProd(createProductDraft());
   };
 
   const openEditProduct = (productId: string) => {
     const product = db.products.find(item => item.id === productId);
     if (!product) return;
+    const routing = inferRestaurantProductRouting(product);
     setEditingProductId(productId);
     setNewProd({
       name: product.name,
@@ -136,7 +153,10 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
       category: product.category,
       baseUnit: product.baseUnit,
       isStockable: product.isStockable,
-      globalAlertThreshold: product.globalAlertThreshold
+      globalAlertThreshold: product.globalAlertThreshold,
+      restaurantStation: routing.station,
+      restaurantCourse: routing.course,
+      preparationMinutes: routing.preparationMinutes
     });
     setShowAddProd(true);
   };
@@ -194,7 +214,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
         </div>
         <button className="btn btn-primary" onClick={() => {
           setEditingProductId(null);
-          setNewProd({ name: '', sku: '', category: 'Boissons', baseUnit: 'unité', isStockable: true, globalAlertThreshold: 10 });
+          setNewProd(createProductDraft());
           setShowAddProd(true);
         }}>
           <Plus size={18} /> Ajouter un produit
@@ -307,6 +327,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   <th>Catégorie</th>
                   <th>Unité</th>
                   <th>Type</th>
+                  <th>Poste restaurant</th>
                   <th>Seuil Alerte</th>
                   <th>Actions</th>
                 </tr>
@@ -332,6 +353,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                           {p.isStockable ? 'Stockable' : 'Recette / Service'}
                         </span>
                       </td>
+                      <td><span className="badge badge-blue">{RESTAURANT_STATION_LABELS[inferRestaurantProductRouting(p).station]}</span></td>
                       <td style={{ textAlign: 'center' }}>
                         {p.globalAlertThreshold}
                         {hasRecipe && <span className="badge badge-blue" style={{ marginLeft: '8px' }}>Recette</span>}
@@ -366,7 +388,7 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 })}
                 {filteredProducts.length === 0 && (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       Aucun produit ne correspond aux filtres.
                     </td>
                   </tr>
@@ -414,6 +436,10 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                 <div className="mobile-data-row">
                   <span>Seuil d'alerte</span>
                   <strong>{p.globalAlertThreshold}</strong>
+                </div>
+                <div className="mobile-data-row">
+                  <span>Préparation restaurant</span>
+                  <strong>{RESTAURANT_STATION_LABELS[inferRestaurantProductRouting(p).station]} · {inferRestaurantProductRouting(p).preparationMinutes} min</strong>
                 </div>
                 {recipeCost !== null && (
                   <div className="mobile-data-row">
@@ -471,6 +497,10 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Unité de base:</span>
                     <strong>{selectedProdObj.baseUnit}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Routage restaurant:</span>
+                    <strong>{RESTAURANT_STATION_LABELS[inferRestaurantProductRouting(selectedProdObj).station]} · {RESTAURANT_COURSE_LABELS[inferRestaurantProductRouting(selectedProdObj).course]} · {inferRestaurantProductRouting(selectedProdObj).preparationMinutes} min</strong>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>Disponible / réservé:</span>
@@ -616,6 +646,28 @@ export const Products: React.FC<ProductsProps> = ({ state }) => {
                   />
                 </div>
               </div>
+              <fieldset className="product-routing-fields">
+                <legend>Routage restaurant et KDS</legend>
+                <p>Ce réglage détermine exactement l’écran qui reçoit l’article après l’envoi par la salle.</p>
+                <div className="grid-3">
+                  <div className="form-group">
+                    <label className="form-label">Poste de préparation</label>
+                    <select className="form-control" value={newProd.restaurantStation} onChange={(event) => setNewProd({ ...newProd, restaurantStation: event.target.value as RestaurantProductionStation })}>
+                      {(Object.entries(RESTAURANT_STATION_LABELS) as Array<[RestaurantProductionStation, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Service par défaut</label>
+                    <select className="form-control" value={newProd.restaurantCourse} onChange={(event) => setNewProd({ ...newProd, restaurantCourse: event.target.value as RestaurantServiceCourse })}>
+                      {(Object.entries(RESTAURANT_COURSE_LABELS) as Array<[RestaurantServiceCourse, string]>).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Temps cible</label>
+                    <input className="form-control" type="number" min="1" max="180" value={newProd.preparationMinutes} onChange={(event) => setNewProd({ ...newProd, preparationMinutes: Math.max(1, Number(event.target.value) || 1) })} />
+                  </div>
+                </div>
+              </fieldset>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={resetProductForm}>Annuler</button>
                 <button type="submit" className="btn btn-primary">{editingProductId ? 'Enregistrer' : 'Créer le produit'}</button>

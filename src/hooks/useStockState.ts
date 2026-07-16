@@ -50,6 +50,7 @@ import {
   RestaurantFloorPlanVersion,
   RestaurantOrderItemStatus,
   RestaurantPreparationStation,
+  RestaurantProductionStation,
   RestaurantServiceCourse,
   RestaurantServiceSection,
   RestaurantWaitlistEntry,
@@ -66,6 +67,7 @@ import {
   Product,
   Supplier
 } from '../types';
+import { inferRestaurantProductRouting } from '../utils/restaurantRouting';
 
 type PMSConfigCollection =
   | 'pmsRooms'
@@ -140,13 +142,10 @@ const canManageRestaurantFloor = (database: DatabaseState, posId: string) => (
 
 const cloneRestaurantFloor = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
-const inferRestaurantLineProfile = (database: DatabaseState, productId: string): { course: RestaurantServiceCourse; station: RestaurantPreparationStation } => {
+const inferRestaurantLineProfile = (database: DatabaseState, productId: string): { course: RestaurantServiceCourse; station: RestaurantPreparationStation; targetPreparationMinutes: number } => {
   const product = database.products.find(item => item.id === productId);
-  const descriptor = `${product?.category || ''} ${product?.name || ''}`;
-  if (/boisson|jus|eau|café|cafe|thé|the|mocktail/i.test(descriptor)) return { course: 'drinks', station: 'drinks' };
-  if (/dessert|pâtisserie|patisserie|glace|fruit/i.test(descriptor)) return { course: 'dessert', station: 'dessert' };
-  if (/entrée|entree|salade|soupe/i.test(descriptor)) return { course: 'starter', station: 'kitchen' };
-  return { course: 'main', station: 'kitchen' };
+  const routing = inferRestaurantProductRouting(product);
+  return { course: routing.course, station: routing.station, targetPreparationMinutes: routing.preparationMinutes };
 };
 
 const appendRestaurantServiceEvent = (
@@ -637,6 +636,64 @@ export const useStockState = () => {
     return schedule.id;
   };
 
+  const copyEmployeeScheduleWeek = (sourceWeekStart: string, targetWeekStart: string, managerId?: string) => {
+    const newDb = getDB();
+    const sourceStart = new Date(`${sourceWeekStart}T12:00:00`);
+    const targetStart = new Date(`${targetWeekStart}T12:00:00`);
+    if (Number.isNaN(sourceStart.getTime()) || Number.isNaN(targetStart.getTime())) throw new Error('Semaine de planning invalide');
+    const sourceEnd = new Date(sourceStart);
+    sourceEnd.setDate(sourceEnd.getDate() + 6);
+    const sourceEndKey = sourceEnd.toISOString().slice(0, 10);
+    const offsetDays = Math.round((targetStart.getTime() - sourceStart.getTime()) / 86400000);
+    const sourceSchedules = newDb.employeeSchedules.filter(item => item.date >= sourceWeekStart && item.date <= sourceEndKey);
+    let created = 0;
+    let skipped = 0;
+    sourceSchedules.forEach(schedule => {
+      const employee = newDb.employeeProfiles.find(item => item.id === schedule.employeeId && item.active);
+      if (!employee || !canManageEmployeeSchedule(newDb, employee, managerId)) return;
+      const targetDate = new Date(`${schedule.date}T12:00:00`);
+      targetDate.setDate(targetDate.getDate() + offsetDays);
+      const targetDateKey = targetDate.toISOString().slice(0, 10);
+      const duplicate = newDb.employeeSchedules.some(item => item.employeeId === schedule.employeeId && item.date === targetDateKey && item.startTime === schedule.startTime && item.endTime === schedule.endTime);
+      if (targetDateKey < new Date().toISOString().slice(0, 10) || duplicate) {
+        skipped += 1;
+        return;
+      }
+      newDb.employeeSchedules.push({
+        id: createRuntimeId('SCHEDULE'),
+        employeeId: schedule.employeeId,
+        siteId: schedule.siteId,
+        date: targetDateKey,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        assignmentLabel: schedule.assignmentLabel,
+        status: 'planned'
+      });
+      created += 1;
+    });
+    if (!created && !skipped) throw new Error('Aucun service à copier depuis cette semaine');
+    newDb.employeeSchedules.sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
+    saveDB(newDb);
+    refresh();
+    return { created, skipped };
+  };
+
+  const publishEmployeeScheduleWeek = (scheduleIds: string[], managerId?: string) => {
+    const newDb = getDB();
+    const identifiers = new Set(scheduleIds);
+    const schedules = newDb.employeeSchedules.filter(item => identifiers.has(item.id) && item.status === 'planned');
+    schedules.forEach(schedule => {
+      const employee = newDb.employeeProfiles.find(item => item.id === schedule.employeeId && item.active);
+      if (!employee || !canManageEmployeeSchedule(newDb, employee, managerId)) throw new Error('Votre périmètre ne permet pas de publier toute cette semaine');
+      schedule.status = 'confirmed';
+      schedule.managerNote = `Planning publié par ${newDb.currentUser.name}`;
+    });
+    if (!schedules.length) throw new Error('Aucun service brouillon à publier');
+    saveDB(newDb);
+    refresh();
+    return schedules.length;
+  };
+
   const deleteEmployeeSchedule = (scheduleId: string, managerId?: string) => {
     const newDb = getDB();
     const schedule = newDb.employeeSchedules.find(item => item.id === scheduleId);
@@ -1012,6 +1069,9 @@ export const useStockState = () => {
     isStockable: boolean;
     globalAlertThreshold: number;
     mainSupplierId?: string;
+    restaurantStation?: RestaurantProductionStation;
+    restaurantCourse?: RestaurantServiceCourse;
+    preparationMinutes?: number;
   }) => {
     const newDb = getDB();
     const prodId = `prod-${Date.now()}`;
@@ -3146,7 +3206,7 @@ export const useStockState = () => {
       const price = snapshot.posPricing.find(rule => rule.posId === pos.id && rule.productId === item.productId && rule.isAvailable);
       if (!price || item.quantity <= 0) throw new Error('Un article est indisponible');
       const profile = inferRestaurantLineProfile(snapshot, item.productId);
-      return { ...item, id: createRuntimeId(`REST-LINE-${index + 1}`), salePrice: price.salePrice, course: profile.course, station: profile.station, status: 'sent' as const, modifiers: [], addedAt: now, sentAt: now };
+      return { ...item, id: createRuntimeId(`REST-LINE-${index + 1}`), salePrice: price.salePrice, course: profile.course, station: profile.station, targetPreparationMinutes: profile.targetPreparationMinutes, status: 'sent' as const, modifiers: [], addedAt: now, sentAt: now };
     });
     const total = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     if (payload.paymentMethod === 'room_charge') {
@@ -3212,7 +3272,7 @@ export const useStockState = () => {
       if (!price || item.quantity <= 0) throw new Error('Un article du complément est indisponible');
       const profile = inferRestaurantLineProfile(snapshot, item.productId);
       const status = item.status || 'sent';
-      return { id: createRuntimeId(`REST-LINE-${index + 1}`), operationId, productId: item.productId, quantity: item.quantity, note: item.note?.trim(), seatNumber: item.seatNumber, guestName: item.guestName?.trim(), course: item.course || profile.course, modifiers: item.modifiers || [], station: profile.station, status, salePrice: price.salePrice, addedAt, sentAt: status === 'sent' ? addedAt : undefined };
+      return { id: createRuntimeId(`REST-LINE-${index + 1}`), operationId, productId: item.productId, quantity: item.quantity, note: item.note?.trim(), seatNumber: item.seatNumber, guestName: item.guestName?.trim(), course: item.course || profile.course, modifiers: item.modifiers || [], station: profile.station, targetPreparationMinutes: profile.targetPreparationMinutes, status, salePrice: price.salePrice, addedAt, sentAt: status === 'sent' ? addedAt : undefined };
     });
     const additionTotal = items.reduce((sum, item) => sum + item.salePrice * item.quantity, 0);
     const result = stockEngine.processExternalSale({ externalSaleId, siteId: pos.siteId, posId: pos.id, items: items.map(item => ({ productId: item.productId, quantity: item.quantity })), paymentContext: { type: 'other', amount: additionTotal } }, snapshot.currentUser.id, snapshot.currentUser.name);
@@ -3323,6 +3383,9 @@ export const useStockState = () => {
     if (operationId && order.serviceEvents?.some(item => item.operationId === operationId)) return order.status;
     const allowed: Record<RestaurantOrderItemStatus, RestaurantOrderItemStatus[]> = { held: ['sent', 'voided'], sent: ['preparing', 'ready', 'voided'], preparing: ['ready', 'voided'], ready: ['served'], served: [], voided: [] };
     if (!allowed[line.status || 'held'].includes(status)) throw new Error('Cette transition de préparation n’est pas autorisée');
+    if (status === 'served' && ['kitchen', 'dessert'].includes(line.station || 'kitchen') && !line.passedAt) {
+      throw new Error('Le passe doit contrôler cet article avant son départ en salle');
+    }
     const now = new Date().toISOString();
     line.status = status;
     if (status === 'preparing') line.preparingAt = now;
@@ -3344,11 +3407,40 @@ export const useStockState = () => {
     return order.status;
   };
 
+  const updateRestaurantStationTicket = (orderId: string, station: RestaurantProductionStation, status: 'preparing' | 'ready', actor: string) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
+    if (!order) throw new Error('Ticket de production introuvable');
+    const expectedStatus = status === 'preparing' ? 'sent' : 'preparing';
+    const lines = order.items.filter(item => item.station === station && item.status === expectedStatus);
+    if (!lines.length) throw new Error(status === 'preparing' ? 'Aucun article reçu à démarrer sur ce poste' : 'Aucun article en préparation à terminer sur ce poste');
+    const now = new Date().toISOString();
+    lines.forEach(line => {
+      line.status = status;
+      if (status === 'preparing') line.preparingAt = now;
+      else line.readyAt = now;
+    });
+    order.updatedAt = now;
+    if (status === 'preparing' && !order.kitchenStartedAt) order.kitchenStartedAt = now;
+    appendRestaurantServiceEvent(order, {
+      type: status === 'preparing' ? 'item_preparing' : 'item_ready',
+      label: `${lines.length} article(s) ${status === 'preparing' ? 'pris en charge' : 'terminés'} au poste ${station}`,
+      actor,
+      itemIds: lines.map(item => item.id!).filter(Boolean)
+    });
+    updateRestaurantTicketStatus(order);
+    appendRestaurantFloorAudit(newDb, order.posId, 'item_updated', `${station} · ${lines.length} article(s) ${status}`, actor, { orderId, station, status, lines: lines.length });
+    saveDB(newDb);
+    refresh();
+    return lines.length;
+  };
+
   const confirmRestaurantPassItem = (orderId: string, itemId: string, actor: string) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
     const line = order?.items.find(item => item.id === itemId && item.status === 'ready');
     if (!order || !line) throw new Error('Seul un article prêt peut être contrôlé au passe');
+    if (!['kitchen', 'dessert'].includes(line.station || 'kitchen')) throw new Error('Une boisson prête est retirée directement au bar et ne passe pas par le passe');
     if (line.passedAt) return line.passedAt;
     line.passedAt = new Date().toISOString();
     order.updatedAt = line.passedAt;
@@ -3359,19 +3451,39 @@ export const useStockState = () => {
     return line.passedAt;
   };
 
+  const confirmRestaurantPassTicket = (orderId: string, actor: string) => {
+    const newDb = getDB();
+    const order = newDb.restaurantGuestOrders.find(item => item.id === orderId && !['paid', 'cancelled'].includes(item.status));
+    if (!order) throw new Error('Ticket du passe introuvable');
+    const lines = order.items.filter(item => item.status === 'ready' && ['kitchen', 'dessert'].includes(item.station || 'kitchen') && !item.passedAt);
+    if (!lines.length) throw new Error('Aucun article prêt ne reste à contrôler sur ce ticket');
+    const now = new Date().toISOString();
+    lines.forEach(line => { line.passedAt = now; });
+    order.updatedAt = now;
+    appendRestaurantServiceEvent(order, { type: 'item_ready', label: `${lines.length} article(s) contrôlés au passe · salle appelée`, actor, itemIds: lines.map(item => item.id!).filter(Boolean) });
+    appendRestaurantFloorAudit(newDb, order.posId, 'item_updated', `${lines.length} article(s) contrôlés au passe`, actor, { orderId, pass: true, lines: lines.length });
+    saveDB(newDb);
+    refresh();
+    return lines.length;
+  };
+
   const updateRestaurantGuestOrderStatus = (orderId: string, status: RestaurantGuestOrder['status']) => {
     const newDb = getDB();
     const order = newDb.restaurantGuestOrders.find(item => item.id === orderId);
     if (!order || ['paid', 'cancelled'].includes(order.status)) throw new Error('Commande restaurant non modifiable');
     if (status === 'paid' && order.paymentStatus !== 'paid') throw new Error('L’addition doit être soldée avant de clôturer la commande');
-    if (status === 'preparing') order.items.filter(item => ['sent', 'held'].includes(item.status || 'held')).forEach(item => { item.status = 'preparing'; item.preparingAt ||= new Date().toISOString(); });
+    if (status === 'preparing') order.items.filter(item => item.status === 'sent').forEach(item => { item.status = 'preparing'; item.preparingAt ||= new Date().toISOString(); });
     if (status === 'ready') order.items.filter(item => ['sent', 'preparing'].includes(item.status || 'held')).forEach(item => { item.status = 'ready'; item.readyAt ||= new Date().toISOString(); });
-    if (status === 'served') order.items.filter(item => item.status === 'ready').forEach(item => { item.status = 'served'; item.servedAt ||= new Date().toISOString(); });
-    order.status = status === 'served' && order.paymentStatus === 'paid' ? 'paid' : status;
+    if (status === 'served') {
+      const waitingForPass = order.items.filter(item => item.status === 'ready' && ['kitchen', 'dessert'].includes(item.station || 'kitchen') && !item.passedAt);
+      if (waitingForPass.length) throw new Error(`${waitingForPass.length} article(s) doivent encore être contrôlés au passe`);
+      order.items.filter(item => item.status === 'ready').forEach(item => { item.status = 'served'; item.servedAt ||= new Date().toISOString(); });
+    }
     order.updatedAt = new Date().toISOString();
     if (status === 'preparing') order.kitchenStartedAt = order.updatedAt;
     if (status === 'ready') order.readyAt = order.updatedAt;
     if (status === 'served') order.servedAt = order.updatedAt;
+    updateRestaurantTicketStatus(order);
     completeRestaurantTableService(newDb, order);
     saveDB(newDb);
     refresh();
@@ -4352,6 +4464,8 @@ export const useStockState = () => {
     requestEmployeeScheduleChange,
     respondEmployeeScheduleSwap,
     saveEmployeeSchedule,
+    copyEmployeeScheduleWeek,
+    publishEmployeeScheduleWeek,
     deleteEmployeeSchedule,
     reviewEmployeeScheduleChange,
     startEmployeeBreak,
@@ -4474,7 +4588,9 @@ export const useStockState = () => {
     sendRestaurantOrderItems,
     fireRestaurantOrderCourse,
     updateRestaurantOrderItemStatus,
+    updateRestaurantStationTicket,
     confirmRestaurantPassItem,
+    confirmRestaurantPassTicket,
     updateRestaurantGuestOrderStatus,
     addRestaurantGuestOrderPayment,
     createDeliveryCustomerOrder,

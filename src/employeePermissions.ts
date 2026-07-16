@@ -9,6 +9,7 @@ export interface EmployeePermissionDefinition {
 
 export const EMPLOYEE_PERMISSION_DEFINITIONS: readonly EmployeePermissionDefinition[] = [
   { id: 'team_messages', group: 'Communication', label: 'Messages d’équipe', description: 'Écrire aux équipes et diffuser une consigne de service.' },
+  { id: 'team_schedule_view', group: 'Communication', label: 'Voir le planning de l’équipe', description: 'Consulter les présences publiées des collègues de son périmètre, sans pouvoir les modifier.' },
   { id: 'discount_request', group: 'Restaurant & caisse', label: 'Demander une remise', description: 'Soumettre une remise ou un offert à la validation du manager.' },
   { id: 'table_payment', group: 'Restaurant & caisse', label: 'Encaisser à table', description: 'Enregistrer un règlement sur le terminal de service et le rattacher à la caisse du POS.' },
   { id: 'cash_close', group: 'Restaurant & caisse', label: 'Clôturer une caisse', description: 'Saisir le comptage final et produire le rapport de clôture.' },
@@ -26,18 +27,18 @@ export const EMPLOYEE_PERMISSION_DEFINITIONS: readonly EmployeePermissionDefinit
 ];
 
 const roleDefaults: Record<EmployeeRole, readonly EmployeePermission[]> = {
-  waiter: ['team_messages', 'discount_request', 'table_payment'],
-  cashier: ['team_messages', 'discount_request', 'table_payment', 'cash_close'],
-  kitchen: ['team_messages'],
-  receptionist: ['team_messages', 'reservation_create', 'room_assignment', 'folio_payment'],
-  housekeeper: ['team_messages'],
-  housekeeping_manager: ['team_messages', 'housekeeping_validation'],
-  storekeeper: ['team_messages', 'stock_transfer', 'stock_adjustment', 'stock_loss'],
-  picker: ['team_messages'],
-  dispatcher: ['team_messages', 'delivery_dispatch'],
-  driver: ['team_messages'],
-  maintenance: ['team_messages', 'maintenance_update'],
-  customer_experience: ['team_messages', 'customer_recovery'],
+  waiter: ['team_messages', 'team_schedule_view', 'discount_request', 'table_payment'],
+  cashier: ['team_messages', 'team_schedule_view', 'discount_request', 'table_payment', 'cash_close'],
+  kitchen: ['team_messages', 'team_schedule_view'],
+  receptionist: ['team_messages', 'team_schedule_view', 'reservation_create', 'room_assignment', 'folio_payment'],
+  housekeeper: ['team_messages', 'team_schedule_view'],
+  housekeeping_manager: ['team_messages', 'team_schedule_view', 'housekeeping_validation'],
+  storekeeper: ['team_messages', 'team_schedule_view', 'stock_transfer', 'stock_adjustment', 'stock_loss'],
+  picker: ['team_messages', 'team_schedule_view'],
+  dispatcher: ['team_messages', 'team_schedule_view', 'delivery_dispatch'],
+  driver: ['team_messages', 'team_schedule_view'],
+  maintenance: ['team_messages', 'team_schedule_view', 'maintenance_update'],
+  customer_experience: ['team_messages', 'team_schedule_view', 'customer_recovery'],
   service_manager: EMPLOYEE_PERMISSION_DEFINITIONS.map(item => item.id)
 };
 

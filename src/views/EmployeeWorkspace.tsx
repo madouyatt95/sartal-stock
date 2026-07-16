@@ -55,15 +55,17 @@ import {
 } from 'lucide-react';
 import RestaurantFloorStudio from '../components/RestaurantFloorStudio';
 import type { StockState } from '../hooks/useStockState';
-import type { EmployeeExperiencePreferences, EmployeeRole, PaymentType } from '../types';
+import type { EmployeeExperiencePreferences, EmployeeRole, PaymentType, RestaurantProductionStation } from '../types';
 import { hasEmployeePermission } from '../employeePermissions';
 import { getPMSAvailabilityByType } from '../utils/pmsAvailability';
+import { inferRestaurantProductRouting, RESTAURANT_STATION_LABELS } from '../utils/restaurantRouting';
 
 type StaffTab = 'today' | 'tasks' | 'action' | 'messages' | 'schedule' | 'more';
 type EmployeeLifeSection = 'overview' | 'schedule' | 'growth' | 'support' | 'handover';
 type TaskTone = 'urgent' | 'active' | 'waiting' | 'done';
 type ReceptionWorkspace = 'arrivals' | 'rooms' | 'booking';
 type StockWorkspace = 'scan' | 'receiving' | 'transfers' | 'inventory' | 'journal';
+type KDSStation = 'overview' | RestaurantProductionStation | 'pass';
 
 interface EmployeeWorkspaceProps {
   state: StockState;
@@ -243,7 +245,7 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [selectedMaintenanceId, setSelectedMaintenanceId] = useState('');
   const [maintenanceCost, setMaintenanceCost] = useState('');
   const [maintenanceNote, setMaintenanceNote] = useState('');
-  const [kdsStation, setKdsStation] = useState<'all' | 'kitchen' | 'drinks' | 'pass'>('all');
+  const [kdsStation, setKdsStation] = useState<KDSStation>('kitchen');
   const [housekeepingChecks, setHousekeepingChecks] = useState<Record<string, string[]>>({});
   const [minibarProductId, setMinibarProductId] = useState('prod-eau-50');
   const [pickedLineIds, setPickedLineIds] = useState<Set<string>>(() => new Set());
@@ -257,6 +259,8 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const [supportWhen, setSupportWhen] = useState('');
   const [scheduleSwapTargetId, setScheduleSwapTargetId] = useState('');
   const [employeePlanningWeek, setEmployeePlanningWeek] = useState(weekStartKey());
+  const [planningScope, setPlanningScope] = useState<'mine' | 'team'>('mine');
+  const [teamPlanningDay, setTeamPlanningDay] = useState(formatDateKey(new Date()));
   const [preShiftPlanningOpen, setPreShiftPlanningOpen] = useState(false);
   const [careerGoal, setCareerGoal] = useState('');
   const [recognitionTargetId, setRecognitionTargetId] = useState('');
@@ -280,6 +284,17 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   const employeeWeekMinutes = employeeWeekSchedules.reduce((sum, item) => sum + employeeScheduleMinutes(item), 0);
   const employeeWorkedDays = new Set(employeeWeekSchedules.map(item => item.date)).size;
   const employeePendingChanges = employeeWeekSchedules.filter(item => ['swap_pending_colleague', 'swap_colleague_accepted', 'leave_requested'].includes(item.status)).length;
+  const canViewTeamPlanning = Boolean(employee && hasEmployeePermission(employee, 'team_schedule_view'));
+  const teamPlanningProfiles = employee ? db.employeeProfiles.filter(profile => {
+    if (!profile.active || profile.siteId !== employee.siteId) return false;
+    if (employee.role === 'service_manager') return true;
+    if (employee.posId) return profile.posId === employee.posId || (profile.role === 'service_manager' && profile.siteId === employee.siteId);
+    if (employee.warehouseId) return profile.warehouseId === employee.warehouseId || profile.role === 'service_manager';
+    const hotelRoles: EmployeeRole[] = ['receptionist', 'housekeeper', 'housekeeping_manager', 'maintenance'];
+    if (hotelRoles.includes(employee.role)) return hotelRoles.includes(profile.role) || profile.role === 'service_manager';
+    return profile.role === employee.role || profile.role === 'service_manager';
+  }).sort((a, b) => ROLE_CONFIG[a.role].team.localeCompare(ROLE_CONFIG[b.role].team) || a.name.localeCompare(b.name)) : [];
+  const teamPlanningSchedules = db.employeeSchedules.filter(schedule => teamPlanningProfiles.some(profile => profile.id === schedule.employeeId) && schedule.date >= employeePlanningDays[0] && schedule.date <= employeePlanningDays[6]);
   const engagedScheduleIds = new Set(db.employeeSchedules.filter(item => ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status)).map(item => item.requestedColleagueScheduleId).filter((id): id is string => Boolean(id)));
   const employeeSupportRequests = employee ? db.employeeSupportRequests.filter(item => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
   const employeeRecognitions = employee ? db.employeeRecognitions.filter(item => item.employeeId === employee.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)) : [];
@@ -326,6 +341,8 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     setCareerGoal(employee?.careerGoal || '');
     setScheduleSwapTargetId('');
     setEmployeePlanningWeek(weekStartKey());
+    setPlanningScope('mine');
+    setTeamPlanningDay(formatDateKey(new Date()));
   }, [employee?.careerGoal, employee?.id, employee?.posId, employee?.siteId, employee?.warehouseId]);
 
   const roleAssignments = useMemo(() => {
@@ -486,17 +503,32 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
     }
 
     if (employee.role === 'kitchen') {
-      assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status)).forEach(item => {
+      assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status)).forEach(item => {
         const customer = db.sartalCustomers.find(customerItem => customerItem.id === item.customerId);
-        const nextStatus = item.status === 'preparing' ? 'ready' : 'preparing';
-        tasks.push({
-          id: item.id,
-          title: `${item.tableNumber || 'À emporter'} · ${item.items.length} ligne(s)`,
-          detail: item.items.map(line => `${line.quantity}× ${db.products.find(product => product.id === line.productId)?.name || line.productId}`).join(' · '),
-          meta: `${elapsedMinutes(item.createdAt)} min${customer?.allergies ? ` · ALLERGIE ${customer.allergies.toUpperCase()}` : ''}`,
-          tone: customer?.allergies || elapsedMinutes(item.createdAt) > item.estimatedMinutes ? 'urgent' : item.status === 'preparing' ? 'active' : 'waiting',
-          actionLabel: nextStatus === 'ready' ? 'Plat prêt' : 'Démarrer',
-          action: () => execute(() => state.updateRestaurantGuestOrderStatus(item.id, nextStatus), nextStatus === 'ready' ? 'La salle est prévenue : plat prêt.' : 'Préparation démarrée.')
+        (['kitchen', 'drinks', 'dessert'] as RestaurantProductionStation[]).forEach(station => {
+          const stationLines = item.items.filter(line => line.station === station && ['sent', 'preparing'].includes(line.status || 'held'));
+          if (!stationLines.length) return;
+          const nextStatus = stationLines.some(line => line.status === 'sent') ? 'preparing' : 'ready';
+          const targetMinutes = Math.max(...stationLines.map(line => line.targetPreparationMinutes || inferRestaurantProductRouting(db.products.find(product => product.id === line.productId)).preparationMinutes));
+          tasks.push({
+            id: `${item.id}-${station}`,
+            title: `${RESTAURANT_STATION_LABELS[station]} · ${item.tableNumber ? `Table ${item.tableNumber}` : 'À emporter'}`,
+            detail: stationLines.map(line => `${line.quantity}× ${db.products.find(product => product.id === line.productId)?.name || line.productId}`).join(' · '),
+            meta: `${elapsedMinutes(item.createdAt)} min / objectif ${targetMinutes} min${customer?.allergies ? ` · ALLERGIE ${customer.allergies.toUpperCase()}` : ''}`,
+            tone: customer?.allergies || elapsedMinutes(item.createdAt) > targetMinutes ? 'urgent' : nextStatus === 'ready' ? 'active' : 'waiting',
+            actionLabel: nextStatus === 'ready' ? `Terminer ${RESTAURANT_STATION_LABELS[station]}` : `Démarrer ${RESTAURANT_STATION_LABELS[station]}`,
+            action: () => execute(() => state.updateRestaurantStationTicket(item.id, station, nextStatus, employee.name), nextStatus === 'ready' ? `${RESTAURANT_STATION_LABELS[station]} a terminé ses articles.` : `${RESTAURANT_STATION_LABELS[station]} a pris ses articles en charge.`)
+          });
+        });
+        const passLines = item.items.filter(line => line.status === 'ready' && ['kitchen', 'dessert'].includes(line.station || 'kitchen') && !line.passedAt);
+        if (passLines.length) tasks.push({
+          id: `${item.id}-pass`,
+          title: `Passe · ${item.tableNumber ? `Table ${item.tableNumber}` : 'À emporter'}`,
+          detail: passLines.map(line => `${line.quantity}× ${db.products.find(product => product.id === line.productId)?.name || line.productId}`).join(' · '),
+          meta: `${elapsedMinutes(item.createdAt)} min · contrôle final et appel salle`,
+          tone: 'urgent',
+          actionLabel: 'Contrôler et appeler',
+          action: () => execute(() => state.confirmRestaurantPassTicket(item.id, employee.name), 'Ticket contrôlé au passe. La salle peut retirer les plats.')
         });
       });
     }
@@ -898,24 +930,74 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
 
   const renderKitchenAction = () => {
     const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
-    const stationLabels = { all: 'Tous', kitchen: 'Cuisine', drinks: 'Boissons', pass: 'Passe' } as const;
-    return <section className="staff-kds"><header><div><span>KDS PERSISTANT</span><h2>Production article par article</h2><p>Les statuts sont partagés en direct avec la salle, le passe et la caisse.</p></div><b><i /> Cuisine en service</b></header><div className="staff-station-tabs">{(Object.entries(stationLabels) as Array<[typeof kdsStation, string]>).map(([value, label]) => <button className={kdsStation === value ? 'active' : ''} key={value} onClick={() => setKdsStation(value)}>{label}</button>)}</div><div className="staff-kds-board">{tickets.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(order => {
+    const stationLabels: Record<KDSStation, string> = { overview: 'Supervision', kitchen: 'Cuisine', drinks: 'Bar / boissons', dessert: 'Desserts', pass: 'Passe' };
+    const activeLines = tickets.flatMap(order => order.items.filter(item => ['sent', 'preparing', 'ready'].includes(item.status || 'held')));
+    const stationCount = (station: KDSStation) => activeLines.filter(item => {
+      if (station === 'overview') return !item.passedAt && item.status !== 'served';
+      if (station === 'pass') return item.status === 'ready' && ['kitchen', 'dessert'].includes(item.station || 'kitchen') && !item.passedAt;
+      return item.station === station && !(item.status === 'ready' && item.passedAt);
+    }).length;
+    const queue = tickets.map(order => {
       const customer = db.sartalCustomers.find(item => item.id === order.customerId);
       const visibleItems = order.items.filter(item => {
         if (!['sent', 'preparing', 'ready'].includes(item.status || 'held')) return false;
-        if (kdsStation === 'pass') return item.status === 'ready';
-        if (kdsStation === 'all') return true;
-        if (kdsStation === 'drinks') return item.station === 'drinks';
-        return item.station === 'kitchen' || item.station === 'dessert';
+        if (kdsStation === 'overview') return !item.passedAt;
+        if (kdsStation === 'pass') return item.status === 'ready' && ['kitchen', 'dessert'].includes(item.station || 'kitchen') && !item.passedAt;
+        return item.station === kdsStation && !(item.status === 'ready' && item.passedAt);
       });
-      if (visibleItems.length === 0) return null;
-      const outageItem = visibleItems[0];
-      const outageProduct = db.products.find(product => product.id === outageItem.productId);
-      const recipe = db.recipes.find(item => item.productId === outageItem.productId);
-      const outageIngredientId = recipe?.ingredients[0]?.productId || outageItem.productId;
-      const outageIngredient = db.products.find(item => item.id === outageIngredientId);
-      return <article className={`${visibleItems.some(item => item.status === 'ready') ? 'ready' : visibleItems.some(item => item.status === 'preparing') ? 'preparing' : 'confirmed'} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}><header><strong>{order.tableNumber || 'À emporter'}</strong><time>{elapsedMinutes(order.createdAt)} min</time></header>{customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}<div className="staff-kds-items">{visibleItems.map(item => { const product = db.products.find(product => product.id === item.productId); const nextStatus = item.status === 'sent' ? 'preparing' : item.status === 'preparing' ? 'ready' : undefined; const action = kdsStation === 'pass' && item.status === 'ready' ? 'pass' : nextStatus; return <button className={`${item.status || 'sent'} ${item.passedAt ? 'checked' : ''}`} key={item.id || `${order.id}-${item.productId}`} disabled={!action} onClick={() => action === 'pass' ? execute(() => state.confirmRestaurantPassItem(order.id, item.id!, employee.name), `${product?.name} contrôlé au passe et signalé à la salle.`) : action && execute(() => state.updateRestaurantOrderItemStatus(order.id, item.id!, action, employee.name), action === 'ready' ? `${product?.name} prêt pour le passe.` : `${product?.name} démarré.`)}><b>{item.quantity}×</b><span><strong>{product?.name || item.productId}</strong><small>Convive {item.seatNumber || 'table'} · {item.course || 'main'}{item.note ? ` · ${item.note}` : ''}</small></span><i>{item.passedAt ? <Check size={15} /> : item.status === 'ready' ? <CheckCircle2 size={15} /> : item.status === 'preparing' ? <ChefHat size={15} /> : <Clock3 size={15} />}</i></button>; })}</div><footer><span>{kdsStation === 'pass' ? 'Contrôle et appel salle' : `${visibleItems.filter(item => item.status === 'ready').length}/${visibleItems.length} prêt(s)`}</span><button className="staff-kds-issue" onClick={() => execute(() => state.setRestaurantIngredientAvailability(outageIngredientId, order.posId, false, `${employee.name} · Cuisine`), `${outageIngredient?.name || outageProduct?.name || 'Ingrédient'} déclaré indisponible et recettes liées masquées.`)}><AlertCircle size={15} /> Rupture {outageIngredient?.name}</button></footer></article>;
-    })}</div></section>;
+      const oldestSentAt = visibleItems.map(item => item.sentAt || item.addedAt || order.createdAt).sort()[0] || order.createdAt;
+      const targetMinutes = Math.max(1, ...visibleItems.map(item => item.targetPreparationMinutes || inferRestaurantProductRouting(db.products.find(product => product.id === item.productId)).preparationMinutes));
+      const elapsed = elapsedMinutes(oldestSentAt);
+      return { order, customer, visibleItems, oldestSentAt, targetMinutes, elapsed, late: elapsed > targetMinutes };
+    }).filter(item => item.visibleItems.length).sort((a, b) => Number(Boolean(b.customer?.allergies)) - Number(Boolean(a.customer?.allergies)) || Number(b.late) - Number(a.late) || a.oldestSentAt.localeCompare(b.oldestSentAt));
+    const sentCount = queue.flatMap(item => item.visibleItems).filter(item => item.status === 'sent').length;
+    const preparingCount = queue.flatMap(item => item.visibleItems).filter(item => item.status === 'preparing').length;
+    const readyCount = queue.flatMap(item => item.visibleItems).filter(item => item.status === 'ready').length;
+
+    return <section className="staff-kds premium-kds">
+      <header>
+        <div><span>PRODUCTION EN TEMPS RÉEL</span><h2>{stationLabels[kdsStation]}</h2><p>Chaque article arrive uniquement sur son poste. La salle voit les changements dès qu’ils sont validés.</p></div>
+        <b><i /> Poste connecté</b>
+      </header>
+      <div className="staff-station-tabs premium-kds-stations">{(Object.entries(stationLabels) as Array<[KDSStation, string]>).map(([value, label]) => <button className={kdsStation === value ? 'active' : ''} key={value} onClick={() => setKdsStation(value)}><span>{label}</span><b>{stationCount(value)}</b></button>)}</div>
+      <div className="premium-kds-command">
+        <article><span>Nouveaux</span><strong>{sentCount}</strong><small>À prendre en charge</small></article>
+        <article><span>En cours</span><strong>{preparingCount}</strong><small>Production démarrée</small></article>
+        <article><span>Prêts</span><strong>{readyCount}</strong><small>{kdsStation === 'pass' ? 'À contrôler' : 'Salle informée'}</small></article>
+        <article className={queue.some(item => item.late) ? 'late' : ''}><span>Hors objectif</span><strong>{queue.filter(item => item.late).length}</strong><small>Priorité automatique</small></article>
+      </div>
+      <div className="staff-kds-board">{queue.map(({ order, customer, visibleItems, oldestSentAt, targetMinutes, elapsed, late }) => {
+        const outageItem = visibleItems[0];
+        const outageProduct = db.products.find(product => product.id === outageItem.productId);
+        const recipe = db.recipes.find(item => item.productId === outageItem.productId);
+        const outageIngredientId = recipe?.ingredients[0]?.productId || outageItem.productId;
+        const outageIngredient = db.products.find(item => item.id === outageIngredientId);
+        const waitingItems = visibleItems.filter(item => item.status === 'sent');
+        const preparingItems = visibleItems.filter(item => item.status === 'preparing');
+        const ticketTone = visibleItems.every(item => item.status === 'ready') ? 'ready' : preparingItems.length ? 'preparing' : 'confirmed';
+        return <article className={`${ticketTone} ${late ? 'late' : ''} ${customer?.allergies ? 'allergy' : ''}`} key={order.id}>
+          <header><div><strong>{order.tableNumber ? `Table ${order.tableNumber}` : order.serviceType === 'room_service' ? `Chambre ${order.roomNumber}` : 'À emporter'}</strong><small>Reçu à {new Date(oldestSentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</small></div><time className={late ? 'late' : ''}>{elapsed} min <small>/ {targetMinutes}</small></time></header>
+          <div className="premium-kds-ticket-meta"><span>{visibleItems.reduce((sum, item) => sum + item.quantity, 0)} préparation(s)</span><span>{order.servicePace === 'quick' ? 'Service rapide' : order.servicePace === 'relaxed' ? 'Rythme détendu' : 'Rythme standard'}</span>{late && <b>PRIORITAIRE</b>}</div>
+          {customer?.allergies && <div className="staff-kds-allergy"><AlertCircle size={17} /> ALLERGIE {customer.allergies.toUpperCase()}</div>}
+          <div className="staff-kds-items">{visibleItems.map(item => {
+            const product = db.products.find(productItem => productItem.id === item.productId);
+            const routing = inferRestaurantProductRouting(product);
+            const nextStatus = item.status === 'sent' ? 'preparing' : item.status === 'preparing' ? 'ready' : undefined;
+            const action = kdsStation === 'pass' && item.status === 'ready' ? 'pass' : kdsStation === 'overview' ? undefined : nextStatus;
+            const itemStatus = item.status === 'sent' ? 'À démarrer' : item.status === 'preparing' ? 'En préparation' : kdsStation === 'pass' ? 'À contrôler' : item.station === 'drinks' ? 'Prêt au bar' : 'Prêt au passe';
+            const routedStation = item.station && item.station !== 'pass' ? item.station : routing.station;
+            return <button className={`${item.status || 'sent'} ${item.passedAt ? 'checked' : ''}`} key={item.id || `${order.id}-${item.productId}`} disabled={!action} onClick={() => action === 'pass' ? execute(() => state.confirmRestaurantPassItem(order.id, item.id!, employee.name), `${product?.name} contrôlé. La salle peut le retirer.`) : action && execute(() => state.updateRestaurantOrderItemStatus(order.id, item.id!, action, employee.name), action === 'ready' ? `${product?.name} terminé et transmis au poste suivant.` : `${product?.name} pris en charge.`)}><b>{item.quantity}×</b><span><strong>{product?.name || item.productId}</strong><small>{RESTAURANT_STATION_LABELS[routedStation]} · Convive {item.seatNumber || 'table'} · {itemStatus}</small>{item.modifiers?.length ? <em>{item.modifiers.join(' · ')}</em> : null}{item.note && <em>{item.note}</em>}</span><i>{item.passedAt ? <Check size={15} /> : item.status === 'ready' ? <CheckCircle2 size={15} /> : item.status === 'preparing' ? <ChefHat size={15} /> : <Clock3 size={15} />}</i></button>;
+          })}</div>
+          <footer>
+            <span>{visibleItems.filter(item => item.status === 'ready').length}/{visibleItems.length} prêt(s)</span>
+            {kdsStation === 'pass' && <button className="staff-kds-ticket-action" onClick={() => execute(() => state.confirmRestaurantPassTicket(order.id, employee.name), `Ticket ${order.tableNumber || order.id} contrôlé. La salle est appelée.`)}><Bell size={15} /> Contrôler et appeler</button>}
+            {kdsStation !== 'overview' && kdsStation !== 'pass' && waitingItems.length > 0 && <button className="staff-kds-ticket-action" onClick={() => execute(() => state.updateRestaurantStationTicket(order.id, kdsStation, 'preparing', employee.name), `${waitingItems.length} article(s) pris en charge sur ce poste.`)}><ChefHat size={15} /> Démarrer {waitingItems.length}</button>}
+            {kdsStation !== 'overview' && kdsStation !== 'pass' && preparingItems.length > 0 && <button className="staff-kds-ticket-action ready" onClick={() => execute(() => state.updateRestaurantStationTicket(order.id, kdsStation, 'ready', employee.name), `${preparingItems.length} article(s) terminés et signalés.`)}><CheckCircle2 size={15} /> Terminer {preparingItems.length}</button>}
+            {kdsStation !== 'overview' && kdsStation !== 'pass' && <button className="staff-kds-issue" onClick={() => execute(() => state.setRestaurantIngredientAvailability(outageIngredientId, order.posId, false, `${employee.name} · ${stationLabels[kdsStation]}`), `${outageIngredient?.name || outageProduct?.name || 'Ingrédient'} déclaré indisponible et recettes liées masquées.`)}><AlertCircle size={15} /> Rupture</button>}
+          </footer>
+        </article>;
+      })}{queue.length === 0 && <div className="premium-kds-empty"><CheckCircle2 size={36} /><strong>File à jour</strong><p>Aucun article n’attend sur le poste {stationLabels[kdsStation].toLowerCase()}.</p></div>}</div>
+    </section>;
   };
 
   const renderReceptionAction = () => {
@@ -1122,13 +1204,13 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
   };
 
   const renderKitchenGameChanger = () => {
-    const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing'].includes(item.status));
+    const tickets = assignedRestaurantOrders.filter(item => ['placed', 'confirmed', 'preparing', 'ready'].includes(item.status));
     const routedItems = tickets.flatMap(order => order.items.map(line => ({ order, line, product: db.products.find(item => item.id === line.productId) })));
-    const stationItems = routedItems.filter(item => ['sent', 'preparing', 'ready'].includes(item.line.status || 'held') && (kdsStation === 'all' || (kdsStation === 'pass' ? item.line.status === 'ready' : kdsStation === 'drinks' ? item.line.station === 'drinks' : item.line.station === 'kitchen' || item.line.station === 'dessert')));
+    const stationItems = routedItems.filter(item => ['sent', 'preparing', 'ready'].includes(item.line.status || 'held') && (kdsStation === 'overview' || (kdsStation === 'pass' ? item.line.status === 'ready' && ['kitchen', 'dessert'].includes(item.line.station || 'kitchen') && !item.line.passedAt : item.line.station === kdsStation)));
     const overdue = tickets.filter(item => elapsedMinutes(item.createdAt) > item.estimatedMinutes).length;
     const workloadMinutes = Math.max(5, Math.ceil(stationItems.reduce((sum, item) => sum + item.line.quantity, 0) / 3) * 5);
     const directShortages = stationItems.filter(item => item.product?.isStockable && getPOSStock(item.line.productId, item.order.posId).available < item.line.quantity);
-    return <section className="staff-game-changer staff-kitchen-intelligence"><header><CircleGauge size={22} /><div><span>PILOTAGE KDS</span><h2>Charge et routage en temps réel</h2></div><b className={overdue ? 'danger' : 'good'}>{overdue} ticket(s) en retard</b></header><div className="staff-station-tabs"><button className={kdsStation === 'all' ? 'active' : ''} onClick={() => setKdsStation('all')}>Tous · {routedItems.length}</button><button className={kdsStation === 'kitchen' ? 'active' : ''} onClick={() => setKdsStation('kitchen')}>Cuisine</button><button className={kdsStation === 'drinks' ? 'active' : ''} onClick={() => setKdsStation('drinks')}>Boissons</button><button className={kdsStation === 'pass' ? 'active' : ''} onClick={() => setKdsStation('pass')}>Passe</button></div><div className="staff-intelligence-metrics"><article><small>Charge estimée</small><strong>{workloadMinutes} min</strong><p>{stationItems.reduce((sum, item) => sum + item.line.quantity, 0)} préparation(s) à produire</p></article><article><small>Avancement persistant</small><strong>{stationItems.filter(item => item.line.status === 'ready' || item.line.passedAt).length}/{stationItems.length}</strong><p>Visible depuis tous les postes</p></article><article><small>Stock direct à confirmer</small><strong>{directShortages.length}</strong><p>{directShortages[0]?.product?.name || 'Aucune rupture directe détectée'}</p></article></div></section>;
+    return <section className="staff-game-changer staff-kitchen-intelligence"><header><CircleGauge size={22} /><div><span>PILOTAGE KDS</span><h2>Charge et routage en temps réel</h2></div><b className={overdue ? 'danger' : 'good'}>{overdue} ticket(s) en retard</b></header><div className="staff-station-tabs"><button className={kdsStation === 'overview' ? 'active' : ''} onClick={() => setKdsStation('overview')}>Supervision · {routedItems.length}</button><button className={kdsStation === 'kitchen' ? 'active' : ''} onClick={() => setKdsStation('kitchen')}>Cuisine</button><button className={kdsStation === 'drinks' ? 'active' : ''} onClick={() => setKdsStation('drinks')}>Bar</button><button className={kdsStation === 'dessert' ? 'active' : ''} onClick={() => setKdsStation('dessert')}>Desserts</button><button className={kdsStation === 'pass' ? 'active' : ''} onClick={() => setKdsStation('pass')}>Passe</button></div><div className="staff-intelligence-metrics"><article><small>Charge estimée</small><strong>{workloadMinutes} min</strong><p>{stationItems.reduce((sum, item) => sum + item.line.quantity, 0)} préparation(s) à produire</p></article><article><small>Avancement persistant</small><strong>{stationItems.filter(item => item.line.status === 'ready' || item.line.passedAt).length}/{stationItems.length}</strong><p>Visible depuis tous les postes</p></article><article><small>Stock direct à confirmer</small><strong>{directShortages.length}</strong><p>{directShortages[0]?.product?.name || 'Aucune rupture directe détectée'}</p></article></div></section>;
   };
 
   const renderReceptionGameChanger = () => {
@@ -1392,9 +1474,11 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
         <section className="staff-personal-card staff-preferences"><header><ShieldCheck size={20} /><span><strong>Mon confort d’utilisation</strong><small>Réglages propres à votre compte.</small></span></header><div className="staff-language-choice"><button className={preferences.language === 'fr' ? 'active' : ''} onClick={() => updatePreference({ language: 'fr' })}>Français</button><button className={preferences.language === 'wo' ? 'active' : ''} onClick={() => updatePreference({ language: 'wo' })}>Wolof</button></div><button className={preferences.highContrast ? 'active' : ''} onClick={() => updatePreference({ highContrast: !preferences.highContrast })}><span><strong>Contraste renforcé</strong><small>Lecture plus nette en forte luminosité</small></span><i /></button><button className={preferences.lowBandwidth ? 'active' : ''} onClick={() => updatePreference({ lowBandwidth: !preferences.lowBandwidth })}><span><strong>Réseau faible</strong><small>Priorité au texte et aux actions essentielles</small></span><i /></button><button className={preferences.quietNotifications ? 'active' : ''} onClick={() => updatePreference({ quietNotifications: !preferences.quietNotifications })}><span><strong>Notifications calmes</strong><small>Urgences visibles, interruptions limitées</small></span><i /></button><button className={preferences.voiceAssistance ? 'active' : ''} onClick={() => updatePreference({ voiceAssistance: !preferences.voiceAssistance })}><span><strong>Assistance vocale</strong><small>Dictée disponible dans les saisies longues</small></span><i /></button></section>
       </div>}
 
-      {activeLifeSection === 'schedule' && <div className="staff-schedule-space">
+      {activeLifeSection === 'schedule' && <div className={`staff-schedule-space ${planningScope === 'team' ? 'team-visible' : ''}`}>
         <section>
-          <header className="staff-planning-hero"><div><CalendarRange size={26} /><span><small>MA SEMAINE</small><h2>Mes services, clairement</h2><p>Horaires, jours de repos et affectations publiés par le manager.</p></span></div><strong>{Math.round(employeeWeekMinutes / 60)} h<small> planifiées</small></strong></header>
+          <header className="staff-planning-hero"><div><CalendarRange size={26} /><span><small>{planningScope === 'mine' ? 'MA SEMAINE' : 'MON ÉQUIPE'}</small><h2>{planningScope === 'mine' ? 'Mes services, clairement' : 'Qui travaille avec moi ?'}</h2><p>{planningScope === 'mine' ? 'Horaires, jours de repos et affectations publiés par le manager.' : 'Une vue de coordination en lecture seule, limitée à votre périmètre de travail.'}</p></span></div><strong>{planningScope === 'mine' ? Math.round(employeeWeekMinutes / 60) : teamPlanningProfiles.length}<small>{planningScope === 'mine' ? ' h planifiées' : ' personnes'}</small></strong></header>
+          {canViewTeamPlanning && <nav className="staff-planning-scope"><button className={planningScope === 'mine' ? 'active' : ''} onClick={() => setPlanningScope('mine')}><UserRoundSearch size={17} /> Mon planning</button><button className={planningScope === 'team' ? 'active' : ''} onClick={() => setPlanningScope('team')}><UsersRound size={17} /> Planning équipe</button></nav>}
+          {planningScope === 'mine' ? <>
           <div className="staff-planning-summary"><article><small>Jours travaillés</small><strong>{employeeWorkedDays}/7</strong><span>{7 - employeeWorkedDays} jour(s) sans service</span></article><article><small>Prochain service</small><strong>{nextSchedule ? `${nextSchedule.startTime}-${nextSchedule.endTime}` : 'Aucun'}</strong><span>{nextSchedule ? new Date(`${nextSchedule.date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' }) : 'Planning à confirmer'}</span></article><article className={employeePendingChanges ? 'attention' : ''}><small>Demandes en cours</small><strong>{employeePendingChanges}</strong><span>{employeePendingChanges ? 'Suivi visible ci-dessous' : 'Planning confirmé'}</span></article></div>
           <div className="staff-planning-toolbar"><button className="previous" onClick={() => setEmployeePlanningWeek(addDaysToKey(employeePlanningWeek, -7))}><ChevronRight size={17} /></button><span><small>Semaine</small><strong>{new Date(`${employeePlanningDays[0]}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} - {new Date(`${employeePlanningDays[6]}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</strong></span><button onClick={() => setEmployeePlanningWeek(addDaysToKey(employeePlanningWeek, 7))}><ChevronRight size={17} /></button><button className="today" onClick={() => setEmployeePlanningWeek(weekStartKey())}>Cette semaine</button></div>
           <div className="staff-week-strip">{employeePlanningDays.map(day => { const schedules = employeeWeekSchedules.filter(item => item.date === day); const isToday = day === formatDateKey(new Date()); return <article className={`${schedules.length ? 'working' : 'off'} ${isToday ? 'today' : ''}`} key={day}><header><span>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</span><strong>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit' })}</strong>{isToday && <b>Aujourd’hui</b>}</header>{schedules.length ? schedules.map(schedule => <div key={schedule.id}><strong>{schedule.startTime}-{schedule.endTime}</strong><span>{schedule.assignmentLabel}</span><small>{SCHEDULE_STATUS[schedule.status]}</small></div>) : <p>Repos</p>}</article>; })}</div>
@@ -1402,8 +1486,15 @@ export const EmployeeWorkspace: React.FC<EmployeeWorkspaceProps> = ({ state, ini
           <header className="staff-planning-detail-heading"><div><Clock3 size={19} /><span><strong>Détail de mes services</strong><small>Les changements sont possibles uniquement sur un service publié.</small></span></div><b>{employeeWeekSchedules.length}</b></header>
           <div className="staff-schedule-list">{employeeWeekSchedules.map(schedule => <article className={schedule.status} key={schedule.id}><time><b>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short' })}</b><strong>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit' })}</strong><small>{new Date(schedule.date + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short' })}</small></time><div><span>{engagedScheduleIds.has(schedule.id) ? 'Échange proposé par un collègue' : SCHEDULE_STATUS[schedule.status]}</span><h3>{schedule.startTime}–{schedule.endTime}</h3><p>{schedule.assignmentLabel}</p>{schedule.managerNote && <small>{schedule.managerNote}</small>}</div>{['planned', 'confirmed', 'change_rejected', 'swap_colleague_rejected'].includes(schedule.status) && !engagedScheduleIds.has(schedule.id) && <footer><button disabled={!scheduleSwapTargetId} onClick={() => execute(() => { const target = db.employeeSchedules.find(item => item.id === scheduleSwapTargetId); if (!target) throw new Error('Choisissez le créneau du collègue'); state.requestEmployeeScheduleChange(schedule.id, employee.id, 'swap', target.employeeId, 'Proposition d’échange entre collègues.', target.id); }, 'Proposition envoyée au collègue. Le manager n’interviendra qu’après son accord.')}>Proposer un échange</button><button onClick={() => execute(() => state.requestEmployeeScheduleChange(schedule.id, employee.id, 'leave', undefined, 'Demande personnelle à examiner.'), 'Demande d’absence envoyée au manager.')}>Demander une absence</button></footer>}</article>)}{employeeWeekSchedules.length === 0 && <div className="staff-list-empty"><CalendarCheck size={28} /><strong>Aucun service sur cette semaine</strong><small>Utilisez les flèches pour consulter une autre semaine.</small></div>}</div>
           {swapScheduleOptions.length > 0 && <details className="staff-schedule-change-box"><summary><ArrowRight size={16} /><span><strong>Préparer une demande d’échange</strong><small>Le collègue accepte d’abord, le manager décide ensuite.</small></span></summary><label className="staff-colleague-picker">Créneau du collègue proposé<select value={scheduleSwapTargetId} onChange={event => setScheduleSwapTargetId(event.target.value)}><option value="">Choisir un créneau précis</option>{swapScheduleOptions.map(option => { const profile = db.employeeProfiles.find(item => item.id === option.employeeId); return <option key={option.id} value={option.id}>{profile?.name} · {ROLE_CONFIG[profile?.role || 'waiter'].team} · {new Date(option.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} {option.startTime}–{option.endTime}</option>; })}</select><small>Une fois le créneau choisi, utilisez « Proposer un échange » sur votre service concerné.</small></label></details>}
+          </> : <div className="staff-team-planning">
+            <div className="staff-planning-toolbar"><button className="previous" onClick={() => { const next = addDaysToKey(employeePlanningWeek, -7); setEmployeePlanningWeek(next); setTeamPlanningDay(next); }}><ChevronRight size={17} /></button><span><small>Semaine de l’équipe</small><strong>{new Date(`${employeePlanningDays[0]}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} - {new Date(`${employeePlanningDays[6]}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</strong></span><button onClick={() => { const next = addDaysToKey(employeePlanningWeek, 7); setEmployeePlanningWeek(next); setTeamPlanningDay(next); }}><ChevronRight size={17} /></button><button className="today" onClick={() => { const start = weekStartKey(); setEmployeePlanningWeek(start); setTeamPlanningDay(formatDateKey(new Date())); }}>Cette semaine</button></div>
+            <nav className="staff-team-day-picker">{employeePlanningDays.map(day => <button className={`${teamPlanningDay === day ? 'active' : ''} ${day === formatDateKey(new Date()) ? 'today' : ''}`} key={day} onClick={() => setTeamPlanningDay(day)}><span>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</span><strong>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit' })}</strong></button>)}</nav>
+            <div className="staff-team-planning-grid"><header><div><strong>Collaborateur</strong><small>Poste et affectation</small></div>{employeePlanningDays.map(day => <span className={day === formatDateKey(new Date()) ? 'today' : ''} key={day}><small>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</small><strong>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit' })}</strong></span>)}</header><div>{teamPlanningProfiles.map(profile => <article className={profile.id === employee.id ? 'mine' : ''} key={profile.id}><header><span className="staff-avatar">{profile.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{profile.name}</strong><small>{ROLE_CONFIG[profile.role].team}</small></div>{profile.id === employee.id && <b>Moi</b>}</header>{employeePlanningDays.map(day => { const schedules = teamPlanningSchedules.filter(schedule => schedule.employeeId === profile.id && schedule.date === day); return <div className={schedules.length ? 'working' : 'off'} key={day}>{schedules.map(schedule => <section style={{ '--team-role': ROLE_CONFIG[profile.role].color } as React.CSSProperties} className={schedule.status} key={schedule.id}><strong>{schedule.startTime}-{schedule.endTime}</strong><span>{schedule.assignmentLabel}</span><small>{SCHEDULE_STATUS[schedule.status]}</small></section>)}{schedules.length === 0 && <small>Repos</small>}</div>; })}</article>)}</div></div>
+            <div className="staff-team-day-agenda"><header><div><strong>{new Date(`${teamPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</strong><small>Présences publiées sur votre périmètre</small></div><b>{teamPlanningSchedules.filter(schedule => schedule.date === teamPlanningDay).length}</b></header>{teamPlanningSchedules.filter(schedule => schedule.date === teamPlanningDay).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(schedule => { const profile = teamPlanningProfiles.find(item => item.id === schedule.employeeId); if (!profile) return null; return <article className={profile.id === employee.id ? 'mine' : ''} style={{ '--team-role': ROLE_CONFIG[profile.role].color } as React.CSSProperties} key={schedule.id}><span className="staff-avatar">{profile.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{profile.name}{profile.id === employee.id ? ' · Moi' : ''}</strong><small>{ROLE_CONFIG[profile.role].team} · {schedule.assignmentLabel}</small></div><b>{schedule.startTime}-{schedule.endTime}</b></article>; })}{teamPlanningSchedules.every(schedule => schedule.date !== teamPlanningDay) && <div className="staff-list-empty"><CalendarCheck size={26} /><strong>Aucune présence publiée ce jour</strong></div>}</div>
+            <p className="staff-team-planning-note"><ShieldCheck size={16} /> Cette vue sert à coordonner le service. Les demandes et informations personnelles de vos collègues restent privées.</p>
+          </div>}
         </section>
-        <aside className="staff-transport-card"><Route size={23} /><h3>Retour après service</h3><p>Anticipez un service tardif. La demande est suivie par le manager.</p><label>Heure souhaitée<input type="datetime-local" value={supportWhen} onChange={event => setSupportWhen(event.target.value)} /></label><label>Précision<textarea value={supportType === 'transport' ? supportNote : ''} onFocus={() => setSupportType('transport')} onChange={event => { setSupportType('transport'); setSupportNote(event.target.value); }} placeholder="Quartier, contrainte ou point de rendez-vous." /></label><button disabled={!supportWhen || supportType !== 'transport' || !supportNote.trim()} onClick={submitSupport}>Demander l’organisation du retour</button></aside>
+        {planningScope === 'mine' && <aside className="staff-transport-card"><Route size={23} /><h3>Retour après service</h3><p>Anticipez un service tardif. La demande est suivie par le manager.</p><label>Heure souhaitée<input type="datetime-local" value={supportWhen} onChange={event => setSupportWhen(event.target.value)} /></label><label>Précision<textarea value={supportType === 'transport' ? supportNote : ''} onFocus={() => setSupportType('transport')} onChange={event => { setSupportType('transport'); setSupportNote(event.target.value); }} placeholder="Quartier, contrainte ou point de rendez-vous." /></label><button disabled={!supportWhen || supportType !== 'transport' || !supportNote.trim()} onClick={submitSupport}>Demander l’organisation du retour</button></aside>}
       </div>}
 
       {activeLifeSection === 'growth' && <div className="staff-growth-space">

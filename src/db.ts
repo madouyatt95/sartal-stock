@@ -88,6 +88,7 @@ import {
   User,
   createEmptyPaymentTotals
 } from './types';
+import { inferRestaurantProductRouting } from './utils/restaurantRouting';
 
 export interface DatabaseState {
   companies: Company[];
@@ -440,6 +441,10 @@ const initialDB = (): DatabaseState => {
   ];
 
   products.forEach(product => {
+    const routing = inferRestaurantProductRouting(product);
+    product.restaurantStation = routing.station;
+    product.restaurantCourse = routing.course;
+    product.preparationMinutes = routing.preparationMinutes;
     if (product.isStockable && !product.mainSupplierId) {
       product.mainSupplierId = getDemoSupplierId(product);
     }
@@ -2225,6 +2230,15 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
   const posList = (state.posList || []).map(pos => (
     pos.name === 'Restaurant Le Jardin' ? { ...pos, name: 'Restaurant La Terrasse' } : pos
   ));
+  const products = (state.products || []).map(product => {
+    const routing = inferRestaurantProductRouting(product);
+    return {
+      ...product,
+      restaurantStation: routing.station,
+      restaurantCourse: routing.course,
+      preparationMinutes: routing.preparationMinutes
+    };
+  });
 
   const cashSessions = (state.cashSessions || []).map(session => ({
     ...session,
@@ -2390,11 +2404,11 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
   const restaurantGuestOrders: RestaurantGuestOrder[] = sourceRestaurantGuestOrders.map(order => {
     const itemStatus = order.status === 'placed' ? 'held' as const : order.status === 'confirmed' ? 'sent' as const : order.status === 'preparing' ? 'preparing' as const : order.status === 'ready' ? 'ready' as const : ['served', 'paid'].includes(order.status) ? 'served' as const : 'voided' as const;
     const items = order.items.map((item, index) => {
-      const product = state.products?.find(entry => entry.id === item.productId);
-      const descriptor = `${product?.category || ''} ${product?.name || ''}`;
-      const station = /boisson|jus|eau|café|cafe|thé|the|mocktail/i.test(descriptor) ? 'drinks' as const : /dessert|pâtisserie|patisserie|glace|fruit/i.test(descriptor) ? 'dessert' as const : 'kitchen' as const;
-      const course = station === 'drinks' ? 'drinks' as const : station === 'dessert' ? 'dessert' as const : /entrée|entree|salade|soupe/i.test(descriptor) ? 'starter' as const : 'main' as const;
-      return { ...item, id: item.id || `${order.id}-LINE-${index + 1}`, course: item.course || course, station: item.station || station, status: item.status || itemStatus, modifiers: item.modifiers || [], addedAt: item.addedAt || order.createdAt };
+      const product = products.find(entry => entry.id === item.productId);
+      const routing = inferRestaurantProductRouting(product);
+      const station = routing.station;
+      const course = routing.course;
+      return { ...item, id: item.id || `${order.id}-LINE-${index + 1}`, course: item.course || course, station: item.station || station, targetPreparationMinutes: item.targetPreparationMinutes || routing.preparationMinutes, status: item.status || itemStatus, modifiers: item.modifiers || [], addedAt: item.addedAt || order.createdAt };
     });
     return { ...order, items, grossTotal: order.grossTotal ?? order.total, discountTotal: order.discountTotal || 0, complimentaryTotal: order.complimentaryTotal || 0, tipTotal: order.tipTotal || 0, currentCourse: order.currentCourse || 'drinks', servicePace: order.servicePace || 'standard', trainingMode: order.trainingMode || false, serviceEvents: order.serviceEvents || [{ id: `${order.id}-EVENT-OPEN`, type: 'order_opened', label: `Commande ${order.tableNumber || order.id} ouverte`, actor: 'Migration Sártal', createdAt: order.createdAt }] };
   });
@@ -2441,7 +2455,7 @@ const migrateDB = (state: Partial<DatabaseState>): DatabaseState => {
     sites: state.sites || [],
     posList,
     warehouses: state.warehouses || [],
-    products: state.products || [],
+    products,
     posProductAliases: state.posProductAliases || [],
     posPricing: state.posPricing || [],
     stocks: state.stocks || [],

@@ -3,6 +3,7 @@ import { AlertTriangle, Check, ChefHat, Clock3, Minus, Plus, Search, Send, Trash
 import type { StockState } from '../hooks/useStockState';
 import type { RestaurantServiceCourse } from '../types';
 import { getRestaurantProductAlternatives, getRestaurantProductAvailability } from '../utils/restaurantService';
+import { inferRestaurantProductRouting, RESTAURANT_STATION_LABELS } from '../utils/restaurantRouting';
 
 interface RestaurantTableOrderPanelProps {
   state: StockState;
@@ -38,7 +39,7 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('Tout');
   const [seatNumber, setSeatNumber] = useState(1);
-  const [course, setCourse] = useState<RestaurantServiceCourse>('drinks');
+  const [courseMode, setCourseMode] = useState<RestaurantServiceCourse | 'auto'>('auto');
   const [modifiers, setModifiers] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -61,7 +62,7 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
     .map(pricing => {
       const product = db.products.find(item => item.id === pricing.productId);
       const availability = getRestaurantProductAvailability(db, pricing.posId, pricing.productId);
-      return { pricing, product, availability, alternatives: availability.status === 'out' ? getRestaurantProductAlternatives(db, pricing.posId, pricing.productId, 1) : [] };
+      return { pricing, product, routing: inferRestaurantProductRouting(product), availability, alternatives: availability.status === 'out' ? getRestaurantProductAlternatives(db, pricing.posId, pricing.productId, 1) : [] };
     })
     .filter(item => item.product?.isActive)
     .sort((a, b) => ({ available: 0, low: 1, out: 2 }[a.availability.status] - { available: 0, low: 1, out: 2 }[b.availability.status]) || a.product!.name.localeCompare(b.product!.name)), [db, order?.posId]);
@@ -96,10 +97,11 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
       return;
     }
     if (cart.length === 0) operationRef.current = operationId(`ORDER-${order.id}`);
-    const key = `${productId}-${seatNumber}-${course}-${modifiers.join('|')}-${note.trim()}`;
+    const selectedCourse = courseMode === 'auto' ? menuItem.routing.course : courseMode;
+    const key = `${productId}-${seatNumber}-${selectedCourse}-${modifiers.join('|')}-${note.trim()}`;
     setCart(current => {
       const existing = current.find(item => item.key === key);
-      return existing ? current.map(item => item.key === key ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { key, productId, quantity: 1, seatNumber, course, modifiers, note: note.trim() || undefined }];
+      return existing ? current.map(item => item.key === key ? { ...item, quantity: item.quantity + 1 } : item) : [...current, { key, productId, quantity: 1, seatNumber, course: selectedCourse, modifiers, note: note.trim() || undefined }];
     });
   };
 
@@ -119,6 +121,13 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
     submittingRef.current = true;
     setSubmitting(true);
     const currentOperationId = operationRef.current;
+    const routeCounts = cart.reduce<Record<string, number>>((counts, item) => {
+      const product = db.products.find(productItem => productItem.id === item.productId);
+      const station = inferRestaurantProductRouting(product).station;
+      counts[station] = (counts[station] || 0) + item.quantity;
+      return counts;
+    }, {});
+    const routeSummary = Object.entries(routeCounts).map(([station, count]) => `${count} ${RESTAURANT_STATION_LABELS[station as keyof typeof RESTAURANT_STATION_LABELS].toLowerCase()}`).join(' · ');
     let shouldRotateOperation = false;
     try {
       const success = execute(() => state.appendRestaurantGuestOrderItems(
@@ -126,7 +135,9 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
         order.customerId,
         cart.map(item => ({ productId: item.productId, quantity: item.quantity, seatNumber: item.seatNumber, course: item.course, modifiers: item.modifiers, note: item.note, status, actorName: actor })),
         currentOperationId
-      ), online ? 'Commande enregistrée et stock déduit.' : 'Commande conservée sur cet appareil. Synchronisation dès le retour du réseau.');
+      ), online
+        ? status === 'sent' ? `Commande routée : ${routeSummary}. La salle suit maintenant chaque poste.` : 'Commande gardée par service. Aucun poste de production n’est encore sollicité.'
+        : 'Commande conservée sur cet appareil. Synchronisation dès le retour du réseau.');
       if (success) {
         setCart([]);
         shouldRotateOperation = true;
@@ -147,13 +158,13 @@ export const RestaurantTableOrderPanel: React.FC<RestaurantTableOrderPanelProps>
     <div className={`restaurant-order-sync ${online ? 'synced' : 'queued'}`}><WifiOff size={16} /><span><strong>{online ? 'Connecté au service' : 'Réseau indisponible'}</strong><small>{online ? `Stock contrôlé dans ${warehouseLabel}` : 'La commande reste utilisable et sera marquée à synchroniser.'}</small></span></div>
     <div className="restaurant-order-context">
       <section><small>Convive</small><div className="restaurant-seat-picker"><button type="button" className={seatNumber === 0 ? 'active' : ''} onClick={() => setSeatNumber(0)}><Users size={15} /> Table</button>{Array.from({ length: capacity }, (_, index) => index + 1).map(seat => <button type="button" className={seatNumber === seat ? 'active' : ''} key={seat} onClick={() => setSeatNumber(seat)}>{seat}</button>)}</div></section>
-      <section><small>Service</small><div className="restaurant-course-picker">{(Object.entries(COURSE_LABELS) as Array<[RestaurantServiceCourse, string]>).map(([value, label]) => <button type="button" className={course === value ? 'active' : ''} key={value} onClick={() => setCourse(value)}>{label}</button>)}</div></section>
+      <section><small>Service</small><div className="restaurant-course-picker"><button type="button" className={courseMode === 'auto' ? 'active' : ''} onClick={() => setCourseMode('auto')}>Automatique</button>{(Object.entries(COURSE_LABELS) as Array<[RestaurantServiceCourse, string]>).map(([value, label]) => <button type="button" className={courseMode === value ? 'active' : ''} key={value} onClick={() => setCourseMode(value)}>{label}</button>)}</div></section>
     </div>
     <div className="restaurant-order-tools"><label><Search size={17} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Rechercher un plat, une boisson..." /></label><div>{categories.map(item => <button type="button" className={category === item ? 'active' : ''} key={item} onClick={() => setCategory(item)}>{item}</button>)}</div></div>
-    <div className="restaurant-order-menu">{visibleMenu.map(item => <button type="button" disabled={item.availability.status === 'out'} className={item.availability.status} key={item.product!.id} onClick={() => addProduct(item.product!.id)}><span><strong>{item.product!.name}</strong><small>{item.product!.category} · {COURSE_LABELS[course]} · convive {seatNumber || 'table'}</small><em>{item.availability.label}{item.alternatives[0]?.product ? ` · Alternative : ${item.alternatives[0].product.name}` : ''}</em></span><b>{formatFCFA(item.pricing.salePrice)}</b><Plus size={17} /></button>)}{visibleMenu.length === 0 && <p>Aucun article disponible pour ce filtre.</p>}</div>
+    <div className="restaurant-order-menu">{visibleMenu.map(item => <button type="button" disabled={item.availability.status === 'out'} className={item.availability.status} key={item.product!.id} onClick={() => addProduct(item.product!.id)}><span><strong>{item.product!.name}</strong><small>{item.product!.category} · {RESTAURANT_STATION_LABELS[item.routing.station]} · {COURSE_LABELS[courseMode === 'auto' ? item.routing.course : courseMode]} · convive {seatNumber || 'table'}</small><em>{item.availability.label}{item.alternatives[0]?.product ? ` · Alternative : ${item.alternatives[0].product.name}` : ''}</em></span><b>{formatFCFA(item.pricing.salePrice)}</b><Plus size={17} /></button>)}{visibleMenu.length === 0 && <p>Aucun article disponible pour ce filtre.</p>}</div>
     <section className="restaurant-order-options"><div>{QUICK_MODIFIERS.map(item => <button type="button" className={modifiers.includes(item) ? 'active' : ''} key={item} onClick={() => setModifiers(current => current.includes(item) ? current.filter(value => value !== item) : [...current, item])}>{modifiers.includes(item) && <Check size={13} />}{item}</button>)}</div><input value={note} onChange={event => setNote(event.target.value)} placeholder="Consigne cuisine pour les prochains articles" /></section>
     <section className="restaurant-order-cart"><header><div><strong>À ajouter</strong><small>{cart.length ? `${cart.reduce((sum, item) => sum + item.quantity, 0)} article(s)` : 'Touchez un produit'}</small></div><b>{formatFCFA(cartTotal)}</b></header>{cart.map(line => { const product = db.products.find(item => item.id === line.productId); return <article key={line.key}><span><strong>{product?.name}</strong><small>Convive {line.seatNumber || 'table'} · {COURSE_LABELS[line.course]}{line.modifiers.length ? ` · ${line.modifiers.join(', ')}` : ''}</small></span><div><button type="button" onClick={() => changeQuantity(line.key, -1)}><Minus size={14} /></button><b>{line.quantity}</b><button type="button" onClick={() => changeQuantity(line.key, 1)}><Plus size={14} /></button></div></article>; })}<footer><button type="button" disabled={!cart.length || submitting} onClick={() => submitCart('held')}><Clock3 size={17} /> Garder par service</button><button type="button" disabled={!cart.length || submitting} className="primary" onClick={() => submitCart('sent')}><Send size={17} /> {submitting ? 'Enregistrement...' : 'Envoyer maintenant'}</button></footer></section>
-    <section className="restaurant-order-ticket"><header><div><ChefHat size={18} /><span><strong>Ticket en direct</strong><small>État partagé salle, cuisine et caisse</small></span></div><b>{formatFCFA(order.total)}</b></header>{heldByCourse.some(item => item.count > 0) && <div className="restaurant-course-fire">{heldByCourse.filter(item => item.count > 0).map(item => <button type="button" key={item.course} onClick={() => execute(() => state.fireRestaurantOrderCourse(order.id, item.course, actor, `COURSE-${order.id}-${item.course}-${item.itemIds.join('-')}`), `${COURSE_LABELS[item.course]} envoyé(s) en préparation.`)}><Send size={14} /> Envoyer {COURSE_LABELS[item.course]} · {item.count}</button>)}</div>}<div>{order.items.filter(item => item.status !== 'voided').map(line => { const product = db.products.find(item => item.id === line.productId); return <article className={line.status || 'held'} key={line.id || `${line.productId}-${line.seatNumber}`}><span><strong>{line.quantity}× {product?.name}</strong><small>Convive {line.seatNumber || 'table'} · {COURSE_LABELS[line.course || 'main']} · {STATUS_LABELS[line.status || 'held']}</small>{line.note && <em>{line.note}</em>}</span>{line.status === 'ready' ? <button type="button" className="serve" onClick={() => execute(() => state.updateRestaurantOrderItemStatus(order.id, line.id!, 'served', actor, `STATUS-${order.id}-${line.id}-served`), `${product?.name} servi.`)}><Check size={15} /> Servi</button> : ['held', 'sent'].includes(line.status || 'held') ? <button type="button" className="void" onClick={() => execute(() => state.requestEmployeeApproval({ type: 'void', referenceId: order.id, requestedBy: db.employeeProfiles.find(item => item.name === actor)?.id || db.currentUser.id, requestedByName: actor, label: `Annulation ${product?.name} · ${tableLabel}`, reason: 'Annulation demandée avant préparation.', amount: line.quantity * line.salePrice, metadata: { orderId: order.id, itemId: line.id || '', disposition: 'restock' } }), 'Annulation envoyée au manager.')}><Trash2 size={15} /></button> : null}</article>; })}</div>{order.items.some(item => item.status === 'voided') && <p className="restaurant-order-audit"><AlertTriangle size={15} /> Les lignes annulées restent visibles dans l’historique d’audit.</p>}</section>
+    <section className="restaurant-order-ticket"><header><div><ChefHat size={18} /><span><strong>Ticket en direct</strong><small>État partagé salle, bar, cuisine, passe et caisse</small></span></div><b>{formatFCFA(order.total)}</b></header>{heldByCourse.some(item => item.count > 0) && <div className="restaurant-course-fire">{heldByCourse.filter(item => item.count > 0).map(item => <button type="button" key={item.course} onClick={() => execute(() => state.fireRestaurantOrderCourse(order.id, item.course, actor, `COURSE-${order.id}-${item.course}-${item.itemIds.join('-')}`), `${COURSE_LABELS[item.course]} routé(s) vers les postes concernés.`)}><Send size={14} /> Envoyer {COURSE_LABELS[item.course]} · {item.count}</button>)}</div>}<div>{order.items.filter(item => item.status !== 'voided').map(line => { const product = db.products.find(item => item.id === line.productId); const routing = inferRestaurantProductRouting(product); const routedStation = line.station && line.station !== 'pass' ? line.station : routing.station; const requiresPass = ['kitchen', 'dessert'].includes(routedStation); const canServe = line.status === 'ready' && (!requiresPass || Boolean(line.passedAt)); const liveStatus = line.status === 'ready' && requiresPass ? line.passedAt ? 'À retirer au passe' : 'Contrôle du passe' : line.status === 'ready' && routedStation === 'drinks' ? 'Prêt au bar' : STATUS_LABELS[line.status || 'held']; return <article className={`${line.status || 'held'} ${line.passedAt ? 'passed' : ''}`} key={line.id || `${line.productId}-${line.seatNumber}`}><span><strong>{line.quantity}× {product?.name}</strong><small>Convive {line.seatNumber || 'table'} · {RESTAURANT_STATION_LABELS[routedStation]} · {liveStatus}</small>{line.note && <em>{line.note}</em>}</span>{canServe ? <button type="button" className="serve" onClick={() => execute(() => state.updateRestaurantOrderItemStatus(order.id, line.id!, 'served', actor, `STATUS-${order.id}-${line.id}-served`), `${product?.name} servi et retiré de la file.`)}><Check size={15} /> Servi</button> : line.status === 'ready' ? <b className="restaurant-waiting-pass"><Clock3 size={14} /> Au passe</b> : ['held', 'sent'].includes(line.status || 'held') ? <button type="button" className="void" onClick={() => execute(() => state.requestEmployeeApproval({ type: 'void', referenceId: order.id, requestedBy: db.employeeProfiles.find(item => item.name === actor)?.id || db.currentUser.id, requestedByName: actor, label: `Annulation ${product?.name} · ${tableLabel}`, reason: 'Annulation demandée avant préparation.', amount: line.quantity * line.salePrice, metadata: { orderId: order.id, itemId: line.id || '', disposition: 'restock' } }), 'Annulation envoyée au manager.')}><Trash2 size={15} /></button> : null}</article>; })}</div>{order.items.some(item => item.status === 'voided') && <p className="restaurant-order-audit"><AlertTriangle size={15} /> Les lignes annulées restent visibles dans l’historique d’audit.</p>}</section>
     {notice && <div className={`restaurant-order-notice ${notice.tone}`}>{notice.text}</div>}
   </aside>;
 };

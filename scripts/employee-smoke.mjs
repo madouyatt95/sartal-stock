@@ -38,6 +38,7 @@ try {
   const { TeamManagement } = await server.ssrLoadModule('/src/views/TeamManagement.tsx');
   const { RestaurantFloorStudio } = await server.ssrLoadModule('/src/components/RestaurantFloorStudio.tsx');
   const { getRestaurantProductAvailability, getRestaurantTableSuggestions } = await server.ssrLoadModule('/src/utils/restaurantService.ts');
+  const { inferRestaurantProductRouting } = await server.ssrLoadModule('/src/utils/restaurantRouting.ts');
   const { getDefaultEmployeePermissions } = await server.ssrLoadModule('/src/employeePermissions.ts');
   let state;
   const Harness = () => {
@@ -61,7 +62,7 @@ try {
     assert(floorSource.includes(marker), `Expérience Studio premium incomplète : ${marker}`);
   });
   ['Synthèse', 'Commande', 'Addition', 'Client', 'Historique', 'Installer et commander', 'Installer et prendre la commande', 'Transférer', 'RestaurantTablePaymentPanel'].forEach(marker => assert(serviceModalSource.includes(marker), `Fenêtre unifiée de table incomplète : ${marker}`));
-  ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'getRestaurantProductAvailability', 'Alternative', 'operationRef', 'submittingRef', 'item.itemIds.join', 'requestEmployeeApproval'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
+  ['PRISE DE COMMANDE', 'Convive', 'Garder par service', 'Envoyer maintenant', 'Ticket en direct', 'getRestaurantProductAvailability', 'Alternative', 'operationRef', 'submittingRef', 'item.itemIds.join', 'requestEmployeeApproval', 'Automatique', 'Commande routée', 'RESTAURANT_STATION_LABELS'].forEach(marker => assert(orderPanelSource.includes(marker), `Commande tactile incomplète : ${marker}`));
   ['RestaurantTableServiceModal', 'selectTable', "setServiceTab('bill')", 'initialTab={serviceTab}'].forEach(marker => assert(floorSource.includes(marker), `Parcours table vers fenêtre unifiée incomplet : ${marker}`));
   ['restaurant-table-modal-backdrop', 'Encaisser à table', 'RestaurantTablePaymentPanel'].forEach(marker => assert(serviceModalSource.includes(marker), `Fenêtre d’action de table incomplète : ${marker}`));
   ['ENCAISSEMENT À TABLE', 'Activer la caisse de service', 'Convives', 'Articles', 'Parts égales', 'operationId', 'collectingRef', "readOnly={allocationMode !== 'free'}", 'pay_at_table'].forEach(marker => assert(paymentPanelSource.includes(marker), `Encaissement serveur incomplet : ${marker}`));
@@ -74,7 +75,7 @@ try {
   const appSource = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert(!employeeSource.includes('setView('), 'Sártal Équipe ne doit jamais ouvrir une vue du back-office');
   ['Collaborateurs', 'Affectations', 'Planning de l’équipe', 'Planifier un service', 'Droits & validations', 'Services & passations', 'Aperçu des postes'].forEach(marker => assert(teamSource.includes(marker), `Gestion des équipes incomplète : ${marker}`));
-  ['team-planning-command', 'team-planning-matrix', 'team-planning-mobile-agenda', 'Couverture des services'].forEach(marker => assert(teamSource.includes(marker), `Planning manager incomplet : ${marker}`));
+  ['team-planning-command', 'team-planning-matrix', 'team-planning-mobile-agenda', 'Couverture des services', 'Poste de pilotage', 'Copier la semaine précédente', 'Publier la semaine', 'team-role-coverage'].forEach(marker => assert(teamSource.includes(marker), `Planning manager incomplet : ${marker}`));
   assert(appSource.includes('Retour aux profils') && appSource.includes('Retour aux espaces'), 'Retour explicite absent des espaces de démonstration ou de connexion');
   ['Arrivées & séjours', 'Nouvelle réservation', 'RÉSERVATION SUR PLACE', 'État des chambres', 'Réceptions', 'Transferts', 'Inventaire', 'Journal'].forEach(marker => assert(employeeSource.includes(marker), `Poste employé autonome incomplet : ${marker}`));
   ['ASSISTANT DE SALLE', 'CONTRÔLE EN CONTINU', 'PILOTAGE KDS', 'ARRIVÉE SANS FRICTION', 'TOURNÉE OPTIMISÉE', 'STOCK PRÉDICTIF', 'PICKING SANS ERREUR', 'TOURNÉE ASSISTÉE', 'CLIENT 360°', 'CHEF D’ORCHESTRE DU SERVICE'].forEach(marker => {
@@ -83,7 +84,8 @@ try {
   ['Mon quotidien', 'Mon planning', "id: 'schedule'", 'Voir tout mon planning avant de commencer', 'RestaurantFloorStudio', 'staff-manager-floor', 'Ma progression', 'Aide et services', 'Ma passation', 'Accepter puis transmettre', 'QUALITÉ DU SERVICE ET DU TRAVAIL'].forEach(marker => {
     assert(employeeSource.includes(marker), `Expérience collaborateur incomplète : ${marker}`);
   });
-  ['staff-planning-hero', 'staff-week-strip', 'Détail de mes services', 'staff-dispatch-layout', 'staff-maintenance-layout', 'staff-housekeeping-quality', 'staff-reception-payment'].forEach(marker => assert(employeeSource.includes(marker), `Poste opérationnel premium incomplet : ${marker}`));
+  ['staff-planning-hero', 'staff-week-strip', 'Détail de mes services', 'staff-planning-scope', 'staff-team-planning-grid', 'Planning équipe', 'staff-dispatch-layout', 'staff-maintenance-layout', 'staff-housekeeping-quality', 'staff-reception-payment'].forEach(marker => assert(employeeSource.includes(marker), `Poste opérationnel premium incomplet : ${marker}`));
+  ['PRODUCTION EN TEMPS RÉEL', 'Supervision', 'Bar / boissons', 'Desserts', 'Contrôler et appeler', 'updateRestaurantStationTicket', 'confirmRestaurantPassTicket'].forEach(marker => assert(employeeSource.includes(marker), `KDS premium incomplet : ${marker}`));
   ['updateRestaurantOrderItemStatus', 'confirmRestaurantPassItem', 'setRestaurantIngredientAvailability', 'Mode entraînement', 'housekeepingChecks', 'pickedLineIds', 'schedulePMSNotification', 'processSale', 'requestEmployeeApproval'].forEach(marker => {
     assert(employeeSource.includes(marker), `Action game changer non câblée : ${marker}`);
   });
@@ -102,6 +104,10 @@ try {
   assert(getDefaultEmployeePermissions('housekeeping_manager').includes('housekeeping_validation'), 'La gouvernante doit pouvoir valider une chambre');
   assert(getDefaultEmployeePermissions('dispatcher').includes('delivery_dispatch'), 'Le dispatch doit pouvoir affecter une tournée');
   assert(getDefaultEmployeePermissions('maintenance').includes('maintenance_update'), 'Le technicien doit pouvoir documenter une intervention');
+  assert(getDefaultEmployeePermissions('waiter').includes('team_schedule_view'), 'Le salarié doit pouvoir consulter le planning publié de son équipe par défaut');
+  assert(db.products.every(product => product.restaurantStation && product.restaurantCourse && product.preparationMinutes > 0), 'Le routage KDS explicite manque sur certains produits');
+  assert(inferRestaurantProductRouting(db.products.find(product => product.id === 'prod-coca')).station === 'drinks', 'Le Coca-Cola ne doit jamais être routé vers la cuisine');
+  assert(inferRestaurantProductRouting(db.products.find(product => product.id === 'prod-yassa-poulet')).station === 'kitchen', 'Le Yassa doit être routé vers la cuisine');
   ['housekeeping_manager', 'dispatcher', 'maintenance'].forEach(role => {
     const profile = db.employeeProfiles.find(item => item.role === role && item.active);
     assert(db.employeeSchedules.some(schedule => schedule.employeeId === profile.id), `Le profil ${role} doit disposer d’un vrai planning visible`);
@@ -228,6 +234,18 @@ try {
     overlappingScheduleBlocked = true;
   }
   assert(overlappingScheduleBlocked, 'Deux services qui se chevauchent ne doivent pas être acceptés');
+  const sourceWeekDate = new Date(`${planningDateKey}T12:00:00`);
+  sourceWeekDate.setDate(sourceWeekDate.getDate() - ((sourceWeekDate.getDay() || 7) - 1));
+  const sourceWeekKey = sourceWeekDate.toISOString().slice(0, 10);
+  const targetWeekDate = new Date(sourceWeekDate);
+  targetWeekDate.setDate(targetWeekDate.getDate() + 7);
+  const targetWeekKey = targetWeekDate.toISOString().slice(0, 10);
+  const copiedWeek = state.copyEmployeeScheduleWeek(sourceWeekKey, targetWeekKey, 'user-pos-mgr');
+  assert(copiedWeek.created > 0, 'La copie de semaine manager ne crée aucun brouillon');
+  const copiedScheduleIds = getDB().employeeSchedules.filter(item => item.date >= targetWeekKey && item.date <= new Date(targetWeekDate.getTime() + 6 * 86400000).toISOString().slice(0, 10) && item.status === 'planned' && getDB().employeeProfiles.some(profile => profile.id === item.employeeId && profile.posId === 'pos-1' && ['waiter', 'cashier', 'kitchen'].includes(profile.role))).map(item => item.id);
+  assert(copiedScheduleIds.length > 0, 'Les services copiés ne sont pas conservés comme brouillons');
+  state.publishEmployeeScheduleWeek(copiedScheduleIds, 'user-pos-mgr');
+  assert(getDB().employeeSchedules.filter(item => copiedScheduleIds.includes(item.id)).every(item => item.status === 'confirmed'), 'La publication groupée du planning ne confirme pas les services');
   state.deleteEmployeeSchedule(plannedServiceId, 'user-pos-mgr');
   assert(!getDB().employeeSchedules.some(item => item.id === plannedServiceId), 'Le manager restaurant ne peut pas retirer un service futur');
   state.changeCurrentUser('user-admin');
@@ -412,7 +430,7 @@ try {
   state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1, seatNumber: 1, course: 'main', modifiers: ['Sans piment'], status: 'held', actorName: waiter.name }], orderOperationId);
   let tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
   const serviceLine = tableOrder.items.find(item => item.productId === orderProduct.productId && item.seatNumber === 1 && item.status === 'held');
-  assert(serviceLine?.id && serviceLine.course === 'main', 'Commande tactile non enregistrée par convive et service');
+  assert(serviceLine?.id && serviceLine.course === 'main' && serviceLine.station === 'drinks' && serviceLine.targetPreparationMinutes > 0, 'La boisson n’est pas routée vers le bar avec son objectif de préparation');
   assert(tableOrder.items.filter(item => item.operationId === orderOperationId).length === 1, 'Un double appui recrée les lignes de commande');
   assert(getDB().stocks.find(item => item.productId === orderProduct.productId && item.warehouseId === orderWarehouseId).quantityAvailable === stockBeforeOrder - 1, 'La commande tactile ne déduit pas le dépôt configuré du POS');
   assert(getDB().movements.some(item => item.externalReference?.startsWith(`${tableOrderId}-ADD-`) && item.warehouseId === orderWarehouseId), 'Mouvement stock de la commande tactile absent ou mauvais dépôt');
@@ -424,13 +442,45 @@ try {
   assert(getDB().sartalOfflineActions.find(item => item.operationId === orderOperationId)?.status === 'synced', 'La commande hors connexion ne passe pas au statut synchronisé');
   state.sendRestaurantOrderItems(tableOrderId, [serviceLine.id], waiter.name, `SEND-${serviceLine.id}`);
   state.sendRestaurantOrderItems(tableOrderId, [serviceLine.id], waiter.name, `SEND-${serviceLine.id}`);
-  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === serviceLine.id).status === 'sent', 'Envoi salle vers cuisine non persistant');
-  state.updateRestaurantOrderItemStatus(tableOrderId, serviceLine.id, 'preparing', kitchen.name);
-  state.updateRestaurantOrderItemStatus(tableOrderId, serviceLine.id, 'ready', kitchen.name);
-  state.confirmRestaurantPassItem(tableOrderId, serviceLine.id, kitchen.name);
-  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === serviceLine.id).passedAt, 'Contrôle chef au passe non conservé');
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === serviceLine.id).status === 'sent', 'Envoi salle vers bar non persistant');
+  state.updateRestaurantStationTicket(tableOrderId, 'drinks', 'preparing', kitchen.name);
+  state.updateRestaurantStationTicket(tableOrderId, 'drinks', 'ready', kitchen.name);
+  let drinkPassBlocked = false;
+  try {
+    state.confirmRestaurantPassItem(tableOrderId, serviceLine.id, kitchen.name);
+  } catch {
+    drinkPassBlocked = true;
+  }
+  assert(drinkPassBlocked, 'Une boisson est encore envoyée inutilement au passe');
   state.updateRestaurantOrderItemStatus(tableOrderId, serviceLine.id, 'served', waiter.name);
-  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).status === 'served', 'Service article par article ne clôture pas la production du ticket');
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).status === 'served', 'Une boisson prête au bar ne peut pas être remise par le serveur');
+
+  const kitchenProductId = 'prod-yassa-poulet';
+  state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: kitchenProductId, quantity: 1, seatNumber: 1, status: 'sent', actorName: waiter.name }], 'EMPLOYEE-SMOKE-KITCHEN-ROUTING');
+  tableOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);
+  const kitchenLine = tableOrder.items.find(item => item.operationId === 'EMPLOYEE-SMOKE-KITCHEN-ROUTING');
+  assert(kitchenLine?.station === 'kitchen' && kitchenLine.course === 'main' && kitchenLine.targetPreparationMinutes > 0, 'Le plat n’est pas routé vers la cuisine avec son service et son objectif par défaut');
+  state.updateRestaurantStationTicket(tableOrderId, 'kitchen', 'preparing', kitchen.name);
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === kitchenLine.id).status === 'preparing', 'La prise en charge groupée cuisine ne démarre pas le ticket');
+  state.updateRestaurantStationTicket(tableOrderId, 'kitchen', 'ready', kitchen.name);
+  let globalServiceBeforePassBlocked = false;
+  try {
+    state.updateRestaurantGuestOrderStatus(tableOrderId, 'served');
+  } catch {
+    globalServiceBeforePassBlocked = true;
+  }
+  assert(globalServiceBeforePassBlocked, 'Une action globale peut contourner le contrôle du passe');
+  let servedBeforePassBlocked = false;
+  try {
+    state.updateRestaurantOrderItemStatus(tableOrderId, kitchenLine.id, 'served', waiter.name);
+  } catch {
+    servedBeforePassBlocked = true;
+  }
+  assert(servedBeforePassBlocked, 'Un plat peut partir en salle sans contrôle du passe');
+  state.confirmRestaurantPassTicket(tableOrderId, kitchen.name);
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).items.find(item => item.id === kitchenLine.id).passedAt, 'Contrôle groupé du passe non conservé');
+  state.updateRestaurantOrderItemStatus(tableOrderId, kitchenLine.id, 'served', waiter.name);
+  assert(getDB().restaurantGuestOrders.find(item => item.id === tableOrderId).status === 'served', 'Le ticket ne se clôture pas après retrait par la salle');
 
   const stockBeforeVoidLine = getDB().stocks.find(item => item.productId === orderProduct.productId && item.warehouseId === orderWarehouseId).quantityAvailable;
   state.appendRestaurantGuestOrderItems(tableOrderId, walkInResult.customerId, [{ productId: orderProduct.productId, quantity: 1, seatNumber: 2, course: 'main', status: 'held', actorName: waiter.name }]);
@@ -470,7 +520,7 @@ try {
   const paymentCountBefore = tableOrder.payments.length;
   const waveTotalBefore = getDB().cashSessions.find(item => item.id === tableCashSessionId).paymentTotals.wave;
   const paymentOperationId = 'EMPLOYEE-SMOKE-PAYMENT-IDEMPOTENT';
-  const paymentAllocation = { seatNumbers: [1], itemIds: [serviceLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table', operatorId: waiter.id, operationId: paymentOperationId };
+  const paymentAllocation = { seatNumbers: [1], itemIds: [serviceLine.id, kitchenLine.id], tipAmount: 250, reference: 'WAVE-TEST-001', source: 'pay_at_table', operatorId: waiter.id, operationId: paymentOperationId };
   state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, paymentAllocation);
   state.addRestaurantGuestOrderPayment(tableOrderId, tableOrder.total, 'wave', 'Client Studio Test', tableCashSessionId, paymentAllocation);
   const paidOrder = getDB().restaurantGuestOrders.find(item => item.id === tableOrderId);

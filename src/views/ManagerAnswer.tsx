@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowRight, BedDouble, CalendarDays, CheckCircle, ChefHa
 import RestaurantFloorStudio from '../components/RestaurantFloorStudio';
 import { StockState } from '../hooks/useStockState';
 import { RestaurantGuestOrder } from '../types';
+import { inferRestaurantProductRouting, RESTAURANT_STATION_LABELS } from '../utils/restaurantRouting';
 
 interface ManagerAnswerProps {
   state: StockState;
@@ -190,8 +191,9 @@ export const ManagerAnswer: React.FC<ManagerAnswerProps> = ({ state, setView, ca
             <div className="restaurant-operation-list">
               {activeOrders.map(order => {
                 const customer = db.sartalCustomers.find(item => item.id === order.customerId);
-                const nextStatus = nextOrderStatus[order.status];
-                return <div className="restaurant-kds-row" key={order.id}><div className="restaurant-kds-head"><div><strong>{order.tableNumber ? `Table ${order.tableNumber}` : order.roomNumber ? `Chambre ${order.roomNumber}` : 'À emporter'}</strong><span>{customer?.fullName}</span></div><b data-status={order.status}>{orderStatusLabels[order.status]}</b></div><ul>{order.items.map((item, index) => <li key={`${item.productId}-${index}`}><strong>{item.quantity}×</strong>{db.products.find(product => product.id === item.productId)?.name || 'Article'}</li>)}</ul>{customer?.allergies && <small className="restaurant-kds-alert"><AlertTriangle size={13} /> Sans {customer.allergies.toLowerCase()}</small>}<footer><span><Clock3 size={13} /> {order.estimatedMinutes} min</span>{canOperateRestaurant && nextStatus && <button onClick={() => updateRestaurantGuestOrderStatus(order.id, nextStatus)}>{nextOrderLabels[order.status]} <ArrowRight size={14} /></button>}</footer></div>;
+                const waitingForPass = order.items.filter(item => item.status === 'ready' && ['kitchen', 'dessert'].includes(item.station || 'kitchen') && !item.passedAt).length;
+                const nextStatus = order.status === 'placed' || (order.status === 'ready' && waitingForPass) ? null : nextOrderStatus[order.status];
+                return <div className="restaurant-kds-row" key={order.id}><div className="restaurant-kds-head"><div><strong>{order.tableNumber ? `Table ${order.tableNumber}` : order.roomNumber ? `Chambre ${order.roomNumber}` : 'À emporter'}</strong><span>{customer?.fullName}</span></div><b data-status={order.status}>{orderStatusLabels[order.status]}</b></div><ul>{order.items.map((item, index) => { const product = db.products.find(productItem => productItem.id === item.productId); const routing = inferRestaurantProductRouting(product); const station = item.station && item.station !== 'pass' ? item.station : routing.station; return <li key={`${item.productId}-${index}`}><strong>{item.quantity}×</strong><span>{product?.name || 'Article'}<small>{RESTAURANT_STATION_LABELS[station]}</small></span></li>; })}</ul>{customer?.allergies && <small className="restaurant-kds-alert"><AlertTriangle size={13} /> Sans {customer.allergies.toLowerCase()}</small>}<footer><span><Clock3 size={13} /> {order.estimatedMinutes} min</span>{order.status === 'placed' && <b>En attente salle</b>}{waitingForPass > 0 && <b>{waitingForPass} au passe</b>}{canOperateRestaurant && nextStatus && <button onClick={() => updateRestaurantGuestOrderStatus(order.id, nextStatus)}>{nextOrderLabels[order.status]} <ArrowRight size={14} /></button>}</footer></div>;
               })}
               {activeOrders.length === 0 && <p className="restaurant-operation-empty">Aucune commande en attente.</p>}
             </div>

@@ -49,6 +49,9 @@ export interface Product {
   mainSupplierId?: string;
   isActive: boolean;
   imageUrl?: string;
+  restaurantStation?: RestaurantProductionStation;
+  restaurantCourse?: RestaurantServiceCourse;
+  preparationMinutes?: number;
 }
 
 export interface POSPricing {
@@ -519,7 +522,8 @@ export interface RestaurantFloorAuditEntry {
 }
 
 export type RestaurantServiceCourse = 'drinks' | 'starter' | 'main' | 'dessert';
-export type RestaurantPreparationStation = 'kitchen' | 'drinks' | 'dessert' | 'pass';
+export type RestaurantProductionStation = 'kitchen' | 'drinks' | 'dessert';
+export type RestaurantPreparationStation = RestaurantProductionStation | 'pass';
 export type RestaurantOrderItemStatus = 'held' | 'sent' | 'preparing' | 'ready' | 'served' | 'voided';
 
 export interface RestaurantServiceEvent {
@@ -546,6 +550,7 @@ export interface RestaurantGuestOrderItem {
   course?: RestaurantServiceCourse;
   modifiers?: string[];
   station?: RestaurantPreparationStation;
+  targetPreparationMinutes?: number;
   status?: RestaurantOrderItemStatus;
   addedAt?: string;
   sentAt?: string;
@@ -1361,6 +1366,7 @@ export type EmployeeRole =
 
 export type EmployeePermission =
   | 'team_messages'
+  | 'team_schedule_view'
   | 'discount_request'
   | 'table_payment'
   | 'cash_close'

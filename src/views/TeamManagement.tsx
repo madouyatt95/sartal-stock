@@ -142,6 +142,8 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const [permissionDraft, setPermissionDraft] = useState(() => getEmployeePermissions(db.employeeProfiles[0] || { role: 'waiter' }));
   const [planningWeekStart, setPlanningWeekStart] = useState(initialWeekStart);
   const [selectedPlanningDay, setSelectedPlanningDay] = useState(formatDateKey(new Date()));
+  const [planningRoleFilter, setPlanningRoleFilter] = useState<EmployeeRole | 'all'>('all');
+  const [planningQuery, setPlanningQuery] = useState('');
   const [scheduleDraft, setScheduleDraft] = useState<ScheduleDraft | null>(null);
   const [scheduleDeleteTarget, setScheduleDeleteTarget] = useState<EmployeeSchedule | null>(null);
   const canEditProfiles = ['admin', 'director'].includes(db.currentUser.role);
@@ -163,6 +165,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
   const scheduleRequests = visibleSchedules.filter(schedule => ['swap_colleague_accepted', 'leave_requested'].includes(schedule.status));
   const weekMinutes = weekSchedules.reduce((sum, schedule) => sum + scheduleMinutes(schedule), 0);
   const activeManagedEmployees = managedEmployees.filter(employee => employee.active);
+  const filteredPlanningEmployees = activeManagedEmployees.filter(employee => {
+    if (planningRoleFilter !== 'all' && employee.role !== planningRoleFilter) return false;
+    const normalized = planningQuery.trim().toLowerCase();
+    const assignmentLabel = db.posList.find(item => item.id === employee.posId)?.name || db.warehouses.find(item => item.id === employee.warehouseId)?.name || '';
+    return !normalized || `${employee.name} ${ROLE_LABELS[employee.role]} ${assignmentLabel}`.toLowerCase().includes(normalized);
+  });
   const scheduledEmployeeIds = new Set(weekSchedules.map(schedule => schedule.employeeId));
   const unscheduledEmployees = activeManagedEmployees.filter(employee => !scheduledEmployeeIds.has(employee.id));
   const dayCoverage = weekDays.map(day => {
@@ -172,6 +180,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
     return { day, schedules, lunch, evening, people: new Set(schedules.map(schedule => schedule.employeeId)).size };
   });
   const busiestCoverage = Math.max(1, ...dayCoverage.flatMap(item => [item.lunch, item.evening]));
+  const draftWeekSchedules = weekSchedules.filter(schedule => schedule.status === 'planned');
+  const selectedDayRoleCoverage = Array.from(new Set(activeManagedEmployees.map(employee => employee.role))).map(role => {
+    const profiles = activeManagedEmployees.filter(employee => employee.role === role);
+    const schedules = weekSchedules.filter(schedule => schedule.date === selectedPlanningDay && profiles.some(profile => profile.id === schedule.employeeId));
+    return { role, scheduled: new Set(schedules.map(schedule => schedule.employeeId)).size, available: profiles.length };
+  });
   const isScheduleEngaged = (schedule: EmployeeSchedule) => (
     ['swap_pending_colleague', 'swap_colleague_accepted', 'leave_requested'].includes(schedule.status)
     || visibleSchedules.some(item => item.requestedColleagueScheduleId === schedule.id && ['swap_pending_colleague', 'swap_colleague_accepted'].includes(item.status))
@@ -346,6 +360,24 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
     );
   };
 
+  const copyPreviousPlanningWeek = () => {
+    try {
+      const result = state.copyEmployeeScheduleWeek(addDays(planningWeekStart, -7), planningWeekStart, db.currentUser.id);
+      setNotice({ tone: 'success', text: `${result.created} service(s) copiés en brouillon${result.skipped ? ` · ${result.skipped} doublon(s) ignoré(s)` : ''}.` });
+    } catch (error) {
+      setNotice({ tone: 'danger', text: error instanceof Error ? error.message : 'Copie de la semaine impossible' });
+    }
+  };
+
+  const publishPlanningWeek = () => {
+    try {
+      const published = state.publishEmployeeScheduleWeek(draftWeekSchedules.map(schedule => schedule.id), db.currentUser.id);
+      setNotice({ tone: 'success', text: `${published} service(s) publiés et confirmés auprès des salariés.` });
+    } catch (error) {
+      setNotice({ tone: 'danger', text: error instanceof Error ? error.message : 'Publication du planning impossible' });
+    }
+  };
+
   const toggleActive = (employee: EmployeeProfile) => {
     execute(
       () => state.saveEmployeeProfile({ ...employee, active: !employee.active }),
@@ -463,6 +495,21 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
         <div className="team-planning-summary"><span><strong>{Math.round(weekMinutes / 60)} h</strong><small>planifiées</small></span><span className={unscheduledEmployees.length ? 'attention' : ''}><strong>{unscheduledEmployees.length}</strong><small>sans service</small></span><span className={scheduleRequests.length ? 'attention' : ''}><strong>{scheduleRequests.length}</strong><small>demandes à décider</small></span></div>
       </div>
 
+      <section className="team-planning-control-center">
+        <header><div><CalendarDays size={20} /><span><strong>Poste de pilotage</strong><small>Filtrez l’équipe, préparez la semaine puis publiez-la en une seule fois.</small></span></div><b>{draftWeekSchedules.length ? `${draftWeekSchedules.length} brouillon(s)` : 'Semaine publiée'}</b></header>
+        <div className="team-planning-control-grid">
+          <label className="team-search"><Search size={17} /><input value={planningQuery} onChange={event => setPlanningQuery(event.target.value)} placeholder="Rechercher un collaborateur ou un poste" /></label>
+          <select value={planningRoleFilter} onChange={event => setPlanningRoleFilter(event.target.value as EmployeeRole | 'all')}><option value="all">Tous les métiers</option>{Array.from(new Set(activeManagedEmployees.map(employee => employee.role))).map(role => <option value={role} key={role}>{ROLE_LABELS[role]}</option>)}</select>
+          {canAssign && <button onClick={copyPreviousPlanningWeek}><RotateCcw size={16} /> Copier la semaine précédente</button>}
+          {canAssign && <button className="publish" disabled={!draftWeekSchedules.length} onClick={publishPlanningWeek}><CheckCircle2 size={16} /> Publier la semaine</button>}
+        </div>
+      </section>
+
+      <section className="team-role-coverage" aria-label="Couverture par métier du jour sélectionné">
+        <header><div><UsersRound size={19} /><span><strong>Équipe du {new Date(`${selectedPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</strong><small>Les métiers sans présence ressortent immédiatement.</small></span></div><b>{weekSchedules.filter(schedule => schedule.date === selectedPlanningDay).length} service(s)</b></header>
+        <div>{selectedDayRoleCoverage.map(item => <article className={item.scheduled === 0 ? 'missing' : item.scheduled < item.available ? 'partial' : 'covered'} style={{ '--role-color': ROLE_COLORS[item.role] } as React.CSSProperties} key={item.role}><i /><span><strong>{ROLE_LABELS[item.role]}</strong><small>{item.scheduled ? `${item.scheduled}/${item.available} présent(s)` : 'Aucune présence'}</small></span><b>{item.scheduled}</b></article>)}</div>
+      </section>
+
       <section className="team-planning-command" aria-label="Couverture de la semaine">
         <header><div><CalendarDays size={20} /><span><strong>Couverture des services</strong><small>Lecture immédiate des présences sur les deux temps forts</small></span></div><b>{scheduledEmployeeIds.size}/{activeManagedEmployees.length} personnes planifiées</b></header>
         <div>{dayCoverage.map(item => <article className={item.day === selectedPlanningDay ? 'selected' : ''} key={item.day} onClick={() => setSelectedPlanningDay(item.day)}><header><strong>{new Date(`${item.day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}</strong><span>{item.people} personne(s)</span></header><div><label><span>Midi</span><i><b style={{ width: `${Math.max(8, item.lunch / busiestCoverage * 100)}%` }} /></i><strong>{item.lunch}</strong></label><label><span>Soir</span><i><b style={{ width: `${Math.max(8, item.evening / busiestCoverage * 100)}%` }} /></i><strong>{item.evening}</strong></label></div></article>)}</div>
@@ -483,7 +530,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
 
       <section className="team-planning-matrix" aria-label="Planning hebdomadaire par collaborateur">
         <header><div><strong>Collaborateur</strong><small>Poste et charge semaine</small></div>{weekDays.map(day => <button className={`${day === selectedPlanningDay ? 'selected' : ''} ${day === formatDateKey(new Date()) ? 'today' : ''}`} key={day} onClick={() => setSelectedPlanningDay(day)}><span>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short' })}</span><strong>{new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit' })}</strong></button>)}</header>
-        <div>{activeManagedEmployees.map(profile => {
+        <div>{filteredPlanningEmployees.map(profile => {
           const profileSchedules = weekSchedules.filter(schedule => schedule.employeeId === profile.id);
           const profileHours = profileSchedules.reduce((sum, schedule) => sum + scheduleMinutes(schedule), 0) / 60;
           return <article key={profile.id}>
@@ -493,12 +540,12 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ state }) => {
               return <div className={`${day === selectedPlanningDay ? 'selected' : ''} ${schedules.length ? 'filled' : ''}`} key={day}>{schedules.map(schedule => <section className={schedule.status} style={{ '--schedule-role': ROLE_COLORS[profile.role] } as React.CSSProperties} key={schedule.id}><button disabled={!canAssign || isScheduleEngaged(schedule)} onClick={() => editSchedule(schedule)}><strong>{schedule.startTime}-{schedule.endTime}</strong><span>{schedule.assignmentLabel}</span><small>{SCHEDULE_STATUS_LABELS[schedule.status]}</small></button>{canAssign && <button className="team-matrix-remove" disabled={isScheduleEngaged(schedule)} onClick={() => setScheduleDeleteTarget(schedule)} aria-label={`Retirer le service de ${profile.name}`}><Trash2 size={13} /></button>}</section>)}{schedules.length === 0 && canAssign && <button className="team-matrix-add" onClick={() => { setSelectedPlanningDay(day); createScheduleDraft(day, profile.id); }} aria-label={`Ajouter un service à ${profile.name} le ${day}`}><Plus size={15} /></button>}</div>;
             })}
           </article>;
-        })}</div>
+        })}{filteredPlanningEmployees.length === 0 && <div className="team-planning-empty-filter"><Search size={24} /><strong>Aucun collaborateur ne correspond aux filtres</strong><button onClick={() => { setPlanningQuery(''); setPlanningRoleFilter('all'); }}>Réinitialiser</button></div>}</div>
       </section>
 
       <section className="team-planning-mobile-agenda">
-        <header><div><span>{new Date(`${selectedPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long' })}</span><strong>{new Date(`${selectedPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</strong></div><b>{weekSchedules.filter(item => item.date === selectedPlanningDay).length} service(s)</b></header>
-        <div>{weekSchedules.filter(item => item.date === selectedPlanningDay).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(schedule => { const profile = managedEmployees.find(item => item.id === schedule.employeeId); if (!profile) return null; return <article style={{ '--schedule-role': ROLE_COLORS[profile.role] } as React.CSSProperties} className={schedule.status} key={schedule.id}><span className="team-avatar">{profile.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{profile.name}</strong><small>{ROLE_LABELS[profile.role]} · {schedule.assignmentLabel}</small><b><Clock3 size={15} /> {schedule.startTime}-{schedule.endTime}</b></div><em>{SCHEDULE_STATUS_LABELS[schedule.status]}</em>{canAssign && <footer><button disabled={isScheduleEngaged(schedule)} onClick={() => editSchedule(schedule)}><Pencil size={15} /> Modifier</button><button disabled={isScheduleEngaged(schedule)} onClick={() => setScheduleDeleteTarget(schedule)}><Trash2 size={15} /> Retirer</button></footer>}</article>; })}{weekSchedules.every(item => item.date !== selectedPlanningDay) && <button className="team-empty-day" disabled={!canAssign} onClick={() => createScheduleDraft(selectedPlanningDay)}><Plus size={17} /><span>Aucun service ce jour</span><small>{canAssign ? 'Planifier le premier service' : 'Aucune affectation prévue'}</small></button>}</div>
+        <header><div><span>{new Date(`${selectedPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long' })}</span><strong>{new Date(`${selectedPlanningDay}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</strong></div><b>{weekSchedules.filter(item => item.date === selectedPlanningDay && filteredPlanningEmployees.some(profile => profile.id === item.employeeId)).length} service(s)</b></header>
+        <div>{weekSchedules.filter(item => item.date === selectedPlanningDay && filteredPlanningEmployees.some(profile => profile.id === item.employeeId)).sort((a, b) => a.startTime.localeCompare(b.startTime)).map(schedule => { const profile = managedEmployees.find(item => item.id === schedule.employeeId); if (!profile) return null; return <article style={{ '--schedule-role': ROLE_COLORS[profile.role] } as React.CSSProperties} className={schedule.status} key={schedule.id}><span className="team-avatar">{profile.name.split(' ').map(part => part[0]).join('').slice(0, 2)}</span><div><strong>{profile.name}</strong><small>{ROLE_LABELS[profile.role]} · {schedule.assignmentLabel}</small><b><Clock3 size={15} /> {schedule.startTime}-{schedule.endTime}</b></div><em>{SCHEDULE_STATUS_LABELS[schedule.status]}</em>{canAssign && <footer><button disabled={isScheduleEngaged(schedule)} onClick={() => editSchedule(schedule)}><Pencil size={15} /> Modifier</button><button disabled={isScheduleEngaged(schedule)} onClick={() => setScheduleDeleteTarget(schedule)}><Trash2 size={15} /> Retirer</button></footer>}</article>; })}{weekSchedules.every(item => item.date !== selectedPlanningDay || !filteredPlanningEmployees.some(profile => profile.id === item.employeeId)) && <button className="team-empty-day" disabled={!canAssign} onClick={() => createScheduleDraft(selectedPlanningDay)}><Plus size={17} /><span>Aucun service ce jour</span><small>{canAssign ? 'Planifier le premier service' : 'Aucune affectation prévue'}</small></button>}</div>
       </section>
     </section>}
 
