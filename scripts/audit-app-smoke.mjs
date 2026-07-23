@@ -43,6 +43,14 @@ for (const marker of [
   'Le matériel de caisse existant',
   'Premier déploiement',
   'Orchestra',
+  'Cadrer le chiffrage',
+  'Périmètre à chiffrer',
+  'Plan d’action CSV',
+  'copy-client-followup',
+  'exportActionPlan',
+  'clientRequestItems',
+  'responsibleParty',
+  'socle inclus',
   'print-report',
   'export-backup',
   'compressImage',
@@ -68,6 +76,10 @@ assert.match(css, /\.audit-access-screen/);
 assert.match(css, /\.audit-code-field input/);
 assert.match(css, /\.project-type-options/);
 assert.match(css, /\.mission-type-summary/);
+assert.match(css, /\.scope-brief/);
+assert.match(css, /\.report-scope-grid/);
+assert.match(css, /\.action-meta/);
+assert.match(css, /\.client-request-box/);
 
 const parsedManifest = JSON.parse(manifest);
 assert.equal(parsedManifest.display, 'standalone');
@@ -77,7 +89,7 @@ assert.equal(parsedManifest.icons.length, 3);
 for (const asset of ['./index.html', './audit.css', './audit.js', './manifest.webmanifest']) {
   assert.ok(serviceWorker.includes(asset), `Ressource PWA non mise en cache: ${asset}`);
 }
-assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v3'"), 'Le cache PWA doit être renouvelé pour diffuser les deux types de mission');
+assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v4'"), 'Le cache PWA doit être renouvelé pour diffuser le dossier de décision');
 
 assert.doesNotMatch(js, /https?:\/\//, 'L’application d’audit ne doit dépendre d’aucun service externe');
 

@@ -492,12 +492,13 @@ function normalizeAudit(audit) {
   return {
     ...audit,
     projectType: PROJECT_TYPES[audit.projectType] ? audit.projectType : 'replacement',
-    modules: Array.isArray(audit.modules) ? audit.modules : ['stock'],
+    modules: Array.isArray(audit.modules) ? [...new Set([...audit.modules, 'stock'])] : ['stock'],
     answers: audit.answers || {},
-    findings: Array.isArray(audit.findings) ? audit.findings : [],
+    findings: Array.isArray(audit.findings) ? audit.findings.map((finding) => ({ responsibleParty: 'client', owner: '', dueDate: '', ...finding })) : [],
     interviews: Array.isArray(audit.interviews) ? audit.interviews : [],
     systems: Array.isArray(audit.systems) ? audit.systems : [],
     documents: Array.isArray(audit.documents) ? audit.documents : [],
+    sizing: { ...defaultSizing(), ...(audit.sizing || {}) },
   };
 }
 
@@ -575,6 +576,37 @@ function statusMeta(audit, value) {
   return { ...meta, label: ({ yes: 'Prêt', partial: 'À compléter', no: 'Non défini', unknown: 'À confirmer', na: 'N/A' })[value] };
 }
 
+function defaultSizing() {
+  return {
+    sites: 1,
+    pos: 0,
+    cashRegisters: 0,
+    warehouses: 0,
+    rooms: 0,
+    users: 0,
+    printers: 0,
+    products: 0,
+    integrations: 0,
+    historyYears: 0,
+    pilot: '',
+    targetDate: '',
+    constraints: '',
+    decisionMaker: '',
+    nextStep: '',
+    nextStepOwner: '',
+    nextStepDate: '',
+  };
+}
+
+function sizingSummary(audit) {
+  const sizing = audit.sizing || defaultSizing();
+  const required = ['sites', 'pos', 'cashRegisters', 'warehouses', 'users', 'products', 'pilot', 'targetDate'];
+  const completed = required.filter((key) => key === 'pilot' || key === 'targetDate' ? Boolean(sizing[key]) : Number(sizing[key]) > 0).length;
+  const load = Number(sizing.sites) * 3 + Number(sizing.pos) * 2 + Number(sizing.cashRegisters) + Number(sizing.warehouses) + Math.ceil(Number(sizing.users) / 10) + Number(sizing.integrations) * 3 + Math.ceil(Number(sizing.products) / 500) + Number(sizing.historyYears);
+  const complexity = completed < 4 ? 'À cadrer' : load >= 28 ? 'Élevée' : load >= 14 ? 'Intermédiaire' : 'Ciblée';
+  return { sizing, completed, total: required.length, progress: Math.round(completed / required.length * 100), complexity };
+}
+
 function reportSummary(audit, metrics) {
   if (projectTypeOf(audit) === 'greenfield') {
     if (metrics.progress < 40) return 'Le cadrage est encore incomplet. Le rapport identifie les décisions, données initiales et vérifications matérielles restant à obtenir.';
@@ -604,7 +636,8 @@ function roadmapFor(audit) {
 }
 
 function createAudit(data) {
-  const modules = data.modules?.length ? data.modules : ['pms', 'restaurant', 'stock', 'finance', 'customer', 'it', 'data'];
+  const selectedModules = data.modules?.length ? data.modules : ['pms', 'restaurant', 'stock', 'finance', 'customer', 'it', 'data'];
+  const modules = [...new Set([...selectedModules, 'stock'])];
   const projectType = PROJECT_TYPES[data.projectType] ? data.projectType : 'replacement';
   const seedDomain = modules.includes('pms') ? 'pms' : modules.includes('restaurant') ? 'restaurant' : 'it';
   const audit = {
@@ -639,6 +672,7 @@ function createAudit(data) {
     }] : [],
     documents: documentTemplatesFor(projectType, modules)
       .map((item) => ({ ...item, status: 'requested', note: '' })),
+    sizing: defaultSizing(),
   };
   workspace.audits.unshift(audit);
   workspace.activeAuditId = audit.id;
@@ -745,7 +779,7 @@ function renderGateway() {
             <label class="field"><span>Contact principal</span><input name="contact" placeholder="Nom, fonction, téléphone"></label>
             <label class="field span-2"><span>Objectif annoncé</span><textarea name="objectives" placeholder="Exemple : remplacer Orchestra sans rupture, ou déployer un premier système autour du matériel existant."></textarea></label>
             <div class="field span-2"><span>Périmètre à auditer</span><div class="module-checks">
-              ${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${module.id === 'online' ? '' : 'checked'}><span>${module.label}</span></label>`).join('')}
+              ${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${module.id === 'stock' ? 'checked disabled' : module.id === 'online' ? '' : 'checked'}><span>${module.label}${module.id === 'stock' ? ' · socle inclus' : ''}</span></label>`).join('')}
             </div></div>
           </div>
           <button class="primary-button" type="submit" style="width:100%;margin-top:18px">Créer et préparer l’audit</button>
@@ -813,9 +847,10 @@ function renderCurrentView(audit, metrics) {
 function renderOverview(audit, metrics) {
   const config = projectConfig(audit);
   const visitPlan = visitPlanFor(audit);
+  const scope = sizingSummary(audit);
   const firstIncomplete = metrics.domains.find((row) => row.progress < 100)?.domain.id || metrics.domains[0]?.domain.id || 'direction';
   return `<div class="page-container">
-    <header class="page-heading"><div><span class="eyebrow">${h(config.shortLabel)}</span><h1>Votre mission est prête.</h1><p>${h(config.description)}</p></div><div class="action-row"><button class="secondary-button" data-action="open-preparation">Préparer la visite</button><button class="primary-button" data-action="continue-audit" data-domain="${firstIncomplete}">Commencer le diagnostic</button></div></header>
+    <header class="page-heading"><div><span class="eyebrow">${h(config.shortLabel)}</span><h1>Votre mission est prête.</h1><p>${h(config.description)}</p></div><div class="action-row"><button class="secondary-button" data-action="open-preparation">Préparer la visite</button><button class="secondary-button" data-action="open-sizing">Cadrer le chiffrage</button><button class="primary-button" data-action="continue-audit" data-domain="${firstIncomplete}">Commencer le diagnostic</button></div></header>
     <section class="overview-hero">
       <article class="card mission-card"><span class="eyebrow">${h(audit.client || 'Client')}</span><h2>${h(audit.establishment)}</h2><p>${h(audit.objectives || config.objective)}</p><div class="mission-meta"><span>${h(config.label)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>${h(audit.auditor)}</span><span>${audit.modules.length} périmètres</span></div></article>
       <article class="card score-card"><div class="score-ring" style="--score:${metrics.score}"><span><strong>${metrics.score}%</strong><small>${h(config.scoreShortLabel)}</small></span></div><div><strong>${metrics.progress}% du diagnostic renseigné</strong><small>${metrics.answered} réponses sur ${metrics.total}</small></div></article>
@@ -826,6 +861,9 @@ function renderOverview(audit, metrics) {
       ${kpi('Constats majeurs', metrics.major, 'À intégrer au plan d’action', metrics.major ? 'warning' : '')}
       ${kpi('Pièces vérifiées', `${metrics.verifiedDocs}/${audit.documents.length}`, 'Exports et preuves reçus', '')}
     </section>
+    <article class="card scope-brief"><header><div><span class="eyebrow">Périmètre commercial</span><h2>Base de chiffrage</h2><p>Ces volumes transforment l’audit en périmètre exploitable pour préparer une proposition et un pilote.</p></div><div class="scope-progress"><strong>${scope.progress}%</strong><small>${scope.complexity}</small></div></header><div class="scope-facts">${[
+      ['Sites', scope.sizing.sites], ['POS', scope.sizing.pos], ['Caisses', scope.sizing.cashRegisters], ['Dépôts', scope.sizing.warehouses], ['Chambres', scope.sizing.rooms], ['Utilisateurs', scope.sizing.users], ['Produits', scope.sizing.products], ['Interfaces', scope.sizing.integrations],
+    ].map(([label, value]) => scopeFact(label, value)).join('')}</div><footer><span><strong>Pilote :</strong> ${h(scope.sizing.pilot || 'À définir')}</span><span><strong>Date cible :</strong> ${formatDate(scope.sizing.targetDate)}</span><button class="secondary-button" data-action="open-sizing">Compléter le cadrage</button></footer></article>
     <section class="overview-grid">
       <article class="card"><div class="card-header"><div><h2>Couverture par domaine</h2><p>Le score reflète seulement les réponses déjà renseignées.</p></div></div><div class="card-body domain-grid">${metrics.domains.map((row) => renderDomainCard(row)).join('')}</div></article>
       <article class="card"><div class="card-header"><div><h2>Parcours conseillé sur site</h2><p>Adaptez les horaires, mais gardez cet ordre.</p></div></div><div class="card-body visit-plan">${visitPlan.map((item) => `<article><time>${item.time}</time><span><strong>${item.label}</strong><small>${item.detail}</small></span><b>${item.duration}</b></article>`).join('')}</div></article>
@@ -835,6 +873,10 @@ function renderOverview(audit, metrics) {
 
 function kpi(label, value, detail, tone) {
   return `<article class="card kpi ${tone}"><small>${label}</small><strong>${value}</strong><p>${detail}</p></article>`;
+}
+
+function scopeFact(label, value) {
+  return `<span><small>${label}</small><strong>${Number(value) || 0}</strong></span>`;
 }
 
 function renderDomainCard(row) {
@@ -900,7 +942,7 @@ function renderFindings(audit) {
 
 function renderFindingCard(audit, finding) {
   const domain = activeDomains(audit).find((item) => item.id === finding.domain);
-  return `<article class="list-card"><span class="marker ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</span><div><h3>${h(finding.title)}</h3><p>${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Recommandation :</strong> ${h(finding.recommendation)}</p>` : ''}<small>${h(domain?.label || finding.domain)} · ${formatDateTime(finding.createdAt)} · ${finding.status === 'closed' ? 'Traité' : 'Ouvert'}</small>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</div><div class="list-actions"><button data-action="edit-finding" data-id="${finding.id}" aria-label="Modifier">MOD</button><button data-action="delete-finding" data-id="${finding.id}" aria-label="Supprimer">SUP</button></div></article>`;
+  return `<article class="list-card"><span class="marker ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</span><div><h3>${h(finding.title)}</h3><p>${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Action :</strong> ${h(finding.recommendation)}</p>` : ''}<div class="action-meta"><span>${responsiblePartyLabel(finding.responsibleParty)}</span><span>${h(finding.owner || 'Responsable à nommer')}</span><span>${finding.dueDate ? `Échéance ${formatDate(finding.dueDate)}` : 'Échéance à fixer'}</span></div><small>${h(domain?.label || finding.domain)} · ${formatDateTime(finding.createdAt)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</div><div class="list-actions"><button data-action="edit-finding" data-id="${finding.id}" aria-label="Modifier">MOD</button><button data-action="delete-finding" data-id="${finding.id}" aria-label="Supprimer">SUP</button></div></article>`;
 }
 
 function renderInterviews(audit) {
@@ -928,22 +970,27 @@ function emptyState(title, body, action, label) {
 function renderReport(audit, metrics) {
   const config = projectConfig(audit);
   const priorities = buildPriorities(audit);
+  const scope = sizingSummary(audit);
+  const clientRequests = clientRequestItems(audit);
   const summary = reportSummary(audit, metrics);
   const roadmap = roadmapFor(audit);
   const greenfield = projectTypeOf(audit) === 'greenfield';
   return `<div class="page-container">
-    <header class="page-heading no-print"><div><span class="eyebrow">Rapport automatique</span><h1>Préparer la restitution.</h1><p>Le rapport se met à jour avec les réponses, constats, outils et pièces de la mission.</p></div><div class="action-row"><button class="secondary-button" data-action="export-csv">Exporter CSV</button><button class="secondary-button" data-action="export-backup">Sauvegarde JSON</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
+    <header class="page-heading no-print"><div><span class="eyebrow">Dossier de décision</span><h1>Préparer la restitution et la suite.</h1><p>Le rapport consolide le diagnostic, le périmètre à chiffrer, les pièces attendues et les responsabilités.</p></div><div class="action-row"><button class="secondary-button" data-action="copy-client-followup">Copier le suivi client</button><button class="secondary-button" data-action="export-actions">Plan d’action CSV</button><button class="secondary-button" data-action="export-csv">Questionnaire CSV</button><button class="secondary-button" data-action="export-backup">Sauvegarde JSON</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
     <section class="report-page">
       <article class="card report-cover"><span class="eyebrow">${h(config.reportTitle)}</span><h1>${h(audit.establishment)}</h1><p>${h(summary)}</p><div class="report-meta"><span>${h(config.label)}</span><span>${h(audit.client)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>Auditeur : ${h(audit.auditor)}</span><span>Couverture : ${metrics.progress}%</span></div></article>
       <article class="card report-section"><header><div><h2>Synthèse exécutive</h2><p>Lecture consolidée des domaines inclus dans la mission.</p></div><strong>${metrics.score}% de ${h(config.scoreLabel)}</strong></header><div class="report-score-grid">${metrics.domains.map((row) => `<article class="report-score"><header><strong>${row.domain.label}</strong><b>${row.score === null ? 'N/A' : `${row.score}%`}</b></header><div class="progress-track"><i style="width:${row.score || 0}%"></i></div><small>${row.answered}/${row.total} réponses · ${row.risks} point(s) à traiter</small></article>`).join('')}</div></article>
-      <article class="card report-section"><header><div><h2>Priorités identifiées</h2><p>Constats terrain et contrôles essentiels non conformes.</p></div><strong>${priorities.length} point(s)</strong></header><div class="priority-list">${priorities.length ? priorities.slice(0, 15).map((item) => `<article><b>${item.priority}</b><div><h3>${h(item.title)}</h3><p>${h(item.detail)}</p></div></article>`).join('') : '<p>Aucune priorité n’a encore été identifiée.</p>'}</div></article>
+      <article class="card report-section"><header><div><h2>Périmètre à chiffrer</h2><p>Volumes vérifiés pour dimensionner la configuration, le matériel, la reprise et la formation.</p></div><strong>${scope.progress}% cadré · ${scope.complexity}</strong></header><div class="report-scope-grid">${[
+        ['Sites', scope.sizing.sites], ['Points de vente', scope.sizing.pos], ['Caisses', scope.sizing.cashRegisters], ['Dépôts', scope.sizing.warehouses], ['Chambres', scope.sizing.rooms], ['Utilisateurs', scope.sizing.users], ['Imprimantes / KDS', scope.sizing.printers], ['Produits / recettes', scope.sizing.products], ['Interfaces', scope.sizing.integrations], ...(greenfield ? [] : [['Historique', `${scope.sizing.historyYears || 0} an(s)`]]),
+      ].map(([label, value]) => `<span><small>${label}</small><strong>${h(value)}</strong></span>`).join('')}</div><div class="scope-decision"><p><strong>Pilote :</strong> ${h(scope.sizing.pilot || 'À définir')}</p><p><strong>Date cible :</strong> ${formatDate(scope.sizing.targetDate)}</p><p><strong>Décideur :</strong> ${h(scope.sizing.decisionMaker || 'À identifier')}</p>${scope.sizing.constraints ? `<p><strong>Contraintes :</strong> ${h(scope.sizing.constraints)}</p>` : ''}<p><strong>Prochaine étape :</strong> ${h(scope.sizing.nextStep || 'À convenir')} · ${h(scope.sizing.nextStepOwner || 'responsable à nommer')} · ${formatDate(scope.sizing.nextStepDate)}</p></div></article>
+      <article class="card report-section"><header><div><h2>Plan d’action prioritaire</h2><p>Décisions, responsables et échéances issus des constats et contrôles essentiels.</p></div><strong>${priorities.length} action(s)</strong></header><div class="priority-list">${priorities.length ? priorities.slice(0, 20).map((item) => `<article><b>${item.priority}</b><div><h3>${h(item.title)}</h3><p>${h(item.action || item.detail)}</p><div class="action-meta"><span>${responsiblePartyLabel(item.responsibleParty)}</span><span>${h(item.owner || 'Responsable à nommer')}</span><span>${item.dueDate ? formatDate(item.dueDate) : 'Échéance à fixer'}</span></div></div></article>`).join('') : '<p>Aucune action prioritaire n’a encore été identifiée.</p>'}</div></article>
       ${audit.findings.length ? `<article class="card report-section"><header><div><h2>Constats terrain détaillés</h2><p>Faits observés, impacts, recommandations et preuves collectées.</p></div><strong>${audit.findings.length} constat(s)</strong></header><div class="report-findings">${audit.findings.map((finding) => {
         const domain = activeDomains(audit).find((item) => item.id === finding.domain);
-        return `<article><header><b class="report-priority ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</b><div><h3>${h(finding.title)}</h3><small>${h(domain?.label || finding.domain)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small></div></header><p><strong>Observation :</strong> ${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Recommandation :</strong> ${h(finding.recommendation)}</p>` : ''}${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</article>`;
+        return `<article><header><b class="report-priority ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</b><div><h3>${h(finding.title)}</h3><small>${h(domain?.label || finding.domain)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small></div></header><p><strong>Observation :</strong> ${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Action :</strong> ${h(finding.recommendation)}</p>` : ''}<div class="action-meta"><span>${responsiblePartyLabel(finding.responsibleParty)}</span><span>${h(finding.owner || 'Responsable à nommer')}</span><span>${finding.dueDate ? formatDate(finding.dueDate) : 'Échéance à fixer'}</span></div>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</article>`;
       }).join('')}</div></article>` : ''}
       ${audit.interviews.length ? `<article class="card report-section"><header><div><h2>Entretiens réalisés</h2><p>Rôles rencontrés, outils utilisés et irritants exprimés.</p></div><strong>${audit.interviews.length} entretien(s)</strong></header><div class="report-interviews">${audit.interviews.map((item) => `<article><header><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><small>${item.duration || 0} min</small></header>${item.tools ? `<p><strong>Outils :</strong> ${h(item.tools)}</p>` : ''}${item.painPoints ? `<p><strong>Irritants :</strong> ${h(item.painPoints)}</p>` : ''}${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}</article>`).join('')}</div></article>` : ''}
       <article class="card report-section"><header><div><h2>${greenfield ? 'Inventaire du matériel et des services' : 'Cartographie des outils'}</h2><p>${greenfield ? 'Équipements disponibles, compatibilité à confirmer et acquisitions éventuelles.' : 'Applications observées et décision à instruire.'}</p></div><strong>${audit.systems.length} élément(s)</strong></header><div class="item-list">${audit.systems.length ? audit.systems.map((item) => `<article class="list-card"><span class="marker">${h(item.domain.slice(0, 3).toUpperCase())}</span><div><h3>${h(item.name)}</h3><p>${h(item.vendor || 'À confirmer')} · ${h(item.version || 'À confirmer')} · ${h(item.deployment || 'À confirmer')}</p>${greenfield ? `<p>${h(item.location || 'Emplacement à confirmer')} · ${h(item.serial || 'Identifiant non relevé')} · ${hardwareConditionLabel(item.condition)}</p>` : ''}<small>${greenfield ? 'Connexion / test' : 'API'} : ${connectionStatusLabel(audit, item.api)} · ${decisionLabel(item.decision)}</small>${item.attachments?.length ? `<div class="evidence-grid">${item.attachments.map((image) => `<img src="${image}" alt="Photo de ${h(item.name)}">`).join('')}</div>` : ''}</div></article>`).join('') : '<p>Aucun élément inventorié à ce stade.</p>'}</div></article>
-      <article class="card report-section"><header><div><h2>${greenfield ? 'Pièces et préparation de la configuration' : 'Pièces et capacité de migration'}</h2><p>${greenfield ? 'Disponibilité des référentiels, règles et données nécessaires à la configuration du pilote.' : 'Disponibilité des données nécessaires au chiffrage et au pilote.'}</p></div><strong>${metrics.verifiedDocs}/${audit.documents.length} vérifiées</strong></header><div class="document-list">${audit.documents.filter((item) => item.status !== 'na').map((item) => `<article class="document-row"><div><strong>${h(item.label)}</strong><small>${h(item.domain)}</small></div><strong>${documentStatusLabel(item.status)}</strong><span>${h(item.note || '')}</span></article>`).join('')}</div></article>
+      <article class="card report-section"><header><div><h2>${greenfield ? 'Pièces et préparation de la configuration' : 'Pièces et capacité de migration'}</h2><p>${greenfield ? 'Disponibilité des référentiels, règles et données nécessaires à la configuration du pilote.' : 'Disponibilité des données nécessaires au chiffrage et au pilote.'}</p></div><strong>${metrics.verifiedDocs}/${audit.documents.length} vérifiées</strong></header>${clientRequests.length ? `<div class="client-request-box"><strong>À demander au client avant la prochaine étape</strong><div>${clientRequests.map((item) => `<p><b>${item.status === 'unavailable' ? 'ALTERNATIVE' : 'À FOURNIR'}</b><span>${h(item.label)}${item.note ? ` · ${h(item.note)}` : ''}</span></p>`).join('')}</div></div>` : '<div class="client-request-box complete"><strong>Toutes les pièces attendues ont été reçues ou vérifiées.</strong></div>'}<div class="document-list">${audit.documents.filter((item) => item.status !== 'na').map((item) => `<article class="document-row"><div><strong>${h(item.label)}</strong><small>${h(item.domain)}</small></div><strong>${documentStatusLabel(item.status)}</strong><span>${h(item.note || '')}</span></article>`).join('')}</div></article>
       <article class="card report-section"><header><div><h2>Trajectoire recommandée</h2><p>À confirmer après réception des données, tests matériels et arbitrage des priorités.</p></div></header><div class="roadmap">${roadmap.map((item, index) => `<article><small>Étape ${index + 1}</small><h3>${item[0]}</h3><p>${item[1]}</p></article>`).join('')}</div></article>
     </section>
   </div>`;
@@ -952,7 +999,7 @@ function renderReport(audit, metrics) {
 function buildPriorities(audit) {
   const findingRows = audit.findings
     .filter((item) => item.status !== 'closed')
-    .map((item) => ({ priority: SEVERITIES[item.severity]?.short || 'P?', title: item.title, detail: item.impact || item.situation, rank: ['critical', 'major', 'medium', 'opportunity'].indexOf(item.severity) }));
+    .map((item) => ({ priority: SEVERITIES[item.severity]?.short || 'P?', title: item.title, detail: item.impact || item.situation, action: item.recommendation, responsibleParty: item.responsibleParty || 'client', owner: item.owner || '', dueDate: item.dueDate || '', status: item.status, source: 'Constat terrain', rank: ['critical', 'major', 'medium', 'opportunity'].indexOf(item.severity) }));
   const answerRows = [];
   activeDomains(audit).forEach((domain) => domain.questions.filter((question) => question.required).forEach((question) => {
     const answer = audit.answers[question.id];
@@ -961,10 +1008,47 @@ function buildPriorities(audit) {
       priority: answer.status === 'no' ? 'P1' : answer.status === 'partial' ? 'P2' : 'P3',
       title: question.label,
       detail: answer.note || `${domain.label} : preuve ou correction à obtenir.`,
+      action: answer.note || 'Obtenir une décision ou une preuve vérifiable.',
+      responsibleParty: 'client',
+      owner: '',
+      dueDate: '',
+      status: 'open',
+      source: domain.label,
       rank: answer.status === 'no' ? 0 : answer.status === 'partial' ? 1 : 2,
     });
   }));
   return [...findingRows, ...answerRows].sort((a, b) => a.rank - b.rank);
+}
+
+function clientRequestItems(audit) {
+  return audit.documents.filter((item) => ['requested', 'unavailable'].includes(item.status));
+}
+
+function buildFollowUpText(audit) {
+  const scope = sizingSummary(audit).sizing;
+  const requests = clientRequestItems(audit);
+  const priorities = buildPriorities(audit).slice(0, 8);
+  const modules = MODULES.filter((module) => audit.modules.includes(module.id)).map((module) => module.label).join(', ');
+  const lines = [
+    audit.contact ? `Bonjour ${audit.contact},` : 'Bonjour,',
+    '',
+    `Suite à l’audit de ${audit.establishment}, voici le cadrage retenu à ce stade.`,
+    '',
+    `Périmètre : ${modules}.`,
+    `Volumes : ${scope.sites || 0} site(s), ${scope.pos || 0} POS, ${scope.cashRegisters || 0} caisse(s), ${scope.warehouses || 0} dépôt(s), ${scope.rooms || 0} chambre(s), ${scope.users || 0} utilisateur(s) et ${scope.products || 0} produit(s).`,
+    `Pilote proposé : ${scope.pilot || 'à définir'}.`,
+    `Date cible : ${scope.targetDate ? formatDate(scope.targetDate) : 'à confirmer'}.`,
+  ];
+  if (requests.length) {
+    lines.push('', 'Éléments à nous transmettre ou à arbitrer :');
+    requests.forEach((item) => lines.push(`- ${item.label}${item.note ? ` : ${item.note}` : ''}`));
+  }
+  if (priorities.length) {
+    lines.push('', 'Actions prioritaires :');
+    priorities.forEach((item) => lines.push(`- ${item.priority} · ${item.action || item.title} · ${responsiblePartyLabel(item.responsibleParty)} · ${item.owner || 'responsable à nommer'} · ${item.dueDate ? formatDate(item.dueDate) : 'date à fixer'}`));
+  }
+  lines.push('', `Prochaine étape : ${scope.nextStep || 'à convenir'} · ${scope.nextStepOwner || 'responsable à nommer'} · ${scope.nextStepDate ? formatDate(scope.nextStepDate) : 'date à fixer'}.`, '', 'Cordialement,', audit.auditor || 'Sártal');
+  return lines.join('\n');
 }
 
 function openModal({ title, subtitle = '', content, actions = '', wide = false }) {
@@ -976,7 +1060,7 @@ function closeModal() {
 }
 
 function openFindingModal(existing, prefill = {}) {
-  const finding = existing || { id: '', severity: 'major', domain: prefill.domain || workspace.ui.questionnaireDomain || 'direction', title: prefill.title || '', situation: prefill.situation || '', impact: '', recommendation: '', status: 'open', attachments: [] };
+  const finding = existing || { id: '', severity: 'major', domain: prefill.domain || workspace.ui.questionnaireDomain || 'direction', title: prefill.title || '', situation: prefill.situation || '', impact: '', recommendation: '', responsibleParty: 'client', owner: '', dueDate: '', status: 'open', attachments: [] };
   openModal({
     title: existing ? 'Modifier le constat' : 'Nouveau constat',
     subtitle: 'Décrivez un fait précis, son impact et la décision attendue.',
@@ -987,7 +1071,10 @@ function openFindingModal(existing, prefill = {}) {
       <label class="field span-2"><span>Titre du constat</span><input name="title" required value="${h(finding.title)}" placeholder="Exemple : Les ventes bar sont déduites du dépôt restaurant"></label>
       <label class="field span-2"><span>Situation observée</span><textarea name="situation" required>${h(finding.situation)}</textarea></label>
       <label class="field"><span>Impact</span><textarea name="impact" placeholder="Risque client, financier, opérationnel ou données">${h(finding.impact)}</textarea></label>
-      <label class="field"><span>Recommandation</span><textarea name="recommendation" placeholder="Action ou contrôle recommandé">${h(finding.recommendation)}</textarea></label>
+      <label class="field"><span>Action recommandée</span><textarea name="recommendation" placeholder="Action concrète ou contrôle à réaliser">${h(finding.recommendation)}</textarea></label>
+      <label class="field"><span>Qui doit agir ?</span><select name="responsibleParty"><option value="client" ${finding.responsibleParty === 'client' ? 'selected' : ''}>Client</option><option value="sartal" ${finding.responsibleParty === 'sartal' ? 'selected' : ''}>Sártal</option><option value="joint" ${finding.responsibleParty === 'joint' ? 'selected' : ''}>Client + Sártal</option><option value="third-party" ${finding.responsibleParty === 'third-party' ? 'selected' : ''}>Prestataire externe</option></select></label>
+      <label class="field"><span>Responsable nommé</span><input name="owner" value="${h(finding.owner || '')}" placeholder="Nom ou fonction"></label>
+      <label class="field"><span>Date cible</span><input name="dueDate" type="date" value="${h(finding.dueDate || '')}"></label>
       <label class="field"><span>Statut</span><select name="status"><option value="open" ${finding.status === 'open' ? 'selected' : ''}>Ouvert</option><option value="confirmed" ${finding.status === 'confirmed' ? 'selected' : ''}>Confirmé</option><option value="closed" ${finding.status === 'closed' ? 'selected' : ''}>Traité</option></select></label>
       <label class="field photo-picker"><span>Photos / preuves</span><input name="photos" type="file" accept="image/*" capture="environment" multiple><small class="photo-note">Maximum 3 images compressées. Elles seront incluses dans la sauvegarde.</small></label>
       ${finding.attachments?.length ? `<div class="span-2 evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve existante">`).join('')}</div>` : ''}
@@ -1055,9 +1142,43 @@ function openMissionSettings() {
       <label class="field"><span>Auditeur</span><input name="auditor" value="${h(audit.auditor)}"></label>
       <label class="field"><span>Contact</span><input name="contact" value="${h(audit.contact)}"></label>
       <label class="field span-2"><span>Objectif</span><textarea name="objectives">${h(audit.objectives)}</textarea></label>
-      <div class="field span-2"><span>Périmètre</span><div class="module-checks">${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${audit.modules.includes(module.id) ? 'checked' : ''}><span>${module.label}</span></label>`).join('')}</div></div>
+      <div class="field span-2"><span>Périmètre</span><div class="module-checks">${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${audit.modules.includes(module.id) ? 'checked' : ''} ${module.id === 'stock' ? 'disabled' : ''}><span>${module.label}${module.id === 'stock' ? ' · socle inclus' : ''}</span></label>`).join('')}</div></div>
     </div></form>`,
     actions: `<button class="danger-button" data-action="delete-audit">Supprimer</button><button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="mission-settings-form">Enregistrer</button>`,
+  });
+}
+
+function openSizingModal() {
+  const audit = activeAudit();
+  const sizing = audit.sizing || defaultSizing();
+  const replacement = projectTypeOf(audit) === 'replacement';
+  const numberField = (name, label, value) => `<label class="field"><span>${label}</span><input name="${name}" type="number" min="0" step="1" value="${Number(value) || 0}"></label>`;
+  openModal({
+    title: 'Cadrer le chiffrage',
+    subtitle: 'Renseignez les volumes vérifiés. Ils seront repris dans le rapport et la préparation de la proposition.',
+    wide: true,
+    content: `<form id="sizing-form"><div class="form-grid">
+      <div class="form-section-title span-2"><strong>Volumes du périmètre</strong><small>Ne comptez que les éléments réellement inclus dans le projet.</small></div>
+      ${numberField('sites', 'Sites / établissements', sizing.sites)}
+      ${numberField('pos', 'Points de vente', sizing.pos)}
+      ${numberField('cashRegisters', 'Postes de caisse', sizing.cashRegisters)}
+      ${numberField('warehouses', 'Dépôts / zones de stock', sizing.warehouses)}
+      ${numberField('rooms', 'Chambres', sizing.rooms)}
+      ${numberField('users', 'Utilisateurs à former', sizing.users)}
+      ${numberField('printers', 'Imprimantes / KDS', sizing.printers)}
+      ${numberField('products', 'Produits et recettes', sizing.products)}
+      ${numberField('integrations', replacement ? 'Interfaces / sources à reprendre' : 'Services / interfaces à connecter', sizing.integrations)}
+      ${replacement ? numberField('historyYears', 'Années d’historique à reprendre', sizing.historyYears) : ''}
+      <div class="form-section-title span-2"><strong>Pilote et décision</strong><small>Une prochaine étape datée évite que l’audit reste sans suite.</small></div>
+      <label class="field span-2"><span>Périmètre du pilote</span><input name="pilot" value="${h(sizing.pilot)}" placeholder="Exemple : restaurant principal, caisse 1, dépôt cuisine, équipe du matin"></label>
+      <label class="field"><span>Date cible de mise en service</span><input name="targetDate" type="date" value="${h(sizing.targetDate)}"></label>
+      <label class="field"><span>Décideur final</span><input name="decisionMaker" value="${h(sizing.decisionMaker)}" placeholder="Nom et fonction"></label>
+      <label class="field span-2"><span>Contraintes de déploiement</span><textarea name="constraints" placeholder="Saison, horaires, réseau, disponibilité des équipes, contrat Orchestra...">${h(sizing.constraints)}</textarea></label>
+      <label class="field span-2"><span>Prochaine étape convenue</span><input name="nextStep" value="${h(sizing.nextStep)}" placeholder="Exemple : réception des exports puis atelier de validation du périmètre"></label>
+      <label class="field"><span>Responsable de la prochaine étape</span><input name="nextStepOwner" value="${h(sizing.nextStepOwner)}"></label>
+      <label class="field"><span>Date de la prochaine étape</span><input name="nextStepDate" type="date" value="${h(sizing.nextStepDate)}"></label>
+    </div></form>`,
+    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="sizing-form">Enregistrer le cadrage</button>`,
   });
 }
 
@@ -1100,6 +1221,10 @@ function openPreparation() {
 
 function decisionLabel(value) {
   return ({ assess: 'À évaluer', keep: 'À conserver', connect: 'À connecter', replace: 'À remplacer', equip: 'À acquérir', retire: 'À retirer' })[value] || 'À évaluer';
+}
+
+function responsiblePartyLabel(value) {
+  return ({ client: 'Action client', sartal: 'Action Sártal', joint: 'Action conjointe', 'third-party': 'Action prestataire' })[value] || 'Responsabilité à confirmer';
 }
 
 function connectionStatusLabel(audit, value) {
@@ -1157,6 +1282,27 @@ function exportCsv() {
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
   downloadBlob(`sartal-audit-${slug(audit.establishment)}-questions.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8');
   toast('Matrice de questionnaire exportée.');
+}
+
+function exportActionPlan() {
+  const audit = activeAudit();
+  const rows = [['Priorité', 'Action', 'Détail', 'Responsabilité', 'Responsable', 'Échéance', 'Statut', 'Source']];
+  buildPriorities(audit).forEach((item) => rows.push([item.priority, item.action || item.title, item.detail || '', responsiblePartyLabel(item.responsibleParty), item.owner || 'À nommer', item.dueDate || '', item.status || 'open', item.source || 'Audit']));
+  const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
+  downloadBlob(`sartal-audit-${slug(audit.establishment)}-plan-action.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8');
+  toast('Plan d’action exporté.');
+}
+
+async function copyClientFollowUp() {
+  const audit = activeAudit();
+  const content = buildFollowUpText(audit);
+  try {
+    await navigator.clipboard.writeText(content);
+    toast('Message de suivi client copié.');
+  } catch {
+    downloadBlob(`sartal-audit-${slug(audit.establishment)}-suivi-client.txt`, content, 'text/plain;charset=utf-8');
+    toast('Le message de suivi a été téléchargé.');
+  }
 }
 
 function slug(value) {
@@ -1232,7 +1378,7 @@ document.addEventListener('submit', async (event) => {
     const attachments = [...(existing?.attachments || [])];
     for (const photo of photos) attachments.push(await compressImage(photo));
     const item = {
-      id: id || uid('finding'), severity: data.get('severity'), domain: data.get('domain'), title: data.get('title').trim(), situation: data.get('situation').trim(), impact: data.get('impact').trim(), recommendation: data.get('recommendation').trim(), status: data.get('status'), attachments, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: id || uid('finding'), severity: data.get('severity'), domain: data.get('domain'), title: data.get('title').trim(), situation: data.get('situation').trim(), impact: data.get('impact').trim(), recommendation: data.get('recommendation').trim(), responsibleParty: data.get('responsibleParty'), owner: data.get('owner').trim(), dueDate: data.get('dueDate'), status: data.get('status'), attachments, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     if (existing) Object.assign(existing, item); else audit.findings.unshift(item);
     closeModal();
@@ -1280,7 +1426,7 @@ document.addEventListener('submit', async (event) => {
     audit.auditor = data.get('auditor').trim();
     audit.contact = data.get('contact').trim();
     audit.objectives = data.get('objectives').trim();
-    audit.modules = data.getAll('modules');
+    audit.modules = [...new Set([...data.getAll('modules'), 'stock'])];
     audit.documents = documentTemplatesFor(projectTypeOf(audit), audit.modules).map((template) => {
       const existing = audit.documents.find((item) => item.id === template.id);
       return existing ? { ...template, status: existing.status, note: existing.note } : { ...template, status: 'requested', note: '' };
@@ -1289,6 +1435,18 @@ document.addEventListener('submit', async (event) => {
     const saved = persist();
     render();
     toast(saved ? 'Mission mise à jour.' : 'Mission modifiée dans cette session. Exportez-la en JSON.');
+  }
+
+  if (form.id === 'sizing-form') {
+    const audit = activeAudit();
+    const integer = (name) => Math.max(0, Number.parseInt(data.get(name), 10) || 0);
+    audit.sizing = {
+      sites: integer('sites'), pos: integer('pos'), cashRegisters: integer('cashRegisters'), warehouses: integer('warehouses'), rooms: integer('rooms'), users: integer('users'), printers: integer('printers'), products: integer('products'), integrations: integer('integrations'), historyYears: integer('historyYears'), pilot: data.get('pilot').trim(), targetDate: data.get('targetDate'), constraints: data.get('constraints').trim(), decisionMaker: data.get('decisionMaker').trim(), nextStep: data.get('nextStep').trim(), nextStepOwner: data.get('nextStepOwner').trim(), nextStepDate: data.get('nextStepDate'),
+    };
+    closeModal();
+    const saved = persist();
+    render();
+    toast(saved ? 'Périmètre de chiffrage enregistré.' : 'Cadrage conservé dans cette session. Exportez la mission en JSON.');
   }
 });
 
@@ -1328,6 +1486,7 @@ document.addEventListener('click', (event) => {
   if (action === 'edit-system') openSystemModal(audit.systems.find((item) => item.id === target.dataset.id));
   if (action === 'delete-system') removeById('systems', target.dataset.id, projectTypeOf(audit) === 'greenfield' ? 'cet équipement' : 'cet outil');
   if (action === 'open-settings') openMissionSettings();
+  if (action === 'open-sizing') openSizingModal();
   if (action === 'open-missions') openMissions();
   if (action === 'switch-audit') { workspace.activeAuditId = target.dataset.id; workspace.ui.view = 'overview'; closeModal(); persist(); render(); }
   if (action === 'new-audit') { workspace.activeAuditId = null; closeModal(); persist(false); render(); }
@@ -1336,6 +1495,8 @@ document.addEventListener('click', (event) => {
   if (action === 'export-backup') exportBackup();
   if (action === 'import-backup') backupImport.click();
   if (action === 'export-csv') exportCsv();
+  if (action === 'export-actions') exportActionPlan();
+  if (action === 'copy-client-followup') copyClientFollowUp();
   if (action === 'print-report') window.print();
   if (action === 'delete-audit') {
     if (!window.confirm('Supprimer définitivement cette mission de cet appareil ? Exportez une sauvegarde avant de continuer.')) return;
