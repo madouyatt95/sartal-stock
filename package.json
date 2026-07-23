@@ -11,6 +11,7 @@
     "test:client": "node scripts/client-smoke.mjs",
     "test:employee": "node scripts/employee-smoke.mjs",
     "test:access": "node scripts/access-governance-smoke.mjs",
+    "test:audit": "node scripts/audit-app-smoke.mjs",
     "test:platform": "node scripts/platform-smoke.mjs",
     "test:demo": "node scripts/demo-portal-smoke.mjs",
     "preview": "vite preview"

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b4b45" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Sártal Audit" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="Application terrain pour auditer les systèmes PMS, restaurant, stock, caisses, données et équipements d'un établissement hôtelier." />
+    <link rel="icon" href="../favicon.svg" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./audit.css" />
+    <title>Sártal Audit - Diagnostic hôtel et restaurant</title>
+  </head>
+  <body>
+    <div id="app" aria-live="polite"></div>
+    <div id="modal-root"></div>
+    <div id="toast-root" aria-live="assertive"></div>
+    <input id="backup-import" class="visually-hidden" type="file" accept="application/json,.json" />
+    <script type="module" src="./audit.js"></script>
+  </body>
+</html>
