@@ -1,7 +1,7 @@
 {
   "name": "Sártal Audit",
   "short_name": "Sártal Audit",
-  "description": "Audit terrain des systèmes PMS, restaurant, stock, caisses, données et équipements.",
+  "description": "Audit terrain pour remplacer un système existant ou préparer un premier déploiement PMS, restaurant, stock et caisses.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",

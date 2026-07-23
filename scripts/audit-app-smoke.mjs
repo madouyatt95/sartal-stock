@@ -13,12 +13,15 @@ assert.match(html, /Sártal Audit - Diagnostic hôtel et restaurant/);
 assert.match(html, /manifest\.webmanifest/);
 assert.match(html, /viewport-fit=cover/);
 
-const questionIds = [...js.matchAll(/q\('((?:dir|pms|pos|stk|fin|cx|web|it|data)-[^']+)'/g)].map((match) => match[1]);
-const questionCount = questionIds.length;
-assert.equal(questionCount, 90, `Le questionnaire doit conserver ses 90 contrôles: ${questionCount}`);
-assert.equal(new Set(questionIds).size, questionCount, 'Chaque contrôle doit posséder un identifiant unique');
+const questionIds = [...js.matchAll(/q\('([^']+)'/g)].map((match) => match[1]);
+const replacementQuestionIds = questionIds.filter((id) => !id.startsWith('new-'));
+const greenfieldQuestionIds = questionIds.filter((id) => id.startsWith('new-'));
+assert.equal(replacementQuestionIds.length, 90, `Le questionnaire de remplacement doit conserver ses 90 contrôles: ${replacementQuestionIds.length}`);
+assert.equal(greenfieldQuestionIds.length, 73, `Le questionnaire de premier déploiement doit conserver ses 73 contrôles: ${greenfieldQuestionIds.length}`);
+assert.equal(new Set(questionIds).size, questionIds.length, 'Chaque contrôle doit posséder un identifiant unique');
 for (const prefix of ['dir', 'pms', 'pos', 'stk', 'fin', 'cx', 'web', 'it', 'data']) {
-  assert.ok(questionIds.some((id) => id.startsWith(`${prefix}-`)), `Domaine sans contrôle: ${prefix}`);
+  assert.ok(replacementQuestionIds.some((id) => id.startsWith(`${prefix}-`)), `Domaine de remplacement sans contrôle: ${prefix}`);
+  assert.ok(greenfieldQuestionIds.some((id) => id.startsWith(`new-${prefix}-`)), `Domaine de premier déploiement sans contrôle: ${prefix}`);
 }
 
 for (const marker of [
@@ -31,6 +34,14 @@ for (const marker of [
   'Vente en ligne et livraison',
   'IT, matériel et sécurité',
   'Données, intégrations et migration',
+  'PROJECT_TYPES',
+  'Remplacer un système existant',
+  'Déployer un premier système',
+  'GREENFIELD_DOMAINS',
+  'GREENFIELD_DOCUMENT_TEMPLATES',
+  'GREENFIELD_VISIT_PLAN',
+  'Le matériel de caisse existant',
+  'Premier déploiement',
   'Orchestra',
   'print-report',
   'export-backup',
@@ -55,6 +66,8 @@ assert.match(css, /\.score-ring\s*\{[^}]*position: relative/s);
 assert.match(css, /\.report-findings/);
 assert.match(css, /\.audit-access-screen/);
 assert.match(css, /\.audit-code-field input/);
+assert.match(css, /\.project-type-options/);
+assert.match(css, /\.mission-type-summary/);
 
 const parsedManifest = JSON.parse(manifest);
 assert.equal(parsedManifest.display, 'standalone');
@@ -64,8 +77,8 @@ assert.equal(parsedManifest.icons.length, 3);
 for (const asset of ['./index.html', './audit.css', './audit.js', './manifest.webmanifest']) {
   assert.ok(serviceWorker.includes(asset), `Ressource PWA non mise en cache: ${asset}`);
 }
-assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v2'"), 'Le cache PWA doit être renouvelé pour diffuser le verrou d’accès');
+assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v3'"), 'Le cache PWA doit être renouvelé pour diffuser les deux types de mission');
 
 assert.doesNotMatch(js, /https?:\/\//, 'L’application d’audit ne doit dépendre d’aucun service externe');
 
-console.log(`Sártal Audit: ${questionCount} contrôles, PWA offline, mobile et rapport imprimable validés.`);
+console.log(`Sártal Audit: ${questionIds.length} contrôles sur deux parcours, PWA offline, mobile et rapports adaptés validés.`);

@@ -345,6 +345,36 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .gateway-form h2 { margin-bottom: 8px; font-size: 25px; }
 .gateway-form > p { color: var(--muted); }
 
+.project-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.project-type-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #b8ccc7;
+  border-radius: 8px;
+  background: var(--white);
+  cursor: pointer;
+}
+
+.project-type-card:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 2px rgb(15 118 110 / 11%);
+}
+
+.project-type-card input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--primary); }
+.project-type-card span { min-width: 0; display: grid; gap: 5px; }
+.project-type-card strong { color: var(--ink); font-size: 14px; }
+.project-type-card small { color: var(--muted); font-size: 12px; font-weight: 550; line-height: 1.4; }
+
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .form-grid .span-2 { grid-column: 1 / -1; }
 
@@ -371,6 +401,17 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .module-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .module-checks label { min-height: 48px; display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); font-size: 13px; font-weight: 750; }
 .module-checks input { width: 19px; height: 19px; accent-color: var(--primary); }
+
+.mission-type-summary {
+  padding: 15px;
+  border-left: 5px solid var(--primary);
+  border-radius: 7px;
+  background: var(--primary-soft);
+}
+
+.mission-type-summary small { display: block; color: var(--primary); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.mission-type-summary strong { display: block; margin-top: 4px; font-size: 17px; }
+.mission-type-summary p { margin: 5px 0 0; color: var(--muted); font-size: 13px; font-weight: 550; }
 
 .overview-hero {
   display: grid;
@@ -667,6 +708,10 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
   .gateway-points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .gateway-points div { font-size: 13px; }
   .gateway-form { padding: 24px 20px 42px; }
+  .project-type-options { grid-template-columns: 1fr; }
+  .project-type-card { padding: 15px; }
+  .project-type-card strong { font-size: 15px; }
+  .project-type-card small { font-size: 14px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: auto; }
   .module-checks { grid-template-columns: 1fr; }
