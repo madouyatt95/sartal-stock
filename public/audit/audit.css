@@ -413,6 +413,75 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .mission-type-summary strong { display: block; margin-top: 4px; font-size: 17px; }
 .mission-type-summary p { margin: 5px 0 0; color: var(--muted); font-size: 13px; font-weight: 550; }
 
+.journey-card {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.journey-step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 7px;
+  background: var(--paper);
+}
+
+.journey-number {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--primary-dark);
+  color: var(--white);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.journey-step h2 { margin-bottom: 4px; font-size: 19px; }
+.journey-step p { margin: 0; color: var(--muted); font-size: 14px; }
+.journey-status { min-width: 88px; padding: 7px 10px; border-radius: 6px; background: var(--soft); color: var(--muted); font-size: 12px; font-weight: 900; text-align: center; }
+.journey-status.done { background: var(--green-soft); color: var(--green); }
+
+.advanced-details,
+.report-tools {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.advanced-details > summary,
+.report-tools > summary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  color: var(--primary-dark);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.advanced-details > summary::marker,
+.report-tools > summary::marker { color: var(--primary); }
+.advanced-details > summary::after,
+.report-tools > summary::after { margin-left: auto; color: var(--muted); font-size: 12px; content: "Afficher"; }
+.advanced-details[open] > summary::after,
+.report-tools[open] > summary::after { content: "Masquer"; }
+.advanced-content { padding: 4px 16px 16px; }
+.advanced-content .overview-hero { margin-top: 12px; }
+.report-tools { margin-bottom: 18px; }
+.report-tools .action-row { padding: 0 16px 16px; }
+
 .overview-hero {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
@@ -555,7 +624,7 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .list-card p { margin-bottom: 5px; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
 .list-card small { color: #78908a; }
 .list-card .list-actions { display: flex; gap: 5px; }
-.list-card .list-actions button { min-width: 38px; min-height: 38px; border: 1px solid var(--line); border-radius: 6px; background: var(--white); color: var(--primary); font-weight: 900; }
+.list-card .list-actions button { min-width: 38px; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--white); color: var(--primary); font-weight: 850; }
 
 .action-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
 .action-meta span { padding: 5px 7px; border-radius: 5px; background: var(--soft); color: #405a54; font-size: 11px; font-weight: 800; }
@@ -701,6 +770,7 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
   .audit-header-mission strong { font-size: 14px; }
   .save-state { display: none; }
   .header-button { display: none; }
+  .audit-lock-button { display: inline-flex; align-items: center; padding: 0 10px; font-size: 12px; }
   .audit-sidebar { display: none; }
   .audit-main { padding: 22px 18px calc(90px + var(--safe-bottom)); }
   .bottom-nav {
@@ -755,6 +825,13 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
   .page-heading p { font-size: 15px; }
   .page-heading > .action-row { width: 100%; }
   .page-heading > .action-row > button { flex: 1; }
+  .journey-step { grid-template-columns: 44px minmax(0, 1fr); gap: 10px 12px; padding: 14px; }
+  .journey-number { width: 42px; height: 42px; }
+  .journey-status { grid-column: 2; justify-self: start; }
+  .journey-step > button { grid-column: 1 / -1; width: 100%; min-height: 46px; }
+  .advanced-content { padding: 2px 12px 12px; }
+  .report-tools .action-row { display: grid; grid-template-columns: 1fr; }
+  .report-tools .action-row button { width: 100%; }
   .overview-hero { grid-template-columns: 1fr; }
   .mission-card { padding: 20px; }
   .mission-card h2 { font-size: 24px; }

@@ -4,18 +4,20 @@ const ACCESS_CODE = '0134';
 
 const MODULES = [
   { id: 'pms', label: 'Hôtel / PMS' },
-  { id: 'restaurant', label: 'Restaurant / POS' },
+  { id: 'restaurant', label: 'Restaurant / caisses' },
   { id: 'stock', label: 'Stock / achats' },
   { id: 'finance', label: 'Finance / caisses' },
   { id: 'customer', label: 'Expérience client' },
   { id: 'online', label: 'Vente en ligne' },
-  { id: 'it', label: 'IT / matériel' },
-  { id: 'data', label: 'Données / déploiement' },
+  { id: 'it', label: 'Matériel / réseau' },
+  { id: 'data', label: 'Données à reprendre' },
 ];
 
 const PROJECT_TYPES = {
   replacement: {
     label: 'Remplacer un système existant',
+    choiceLabel: 'Le client utilise déjà un logiciel',
+    choiceDescription: 'Exemple : Orchestra est relié aux caisses et doit être remplacé sans perdre les données.',
     shortLabel: 'Remplacement',
     description: 'Cartographier Orchestra, les caisses et les interfaces afin de conserver, connecter, migrer ou remplacer sans interrompre l’activité.',
     objective: 'Évaluer le système actuel, sécuriser la récupération des données et préparer un remplacement progressif sans rupture d’exploitation.',
@@ -25,6 +27,8 @@ const PROJECT_TYPES = {
   },
   greenfield: {
     label: 'Déployer un premier système',
+    choiceLabel: 'Le client n’a pas encore de logiciel',
+    choiceDescription: 'Il a peut-être déjà des caisses ou des imprimantes, mais aucun système de gestion central.',
     shortLabel: 'Premier déploiement',
     description: 'Partir des opérations et du matériel déjà disponibles pour concevoir la configuration, les données initiales et le plan de mise en service.',
     objective: 'Cadrer le premier système de gestion, vérifier la compatibilité du matériel et préparer un déploiement opérationnel adapté à l’activité.',
@@ -35,18 +39,18 @@ const PROJECT_TYPES = {
 };
 
 const STATUS = {
-  yes: { label: 'Conforme', score: 4, className: 'good' },
-  partial: { label: 'Partiel', score: 2, className: 'partial' },
+  yes: { label: 'Oui', score: 4, className: 'good' },
+  partial: { label: 'En partie', score: 2, className: 'partial' },
   no: { label: 'Non', score: 0, className: 'bad' },
-  unknown: { label: 'À vérifier', score: 1, className: 'unknown' },
-  na: { label: 'N/A', score: null, className: 'na' },
+  unknown: { label: 'Je ne sais pas', score: 1, className: 'unknown' },
+  na: { label: 'Non concerné', score: null, className: 'na' },
 };
 
 const SEVERITIES = {
-  critical: { label: 'P1 Critique', short: 'P1' },
-  major: { label: 'P2 Majeur', short: 'P2' },
-  medium: { label: 'P3 Moyen', short: 'P3' },
-  opportunity: { label: 'P4 Opportunité', short: 'P4' },
+  critical: { label: 'Urgent (P1)', short: 'P1' },
+  major: { label: 'Important (P2)', short: 'P2' },
+  medium: { label: 'À prévoir (P3)', short: 'P3' },
+  opportunity: { label: 'Amélioration (P4)', short: 'P4' },
 };
 
 const DOMAINS = [
@@ -573,7 +577,7 @@ function visitPlanFor(audit) {
 function statusMeta(audit, value) {
   const meta = STATUS[value];
   if (!meta || projectTypeOf(audit) !== 'greenfield') return meta;
-  return { ...meta, label: ({ yes: 'Prêt', partial: 'À compléter', no: 'Non défini', unknown: 'À confirmer', na: 'N/A' })[value] };
+  return { ...meta, label: ({ yes: 'Prêt', partial: 'À compléter', no: 'Non défini', unknown: 'À confirmer', na: 'Non concerné' })[value] };
 }
 
 function defaultSizing() {
@@ -755,35 +759,35 @@ function renderGateway() {
       <section class="gateway-panel">
         <div class="gateway-intro">
           <div class="gateway-logo"><img src="../brand-mark.svg" alt=""><span><strong>SÁRTAL AUDIT</strong><small>Diagnostic métier terrain</small></span></div>
-          <h1>Le bon diagnostic pour chaque point de départ.</h1>
-          <p>Remplacer un système existant ou équiper une entreprise pour la première fois exige deux démarches différentes.</p>
+          <h1>Choisissez la situation du client.</h1>
+          <p>Les bonnes questions seront ensuite affichées automatiquement.</p>
           <div class="gateway-points">
-            <div><b>1</b><span>Remplacement sans rupture</span></div>
-            <div><b>2</b><span>Premier équipement opérationnel</span></div>
-            <div><b>3</b><span>Matériel et données vérifiés</span></div>
-            <div><b>4</b><span>Plan d’action prêt à chiffrer</span></div>
+            <div><b>1</b><span>Préparez la visite</span></div>
+            <div><b>2</b><span>Posez les questions</span></div>
+            <div><b>3</b><span>Notez les problèmes</span></div>
+            <div><b>4</b><span>Obtenez le résultat</span></div>
           </div>
         </div>
         <form class="gateway-form" id="create-mission-form">
-          <h2>Créer une mission d’audit</h2>
-          <p>Choisissez d’abord la situation réelle du client. Le questionnaire, les pièces et le rapport s’adapteront automatiquement.</p>
+          <h2>Nouvelle visite</h2>
+          <p>Indiquez qui vous allez rencontrer et ce que vous devez examiner.</p>
           <div class="form-grid">
             <div class="field span-2"><span>Situation du client</span><div class="project-type-options">
-              ${Object.entries(PROJECT_TYPES).map(([value, config], index) => `<label class="project-type-card"><input type="radio" name="projectType" value="${value}" ${index === 0 ? 'checked' : ''}><span><strong>${config.label}</strong><small>${config.description}</small></span></label>`).join('')}
+              ${Object.entries(PROJECT_TYPES).map(([value, config], index) => `<label class="project-type-card"><input type="radio" name="projectType" value="${value}" ${index === 0 ? 'checked' : ''}><span><strong>${config.choiceLabel}</strong><small>${config.choiceDescription}</small></span></label>`).join('')}
             </div></div>
             <label class="field"><span>Client / groupe</span><input name="client" required placeholder="Nom du groupe ou du gérant"></label>
             <label class="field"><span>Établissement</span><input name="establishment" required placeholder="Complexe hôtelier et restaurant"></label>
             <label class="field"><span>Lieu</span><input name="location" placeholder="Ville, adresse ou site"></label>
             <label class="field"><span>Date de visite</span><input name="auditDate" type="date" value="${today()}" required></label>
-            <label class="field"><span>Auditeur</span><input name="auditor" required placeholder="Votre nom"></label>
+            <label class="field"><span>Votre nom</span><input name="auditor" required placeholder="Nom de la personne qui fait la visite"></label>
             <label class="field"><span>Contact principal</span><input name="contact" placeholder="Nom, fonction, téléphone"></label>
-            <label class="field span-2"><span>Objectif annoncé</span><textarea name="objectives" placeholder="Exemple : remplacer Orchestra sans rupture, ou déployer un premier système autour du matériel existant."></textarea></label>
-            <div class="field span-2"><span>Périmètre à auditer</span><div class="module-checks">
+            <label class="field span-2"><span>Ce que le client veut améliorer</span><textarea name="objectives" placeholder="Exemple : remplacer Orchestra sans interruption, ou utiliser les caisses existantes avec un premier système de gestion."></textarea></label>
+            <div class="field span-2"><span>Activités concernées</span><div class="module-checks">
               ${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${module.id === 'stock' ? 'checked disabled' : module.id === 'online' ? '' : 'checked'}><span>${module.label}${module.id === 'stock' ? ' · socle inclus' : ''}</span></label>`).join('')}
             </div></div>
           </div>
-          <button class="primary-button" type="submit" style="width:100%;margin-top:18px">Créer et préparer l’audit</button>
-          ${workspace.audits.length ? `<button class="secondary-button" type="button" data-action="open-missions" style="width:100%;margin-top:9px">Reprendre une mission existante</button>` : ''}
+          <button class="primary-button" type="submit" style="width:100%;margin-top:18px">Commencer la préparation</button>
+          ${workspace.audits.length ? `<button class="secondary-button" type="button" data-action="open-missions" style="width:100%;margin-top:9px">Reprendre une visite</button>` : ''}
         </form>
       </section>
     </main>
@@ -798,7 +802,7 @@ function renderHeader(audit) {
       <div class="audit-header-mission"><small>Mission active</small><strong>${h(audit.establishment)}</strong></div>
       <span class="save-state ${saveError ? 'save-error' : ''}" data-save-state>${saveError ? 'Stockage saturé' : 'Autosauvegarde active'}</span>
       <button class="header-button" data-action="open-missions">Missions</button>
-      <button class="icon-button audit-lock-button" data-action="lock-audit" aria-label="Verrouiller Sártal Audit">VR</button>
+      <button class="header-button audit-lock-button" data-action="lock-audit" aria-label="Verrouiller Sártal Audit">Verrouiller</button>
       <button class="icon-button" data-action="open-settings" aria-label="Paramètres de la mission">⋮</button>
     </header>
   `;
@@ -810,10 +814,10 @@ function renderSidebar(audit, metrics) {
     <aside class="audit-sidebar">
       <div class="sidebar-context"><span>${h(config.shortLabel)}</span><strong>${h(audit.client || audit.establishment)}</strong><small>${formatDate(audit.auditDate)} · ${h(audit.location || 'Lieu à confirmer')}</small></div>
       <nav class="sidebar-nav" aria-label="Navigation Sártal Audit">
-        ${navButton('overview', 'SY', 'Synthèse', `${metrics.progress}%`)}
-        ${navButton('questionnaire', 'AU', 'Questionnaire', `${metrics.answered}/${metrics.total}`)}
-        ${navButton('terrain', 'TE', 'Terrain et preuves', audit.findings.length)}
-        ${navButton('report', 'RA', 'Rapport', metrics.critical + metrics.major)}
+        ${navButton('overview', '1', 'Accueil', `${metrics.progress}%`)}
+        ${navButton('questionnaire', '2', 'Faire la visite', `${metrics.answered}/${metrics.total}`)}
+        ${navButton('terrain', '3', 'Mes notes', audit.findings.length)}
+        ${navButton('report', '4', 'Résultat', metrics.critical + metrics.major)}
       </nav>
       <div class="sidebar-footer">
         <button data-action="export-backup">Sauvegarder la mission</button>
@@ -829,10 +833,10 @@ function navButton(view, icon, label, count) {
 
 function renderBottomNav() {
   const items = [
-    ['overview', 'SY', 'Synthèse'],
-    ['questionnaire', 'AU', 'Audit'],
-    ['terrain', 'TE', 'Terrain'],
-    ['report', 'RA', 'Rapport'],
+    ['overview', '1', 'Accueil'],
+    ['questionnaire', '2', 'Visite'],
+    ['terrain', '3', 'Notes'],
+    ['report', '4', 'Résultat'],
   ];
   return `<nav class="bottom-nav" aria-label="Navigation mobile">${items.map(([view, icon, label]) => `<button class="${workspace.ui.view === view ? 'active' : ''}" data-action="navigate" data-view="${view}"><i>${icon}</i><span>${label}</span></button>`).join('')}</nav>`;
 }
@@ -849,25 +853,48 @@ function renderOverview(audit, metrics) {
   const visitPlan = visitPlanFor(audit);
   const scope = sizingSummary(audit);
   const firstIncomplete = metrics.domains.find((row) => row.progress < 100)?.domain.id || metrics.domains[0]?.domain.id || 'direction';
+  const noteCount = audit.findings.length + audit.interviews.length + audit.systems.length;
+  const nextButton = metrics.progress < 100
+    ? `<button class="primary-button" data-action="continue-audit" data-domain="${firstIncomplete}">${metrics.answered ? 'Continuer la visite' : 'Commencer la visite'}</button>`
+    : '<button class="primary-button" data-action="navigate" data-view="report">Voir le résultat</button>';
   return `<div class="page-container">
-    <header class="page-heading"><div><span class="eyebrow">${h(config.shortLabel)}</span><h1>Votre mission est prête.</h1><p>${h(config.description)}</p></div><div class="action-row"><button class="secondary-button" data-action="open-preparation">Préparer la visite</button><button class="secondary-button" data-action="open-sizing">Cadrer le chiffrage</button><button class="primary-button" data-action="continue-audit" data-domain="${firstIncomplete}">Commencer le diagnostic</button></div></header>
-    <section class="overview-hero">
-      <article class="card mission-card"><span class="eyebrow">${h(audit.client || 'Client')}</span><h2>${h(audit.establishment)}</h2><p>${h(audit.objectives || config.objective)}</p><div class="mission-meta"><span>${h(config.label)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>${h(audit.auditor)}</span><span>${audit.modules.length} périmètres</span></div></article>
-      <article class="card score-card"><div class="score-ring" style="--score:${metrics.score}"><span><strong>${metrics.score}%</strong><small>${h(config.scoreShortLabel)}</small></span></div><div><strong>${metrics.progress}% du diagnostic renseigné</strong><small>${metrics.answered} réponses sur ${metrics.total}</small></div></article>
+    <header class="page-heading simple-heading"><div><span class="eyebrow">${h(audit.establishment)}</span><h1>Que devez-vous faire maintenant ?</h1><p>Suivez les quatre étapes dans l’ordre. Tout est enregistré automatiquement sur cet appareil.</p></div><div class="action-row">${nextButton}</div></header>
+    <section class="journey-card" aria-label="Étapes de la visite">
+      <article class="journey-step">
+        <span class="journey-number">1</span><div><h2>Préparer</h2><p>Vérifiez les personnes, accès, documents et matériels à prévoir.</p></div><span class="journey-status">À consulter</span><button class="secondary-button" data-action="open-preparation">Voir la liste</button>
+      </article>
+      <article class="journey-step">
+        <span class="journey-number">2</span><div><h2>Faire la visite</h2><p>Posez les questions et choisissez une réponse simple pour chaque point.</p></div><span class="journey-status ${metrics.progress === 100 ? 'done' : ''}">${metrics.answered}/${metrics.total}</span><button class="secondary-button" data-action="continue-audit" data-domain="${firstIncomplete}">${metrics.answered ? 'Continuer' : 'Commencer'}</button>
+      </article>
+      <article class="journey-step">
+        <span class="journey-number">3</span><div><h2>Noter ce qui compte</h2><p>Ajoutez les problèmes, les personnes rencontrées, le matériel et les documents.</p></div><span class="journey-status ${noteCount ? 'done' : ''}">${noteCount ? `${noteCount} ajouté${noteCount > 1 ? 's' : ''}` : 'À faire'}</span><button class="secondary-button" data-action="open-notes">Ouvrir</button>
+      </article>
+      <article class="journey-step">
+        <span class="journey-number">4</span><div><h2>Obtenir le résultat</h2><p>Relisez les priorités, imprimez le dossier et envoyez la liste des pièces manquantes.</p></div><span class="journey-status ${metrics.answered ? 'done' : ''}">${metrics.answered ? 'Disponible' : 'À venir'}</span><button class="secondary-button" data-action="navigate" data-view="report">Ouvrir</button>
+      </article>
     </section>
-    <section class="kpi-grid">
-      ${kpi('Questions traitées', `${metrics.answered}/${metrics.total}`, 'Progression globale', 'info')}
-      ${kpi('Constats critiques', metrics.critical, 'À confirmer avant le départ', metrics.critical ? 'danger' : '')}
-      ${kpi('Constats majeurs', metrics.major, 'À intégrer au plan d’action', metrics.major ? 'warning' : '')}
-      ${kpi('Pièces vérifiées', `${metrics.verifiedDocs}/${audit.documents.length}`, 'Exports et preuves reçus', '')}
-    </section>
-    <article class="card scope-brief"><header><div><span class="eyebrow">Périmètre commercial</span><h2>Base de chiffrage</h2><p>Ces volumes transforment l’audit en périmètre exploitable pour préparer une proposition et un pilote.</p></div><div class="scope-progress"><strong>${scope.progress}%</strong><small>${scope.complexity}</small></div></header><div class="scope-facts">${[
-      ['Sites', scope.sizing.sites], ['POS', scope.sizing.pos], ['Caisses', scope.sizing.cashRegisters], ['Dépôts', scope.sizing.warehouses], ['Chambres', scope.sizing.rooms], ['Utilisateurs', scope.sizing.users], ['Produits', scope.sizing.products], ['Interfaces', scope.sizing.integrations],
-    ].map(([label, value]) => scopeFact(label, value)).join('')}</div><footer><span><strong>Pilote :</strong> ${h(scope.sizing.pilot || 'À définir')}</span><span><strong>Date cible :</strong> ${formatDate(scope.sizing.targetDate)}</span><button class="secondary-button" data-action="open-sizing">Compléter le cadrage</button></footer></article>
-    <section class="overview-grid">
-      <article class="card"><div class="card-header"><div><h2>Couverture par domaine</h2><p>Le score reflète seulement les réponses déjà renseignées.</p></div></div><div class="card-body domain-grid">${metrics.domains.map((row) => renderDomainCard(row)).join('')}</div></article>
-      <article class="card"><div class="card-header"><div><h2>Parcours conseillé sur site</h2><p>Adaptez les horaires, mais gardez cet ordre.</p></div></div><div class="card-body visit-plan">${visitPlan.map((item) => `<article><time>${item.time}</time><span><strong>${item.label}</strong><small>${item.detail}</small></span><b>${item.duration}</b></article>`).join('')}</div></article>
-    </section>
+    <details class="advanced-details">
+      <summary>Voir les détails et les indicateurs</summary>
+      <div class="advanced-content">
+        <section class="overview-hero">
+          <article class="card mission-card"><span class="eyebrow">${h(audit.client || 'Client')}</span><h2>${h(audit.establishment)}</h2><p>${h(audit.objectives || config.objective)}</p><div class="mission-meta"><span>${h(config.label)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>${h(audit.auditor)}</span><span>${audit.modules.length} activités</span></div></article>
+          <article class="card score-card"><div class="score-ring" style="--score:${metrics.score}"><span><strong>${metrics.score}%</strong><small>${h(config.scoreShortLabel)}</small></span></div><div><strong>${metrics.progress}% de la visite renseignée</strong><small>${metrics.answered} réponses sur ${metrics.total}</small></div></article>
+        </section>
+        <section class="kpi-grid">
+          ${kpi('Questions traitées', `${metrics.answered}/${metrics.total}`, 'Progression globale', 'info')}
+          ${kpi('Problèmes urgents', metrics.critical, 'À confirmer avant le départ', metrics.critical ? 'danger' : '')}
+          ${kpi('Problèmes importants', metrics.major, 'À intégrer au plan d’action', metrics.major ? 'warning' : '')}
+          ${kpi('Documents vérifiés', `${metrics.verifiedDocs}/${audit.documents.length}`, 'Fichiers et preuves reçus', '')}
+        </section>
+        <article class="card scope-brief"><header><div><span class="eyebrow">Pour préparer l’offre</span><h2>Taille du projet</h2><p>Indiquez les volumes connus pour préparer une proposition et un premier pilote.</p></div><div class="scope-progress"><strong>${scope.progress}%</strong><small>${scope.complexity}</small></div></header><div class="scope-facts">${[
+          ['Sites', scope.sizing.sites], ['POS', scope.sizing.pos], ['Caisses', scope.sizing.cashRegisters], ['Dépôts', scope.sizing.warehouses], ['Chambres', scope.sizing.rooms], ['Utilisateurs', scope.sizing.users], ['Produits', scope.sizing.products], ['Connexions', scope.sizing.integrations],
+        ].map(([label, value]) => scopeFact(label, value)).join('')}</div><footer><span><strong>Pilote :</strong> ${h(scope.sizing.pilot || 'À définir')}</span><span><strong>Date cible :</strong> ${formatDate(scope.sizing.targetDate)}</span><button class="secondary-button" data-action="open-sizing">Compléter</button></footer></article>
+        <section class="overview-grid">
+          <article class="card"><div class="card-header"><div><h2>Avancement par activité</h2><p>Les résultats se précisent au fil de vos réponses.</p></div></div><div class="card-body domain-grid">${metrics.domains.map((row) => renderDomainCard(row)).join('')}</div></article>
+          <article class="card"><div class="card-header"><div><h2>Ordre conseillé sur place</h2><p>Vous pouvez adapter les horaires à la disponibilité des équipes.</p></div></div><div class="card-body visit-plan">${visitPlan.map((item) => `<article><time>${item.time}</time><span><strong>${item.label}</strong><small>${item.detail}</small></span><b>${item.duration}</b></article>`).join('')}</div></article>
+        </section>
+      </div>
+    </details>
   </div>`;
 }
 
@@ -891,10 +918,10 @@ function renderQuestionnaire(audit) {
   const metrics = domainMetrics(audit, requestedDomain, mode);
   const allMetrics = domainMetrics(audit, requestedDomain, 'complete');
   return `<div class="page-container">
-    <header class="page-heading"><div><span class="eyebrow">Questionnaire métier</span><h1>${requestedDomain.label}</h1><p>${requestedDomain.description} Utilisez “À vérifier” lorsqu’une preuve manque.</p></div><div class="action-row"><button class="secondary-button" data-action="add-finding" data-domain="${requestedDomain.id}">Ajouter un constat</button></div></header>
+    <header class="page-heading"><div><span class="eyebrow">Étape 2 · Faire la visite</span><h1>${requestedDomain.label}</h1><p>${requestedDomain.description} Choisissez “Je ne sais pas” si vous n’avez pas pu vérifier.</p></div><div class="action-row"><button class="secondary-button" data-action="add-finding" data-domain="${requestedDomain.id}">Signaler un problème</button></div></header>
     <section class="questionnaire-toolbar">
-      <div class="toolbar-row"><div><strong>${metrics.answered}/${metrics.total} questions du mode ${mode === 'express' ? 'express' : 'complet'}</strong><div class="progress-track" style="width:min(420px,100%);margin-top:7px"><i style="width:${metrics.progress}%"></i></div></div><div class="mode-toggle"><button class="${mode === 'express' ? 'active' : ''}" data-action="question-mode" data-mode="express">Express</button><button class="${mode === 'complete' ? 'active' : ''}" data-action="question-mode" data-mode="complete">Complet (${allMetrics.total})</button></div></div>
-      <div class="domain-tabs">${domains.map((domain) => `<button class="${domain.id === requestedDomain.id ? 'active' : ''}" data-action="select-domain" data-domain="${domain.id}">${domain.short} · ${domain.label}</button>`).join('')}</div>
+      <div class="toolbar-row"><div><strong>${metrics.answered}/${metrics.total} questions répondues</strong><div class="progress-track" style="width:min(420px,100%);margin-top:7px"><i style="width:${metrics.progress}%"></i></div></div><div class="mode-toggle"><button class="${mode === 'express' ? 'active' : ''}" data-action="question-mode" data-mode="express">Questions essentielles</button><button class="${mode === 'complete' ? 'active' : ''}" data-action="question-mode" data-mode="complete">Toutes (${allMetrics.total})</button></div></div>
+      <div class="domain-tabs">${domains.map((domain) => `<button class="${domain.id === requestedDomain.id ? 'active' : ''}" data-action="select-domain" data-domain="${domain.id}">${domain.label}</button>`).join('')}</div>
     </section>
     <section class="question-list">${metrics.questions.map((question, index) => renderQuestion(audit, requestedDomain, question, index)).join('')}</section>
   </div>`;
@@ -906,28 +933,28 @@ function renderQuestion(audit, domain, question, index) {
   return `<article class="question-card ${status ? `answer-${status.className}` : ''}">
     <header><span class="question-index">${String(index + 1).padStart(2, '0')}</span><div class="question-copy"><h3>${question.label}</h3><p>${question.help}</p></div>${question.required ? '<span class="required-badge">Essentiel</span>' : ''}</header>
     <div class="answer-segments">${Object.keys(STATUS).map((value) => { const meta = statusMeta(audit, value); return `<button data-action="answer" data-question="${question.id}" data-value="${value}" class="${answer.status === value ? 'active' : ''}">${meta.label}</button>`; }).join('')}</div>
-    <div class="question-note"><textarea data-question-note="${question.id}" placeholder="Fait observé, exemple, nom de l’écran, référence ou pièce à demander...">${h(answer.note || '')}</textarea><button data-action="finding-from-question" data-question="${question.id}" data-domain="${domain.id}">Créer un constat</button></div>
+    <div class="question-note"><textarea data-question-note="${question.id}" placeholder="Votre note : ce que vous avez vu, un exemple ou un document à demander...">${h(answer.note || '')}</textarea><button data-action="finding-from-question" data-question="${question.id}" data-domain="${domain.id}">Signaler un problème</button></div>
   </article>`;
 }
 
 function renderTerrain(audit) {
   const tab = workspace.ui.terrainTab || 'findings';
-  const inventoryLabel = projectTypeOf(audit) === 'greenfield' ? 'Matériel et services' : 'Outils';
+  const inventoryLabel = 'Matériel et logiciels';
   return `<div class="page-container">
-    <header class="page-heading"><div><span class="eyebrow">Terrain et preuves</span><h1>Conserver les faits, pas les impressions.</h1><p>Constats, entretiens, inventaire et pièces restent liés à la mission et seront repris dans le rapport.</p></div><div class="action-row">${tabActionButton(tab, audit)}</div></header>
+    <header class="page-heading"><div><span class="eyebrow">Étape 3 · Mes notes</span><h1>Ce que vous avez observé</h1><p>Regroupez ici les problèmes, les personnes rencontrées, le matériel et les documents.</p></div><div class="action-row">${tabActionButton(tab)}</div></header>
     <nav class="section-tabs">${[
-      ['findings', `Constats (${audit.findings.length})`],
-      ['interviews', `Entretiens (${audit.interviews.length})`],
+      ['findings', `Problèmes (${audit.findings.length})`],
+      ['interviews', `Personnes (${audit.interviews.length})`],
       ['systems', `${inventoryLabel} (${audit.systems.length})`],
-      ['documents', `Pièces (${audit.documents.length})`],
+      ['documents', `Documents (${audit.documents.length})`],
     ].map(([id, label]) => `<button class="${tab === id ? 'active' : ''}" data-action="terrain-tab" data-tab="${id}">${label}</button>`).join('')}</nav>
     ${tab === 'interviews' ? renderInterviews(audit) : tab === 'systems' ? renderSystems(audit) : tab === 'documents' ? renderDocuments(audit) : renderFindings(audit)}
   </div>`;
 }
 
-function tabActionButton(tab, audit) {
-  if (tab === 'documents') return '<button class="secondary-button" data-action="export-backup">Sauvegarder</button>';
-  const labels = { findings: 'Nouveau constat', interviews: 'Nouvel entretien', systems: projectTypeOf(audit) === 'greenfield' ? 'Ajouter un équipement' : 'Ajouter un outil' };
+function tabActionButton(tab) {
+  if (tab === 'documents') return '<button class="secondary-button" data-action="export-backup">Sauvegarder la visite</button>';
+  const labels = { findings: 'Ajouter un problème', interviews: 'Ajouter une personne', systems: 'Ajouter un matériel ou logiciel' };
   const actions = { findings: 'add-finding', interviews: 'add-interview', systems: 'add-system' };
   return `<button class="primary-button" data-action="${actions[tab]}">${labels[tab]}</button>`;
 }
@@ -936,24 +963,24 @@ function renderFindings(audit) {
   const query = (workspace.ui.query || '').toLowerCase();
   const severity = workspace.ui.severity || 'all';
   const rows = audit.findings.filter((finding) => (severity === 'all' || finding.severity === severity) && (!query || `${finding.title} ${finding.situation} ${finding.impact} ${finding.recommendation}`.toLowerCase().includes(query)));
-  return `<div class="filter-bar"><input data-filter-query placeholder="Rechercher dans les constats" value="${h(workspace.ui.query || '')}"><select data-filter-severity><option value="all">Toutes les criticités</option>${Object.entries(SEVERITIES).map(([value, meta]) => `<option value="${value}" ${severity === value ? 'selected' : ''}>${meta.label}</option>`).join('')}</select><button class="primary-button" data-action="add-finding">Nouveau constat</button></div>
-    <section class="item-list">${rows.length ? rows.map((finding) => renderFindingCard(audit, finding)).join('') : emptyState('Aucun constat pour ce filtre', 'Ajoutez un fait observé, son impact et la recommandation associée.', 'add-finding', 'Créer le premier constat')}</section>`;
+  return `<div class="filter-bar"><input data-filter-query placeholder="Rechercher un problème" value="${h(workspace.ui.query || '')}"><select data-filter-severity><option value="all">Tous les niveaux</option>${Object.entries(SEVERITIES).map(([value, meta]) => `<option value="${value}" ${severity === value ? 'selected' : ''}>${meta.label}</option>`).join('')}</select><button class="primary-button" data-action="add-finding">Ajouter un problème</button></div>
+    <section class="item-list">${rows.length ? rows.map((finding) => renderFindingCard(audit, finding)).join('') : emptyState('Aucun problème ajouté', 'Ajoutez ce que vous avez observé, son impact et l’action à prévoir.', 'add-finding', 'Ajouter le premier problème')}</section>`;
 }
 
 function renderFindingCard(audit, finding) {
   const domain = activeDomains(audit).find((item) => item.id === finding.domain);
-  return `<article class="list-card"><span class="marker ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</span><div><h3>${h(finding.title)}</h3><p>${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Action :</strong> ${h(finding.recommendation)}</p>` : ''}<div class="action-meta"><span>${responsiblePartyLabel(finding.responsibleParty)}</span><span>${h(finding.owner || 'Responsable à nommer')}</span><span>${finding.dueDate ? `Échéance ${formatDate(finding.dueDate)}` : 'Échéance à fixer'}</span></div><small>${h(domain?.label || finding.domain)} · ${formatDateTime(finding.createdAt)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</div><div class="list-actions"><button data-action="edit-finding" data-id="${finding.id}" aria-label="Modifier">MOD</button><button data-action="delete-finding" data-id="${finding.id}" aria-label="Supprimer">SUP</button></div></article>`;
+  return `<article class="list-card"><span class="marker ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</span><div><h3>${h(finding.title)}</h3><p>${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Action :</strong> ${h(finding.recommendation)}</p>` : ''}<div class="action-meta"><span>${responsiblePartyLabel(finding.responsibleParty)}</span><span>${h(finding.owner || 'Responsable à nommer')}</span><span>${finding.dueDate ? `Échéance ${formatDate(finding.dueDate)}` : 'Échéance à fixer'}</span></div><small>${h(domain?.label || finding.domain)} · ${formatDateTime(finding.createdAt)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</div><div class="list-actions"><button data-action="edit-finding" data-id="${finding.id}">Modifier</button><button data-action="delete-finding" data-id="${finding.id}">Supprimer</button></div></article>`;
 }
 
 function renderInterviews(audit) {
-  return `<section class="item-list">${audit.interviews.length ? audit.interviews.map((item) => `<article class="list-card"><span class="marker">${h(item.role.split(' ').map((part) => part[0]).join('').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><p>${h(item.painPoints || 'Aucun irritant saisi.')}</p>${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}<small>${h(item.tools || 'Outils non renseignés')} · ${item.duration || 0} min</small></div><div class="list-actions"><button data-action="edit-interview" data-id="${item.id}">MOD</button><button data-action="delete-interview" data-id="${item.id}">SUP</button></div></article>`).join('') : emptyState('Aucun entretien saisi', 'Interviewez au minimum la direction, la réception, la caisse, le stock et l’IT.', 'add-interview', 'Ajouter un entretien')}</section>`;
+  return `<section class="item-list">${audit.interviews.length ? audit.interviews.map((item) => `<article class="list-card"><span class="marker">${h(item.role.split(' ').map((part) => part[0]).join('').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><p>${h(item.painPoints || 'Aucune difficulté saisie.')}</p>${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}<small>${h(item.tools || 'Outils non renseignés')} · ${item.duration || 0} min</small></div><div class="list-actions"><button data-action="edit-interview" data-id="${item.id}">Modifier</button><button data-action="delete-interview" data-id="${item.id}">Supprimer</button></div></article>`).join('') : emptyState('Aucune personne ajoutée', 'Rencontrez au minimum la direction, la réception, la caisse, le stock et la personne en charge du matériel.', 'add-interview', 'Ajouter une personne')}</section>`;
 }
 
 function renderSystems(audit) {
   const greenfield = projectTypeOf(audit) === 'greenfield';
   const emptyTitle = greenfield ? 'Aucun équipement recensé' : 'Aucun outil recensé';
   const emptyBody = greenfield ? 'Ajoutez les caisses, imprimantes, tiroirs, terminaux de paiement, équipements réseau et services à connecter.' : 'Ajoutez les PMS, POS, logiciels de stock, moyens de paiement et outils comptables.';
-  return `<section class="item-list">${audit.systems.length ? audit.systems.map((item) => `<article class="list-card"><span class="marker">${h((item.domain || 'IT').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.name)}</h3><p>${h(item.vendor || (greenfield ? 'Marque à confirmer' : 'Éditeur à confirmer'))} · ${h(item.version || 'Modèle/version inconnu')} · ${h(item.deployment || 'Installation à confirmer')}</p>${greenfield && (item.location || item.serial || item.condition) ? `<p><strong>Emplacement :</strong> ${h(item.location || 'À confirmer')} · <strong>Identifiant :</strong> ${h(item.serial || 'Non relevé')} · <strong>État :</strong> ${hardwareConditionLabel(item.condition)}</p>` : ''}<p><strong>${greenfield ? 'Connexion / pilote' : 'Exports / API'} :</strong> ${connectionStatusLabel(audit, item.api)} · <strong>Décision :</strong> ${decisionLabel(item.decision)}</p>${item.notes ? `<p>${h(item.notes)}</p>` : ''}${item.attachments?.length ? `<div class="evidence-grid">${item.attachments.map((image) => `<img src="${image}" alt="Photo de ${h(item.name)}">`).join('')}</div>` : ''}<small>${h(item.owner || 'Responsable à identifier')}${item.users ? ` · ${h(item.users)} poste(s) / utilisateur(s)` : ''}</small></div><div class="list-actions"><button data-action="edit-system" data-id="${item.id}">MOD</button><button data-action="delete-system" data-id="${item.id}">SUP</button></div></article>`).join('') : emptyState(emptyTitle, emptyBody, 'add-system', greenfield ? 'Ajouter le premier équipement' : 'Ajouter un outil')}</section>`;
+  return `<section class="item-list">${audit.systems.length ? audit.systems.map((item) => `<article class="list-card"><span class="marker">${h((item.domain || 'IT').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.name)}</h3><p>${h(item.vendor || (greenfield ? 'Marque à confirmer' : 'Éditeur à confirmer'))} · ${h(item.version || 'Modèle/version inconnu')} · ${h(item.deployment || 'Installation à confirmer')}</p>${greenfield && (item.location || item.serial || item.condition) ? `<p><strong>Emplacement :</strong> ${h(item.location || 'À confirmer')} · <strong>Identifiant :</strong> ${h(item.serial || 'Non relevé')} · <strong>État :</strong> ${hardwareConditionLabel(item.condition)}</p>` : ''}<p><strong>${greenfield ? 'Connexion / pilote' : 'Exports / API'} :</strong> ${connectionStatusLabel(audit, item.api)} · <strong>Décision :</strong> ${decisionLabel(item.decision)}</p>${item.notes ? `<p>${h(item.notes)}</p>` : ''}${item.attachments?.length ? `<div class="evidence-grid">${item.attachments.map((image) => `<img src="${image}" alt="Photo de ${h(item.name)}">`).join('')}</div>` : ''}<small>${h(item.owner || 'Responsable à identifier')}${item.users ? ` · ${h(item.users)} poste(s) / utilisateur(s)` : ''}</small></div><div class="list-actions"><button data-action="edit-system" data-id="${item.id}">Modifier</button><button data-action="delete-system" data-id="${item.id}">Supprimer</button></div></article>`).join('') : emptyState(emptyTitle, emptyBody, 'add-system', greenfield ? 'Ajouter le premier équipement' : 'Ajouter un outil')}</section>`;
 }
 
 function renderDocuments(audit) {
@@ -976,10 +1003,11 @@ function renderReport(audit, metrics) {
   const roadmap = roadmapFor(audit);
   const greenfield = projectTypeOf(audit) === 'greenfield';
   return `<div class="page-container">
-    <header class="page-heading no-print"><div><span class="eyebrow">Dossier de décision</span><h1>Préparer la restitution et la suite.</h1><p>Le rapport consolide le diagnostic, le périmètre à chiffrer, les pièces attendues et les responsabilités.</p></div><div class="action-row"><button class="secondary-button" data-action="copy-client-followup">Copier le suivi client</button><button class="secondary-button" data-action="export-actions">Plan d’action CSV</button><button class="secondary-button" data-action="export-csv">Questionnaire CSV</button><button class="secondary-button" data-action="export-backup">Sauvegarde JSON</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
+    <header class="page-heading no-print"><div><span class="eyebrow">Étape 4 · Résultat</span><h1>Votre dossier est prêt</h1><p>Relisez les priorités, imprimez le rapport et envoyez au client ce qu’il doit encore fournir.</p></div><div class="action-row"><button class="secondary-button" data-action="copy-client-followup">Copier le message client</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
+    <details class="report-tools no-print"><summary>Autres exports</summary><div class="action-row"><button class="secondary-button" data-action="export-actions">Plan d’action CSV</button><button class="secondary-button" data-action="export-csv">Toutes les réponses CSV</button><button class="secondary-button" data-action="export-backup">Sauvegarde complète JSON</button></div></details>
     <section class="report-page">
       <article class="card report-cover"><span class="eyebrow">${h(config.reportTitle)}</span><h1>${h(audit.establishment)}</h1><p>${h(summary)}</p><div class="report-meta"><span>${h(config.label)}</span><span>${h(audit.client)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>Auditeur : ${h(audit.auditor)}</span><span>Couverture : ${metrics.progress}%</span></div></article>
-      <article class="card report-section"><header><div><h2>Synthèse exécutive</h2><p>Lecture consolidée des domaines inclus dans la mission.</p></div><strong>${metrics.score}% de ${h(config.scoreLabel)}</strong></header><div class="report-score-grid">${metrics.domains.map((row) => `<article class="report-score"><header><strong>${row.domain.label}</strong><b>${row.score === null ? 'N/A' : `${row.score}%`}</b></header><div class="progress-track"><i style="width:${row.score || 0}%"></i></div><small>${row.answered}/${row.total} réponses · ${row.risks} point(s) à traiter</small></article>`).join('')}</div></article>
+      <article class="card report-section"><header><div><h2>Synthèse exécutive</h2><p>Lecture consolidée des domaines inclus dans la mission.</p></div><strong>${metrics.score}% de ${h(config.scoreLabel)}</strong></header><div class="report-score-grid">${metrics.domains.map((row) => `<article class="report-score"><header><strong>${row.domain.label}</strong><b>${row.score === null ? 'À faire' : `${row.score}%`}</b></header><div class="progress-track"><i style="width:${row.score || 0}%"></i></div><small>${row.answered}/${row.total} réponses · ${row.risks} point(s) à traiter</small></article>`).join('')}</div></article>
       <article class="card report-section"><header><div><h2>Périmètre à chiffrer</h2><p>Volumes vérifiés pour dimensionner la configuration, le matériel, la reprise et la formation.</p></div><strong>${scope.progress}% cadré · ${scope.complexity}</strong></header><div class="report-scope-grid">${[
         ['Sites', scope.sizing.sites], ['Points de vente', scope.sizing.pos], ['Caisses', scope.sizing.cashRegisters], ['Dépôts', scope.sizing.warehouses], ['Chambres', scope.sizing.rooms], ['Utilisateurs', scope.sizing.users], ['Imprimantes / KDS', scope.sizing.printers], ['Produits / recettes', scope.sizing.products], ['Interfaces', scope.sizing.integrations], ...(greenfield ? [] : [['Historique', `${scope.sizing.historyYears || 0} an(s)`]]),
       ].map(([label, value]) => `<span><small>${label}</small><strong>${h(value)}</strong></span>`).join('')}</div><div class="scope-decision"><p><strong>Pilote :</strong> ${h(scope.sizing.pilot || 'À définir')}</p><p><strong>Date cible :</strong> ${formatDate(scope.sizing.targetDate)}</p><p><strong>Décideur :</strong> ${h(scope.sizing.decisionMaker || 'À identifier')}</p>${scope.sizing.constraints ? `<p><strong>Contraintes :</strong> ${h(scope.sizing.constraints)}</p>` : ''}<p><strong>Prochaine étape :</strong> ${h(scope.sizing.nextStep || 'À convenir')} · ${h(scope.sizing.nextStepOwner || 'responsable à nommer')} · ${formatDate(scope.sizing.nextStepDate)}</p></div></article>
@@ -1062,16 +1090,16 @@ function closeModal() {
 function openFindingModal(existing, prefill = {}) {
   const finding = existing || { id: '', severity: 'major', domain: prefill.domain || workspace.ui.questionnaireDomain || 'direction', title: prefill.title || '', situation: prefill.situation || '', impact: '', recommendation: '', responsibleParty: 'client', owner: '', dueDate: '', status: 'open', attachments: [] };
   openModal({
-    title: existing ? 'Modifier le constat' : 'Nouveau constat',
-    subtitle: 'Décrivez un fait précis, son impact et la décision attendue.',
+    title: existing ? 'Modifier le problème' : 'Ajouter un problème',
+    subtitle: 'Décrivez simplement ce que vous avez vu, l’impact et l’action à prévoir.',
     wide: true,
     content: `<form id="finding-form"><input type="hidden" name="id" value="${h(finding.id)}"><div class="form-grid">
-      <label class="field"><span>Criticité</span><select name="severity">${Object.entries(SEVERITIES).map(([value, meta]) => `<option value="${value}" ${finding.severity === value ? 'selected' : ''}>${meta.label}</option>`).join('')}</select></label>
-      <label class="field"><span>Domaine</span><select name="domain">${activeDomains(activeAudit()).map((domain) => `<option value="${domain.id}" ${finding.domain === domain.id ? 'selected' : ''}>${domain.label}</option>`).join('')}</select></label>
-      <label class="field span-2"><span>Titre du constat</span><input name="title" required value="${h(finding.title)}" placeholder="Exemple : Les ventes bar sont déduites du dépôt restaurant"></label>
-      <label class="field span-2"><span>Situation observée</span><textarea name="situation" required>${h(finding.situation)}</textarea></label>
+      <label class="field"><span>Importance</span><select name="severity">${Object.entries(SEVERITIES).map(([value, meta]) => `<option value="${value}" ${finding.severity === value ? 'selected' : ''}>${meta.label}</option>`).join('')}</select></label>
+      <label class="field"><span>Activité concernée</span><select name="domain">${activeDomains(activeAudit()).map((domain) => `<option value="${domain.id}" ${finding.domain === domain.id ? 'selected' : ''}>${domain.label}</option>`).join('')}</select></label>
+      <label class="field span-2"><span>Nom du problème</span><input name="title" required value="${h(finding.title)}" placeholder="Exemple : Les ventes bar sont déduites du dépôt restaurant"></label>
+      <label class="field span-2"><span>Ce que vous avez vu</span><textarea name="situation" required>${h(finding.situation)}</textarea></label>
       <label class="field"><span>Impact</span><textarea name="impact" placeholder="Risque client, financier, opérationnel ou données">${h(finding.impact)}</textarea></label>
-      <label class="field"><span>Action recommandée</span><textarea name="recommendation" placeholder="Action concrète ou contrôle à réaliser">${h(finding.recommendation)}</textarea></label>
+      <label class="field"><span>Action proposée</span><textarea name="recommendation" placeholder="Action concrète ou contrôle à réaliser">${h(finding.recommendation)}</textarea></label>
       <label class="field"><span>Qui doit agir ?</span><select name="responsibleParty"><option value="client" ${finding.responsibleParty === 'client' ? 'selected' : ''}>Client</option><option value="sartal" ${finding.responsibleParty === 'sartal' ? 'selected' : ''}>Sártal</option><option value="joint" ${finding.responsibleParty === 'joint' ? 'selected' : ''}>Client + Sártal</option><option value="third-party" ${finding.responsibleParty === 'third-party' ? 'selected' : ''}>Prestataire externe</option></select></label>
       <label class="field"><span>Responsable nommé</span><input name="owner" value="${h(finding.owner || '')}" placeholder="Nom ou fonction"></label>
       <label class="field"><span>Date cible</span><input name="dueDate" type="date" value="${h(finding.dueDate || '')}"></label>
@@ -1079,22 +1107,22 @@ function openFindingModal(existing, prefill = {}) {
       <label class="field photo-picker"><span>Photos / preuves</span><input name="photos" type="file" accept="image/*" capture="environment" multiple><small class="photo-note">Maximum 3 images compressées. Elles seront incluses dans la sauvegarde.</small></label>
       ${finding.attachments?.length ? `<div class="span-2 evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve existante">`).join('')}</div>` : ''}
     </div></form>`,
-    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="finding-form">Enregistrer le constat</button>`,
+    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="finding-form">Enregistrer le problème</button>`,
   });
 }
 
 function openInterviewModal(existing) {
   const item = existing || { id: '', role: '', name: '', duration: 20, tools: '', painPoints: '', needs: '', notes: '' };
   openModal({
-    title: existing ? 'Modifier l’entretien' : 'Nouvel entretien',
-    subtitle: 'Conservez les faits, exemples et mots utilisés par l’interlocuteur.',
+    title: existing ? 'Modifier la personne' : 'Ajouter une personne rencontrée',
+    subtitle: 'Notez son rôle, les difficultés qu’elle rencontre et ce qu’elle attend.',
     content: `<form id="interview-form"><input type="hidden" name="id" value="${h(item.id)}"><div class="form-grid">
       <label class="field"><span>Rôle / service</span><input name="role" required value="${h(item.role)}" placeholder="Réceptionniste, manager restaurant..."></label>
       <label class="field"><span>Nom</span><input name="name" value="${h(item.name)}"></label>
       <label class="field"><span>Durée en minutes</span><input name="duration" type="number" min="1" value="${item.duration || 20}"></label>
       <label class="field"><span>Outils utilisés</span><input name="tools" value="${h(item.tools)}" placeholder="Orchestra, caisse, Excel..."></label>
-      <label class="field span-2"><span>Irritants et contournements</span><textarea name="painPoints">${h(item.painPoints)}</textarea></label>
-      <label class="field span-2"><span>Attentes prioritaires</span><textarea name="needs">${h(item.needs)}</textarea></label>
+      <label class="field span-2"><span>Difficultés rencontrées</span><textarea name="painPoints">${h(item.painPoints)}</textarea></label>
+      <label class="field span-2"><span>Ce qu’elle attend du futur système</span><textarea name="needs">${h(item.needs)}</textarea></label>
       <label class="field span-2"><span>Notes complémentaires</span><textarea name="notes">${h(item.notes)}</textarea></label>
     </div></form>`,
     actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="interview-form">Enregistrer</button>`,
@@ -1107,8 +1135,8 @@ function openSystemModal(existing) {
   const defaultDomain = activeDomains(audit).find((domain) => domain.modules.length)?.id || 'it';
   const item = existing || { id: '', name: '', domain: defaultDomain, vendor: '', version: '', deployment: '', users: '', api: 'unknown', decision: 'assess', owner: '', location: '', serial: '', condition: 'unknown', notes: '', attachments: [] };
   openModal({
-    title: existing ? (greenfield ? 'Modifier l’équipement' : 'Modifier l’outil') : (greenfield ? 'Ajouter un équipement ou service' : 'Ajouter un outil'),
-    subtitle: greenfield ? 'Recensez les caisses, imprimantes, tiroirs, terminaux, équipements réseau et services à connecter.' : 'Recensez aussi les fichiers Excel et les outils informels.',
+    title: existing ? 'Modifier le matériel ou logiciel' : 'Ajouter un matériel ou logiciel',
+    subtitle: greenfield ? 'Ajoutez les caisses, imprimantes, terminaux, équipements réseau et services à connecter.' : 'Ajoutez aussi les fichiers Excel et les outils utilisés sans contrat.',
     content: `<form id="system-form"><input type="hidden" name="id" value="${h(item.id)}"><div class="form-grid">
       <label class="field"><span>${greenfield ? 'Équipement / service' : 'Nom de l’outil'}</span><input name="name" required value="${h(item.name)}" placeholder="${greenfield ? 'Caisse tactile, imprimante, Wave...' : 'Orchestra, logiciel de caisse...'}"></label>
       <label class="field"><span>Domaine</span><select name="domain">${activeDomains(activeAudit()).map((domain) => `<option value="${domain.id}" ${item.domain === domain.id ? 'selected' : ''}>${domain.label}</option>`).join('')}</select></label>
@@ -1142,7 +1170,7 @@ function openMissionSettings() {
       <label class="field"><span>Auditeur</span><input name="auditor" value="${h(audit.auditor)}"></label>
       <label class="field"><span>Contact</span><input name="contact" value="${h(audit.contact)}"></label>
       <label class="field span-2"><span>Objectif</span><textarea name="objectives">${h(audit.objectives)}</textarea></label>
-      <div class="field span-2"><span>Périmètre</span><div class="module-checks">${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${audit.modules.includes(module.id) ? 'checked' : ''} ${module.id === 'stock' ? 'disabled' : ''}><span>${module.label}${module.id === 'stock' ? ' · socle inclus' : ''}</span></label>`).join('')}</div></div>
+      <div class="field span-2"><span>Activités concernées</span><div class="module-checks">${MODULES.map((module) => `<label><input type="checkbox" name="modules" value="${module.id}" ${audit.modules.includes(module.id) ? 'checked' : ''} ${module.id === 'stock' ? 'disabled' : ''}><span>${module.label}${module.id === 'stock' ? ' · socle inclus' : ''}</span></label>`).join('')}</div></div>
     </div></form>`,
     actions: `<button class="danger-button" data-action="delete-audit">Supprimer</button><button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="mission-settings-form">Enregistrer</button>`,
   });
@@ -1154,8 +1182,8 @@ function openSizingModal() {
   const replacement = projectTypeOf(audit) === 'replacement';
   const numberField = (name, label, value) => `<label class="field"><span>${label}</span><input name="${name}" type="number" min="0" step="1" value="${Number(value) || 0}"></label>`;
   openModal({
-    title: 'Cadrer le chiffrage',
-    subtitle: 'Renseignez les volumes vérifiés. Ils seront repris dans le rapport et la préparation de la proposition.',
+    title: 'Indiquer la taille du projet',
+    subtitle: 'Renseignez seulement les quantités que vous connaissez. Elles aideront à préparer la proposition.',
     wide: true,
     content: `<form id="sizing-form"><div class="form-grid">
       <div class="form-section-title span-2"><strong>Volumes du périmètre</strong><small>Ne comptez que les éléments réellement inclus dans le projet.</small></div>
@@ -1178,7 +1206,7 @@ function openSizingModal() {
       <label class="field"><span>Responsable de la prochaine étape</span><input name="nextStepOwner" value="${h(sizing.nextStepOwner)}"></label>
       <label class="field"><span>Date de la prochaine étape</span><input name="nextStepDate" type="date" value="${h(sizing.nextStepDate)}"></label>
     </div></form>`,
-    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="sizing-form">Enregistrer le cadrage</button>`,
+    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="sizing-form">Enregistrer</button>`,
   });
 }
 
@@ -1186,7 +1214,7 @@ function openMissions() {
   openModal({
     title: 'Missions d’audit',
     subtitle: 'Ouvrez une mission existante ou préparez un nouvel établissement.',
-    content: `<section class="item-list">${workspace.audits.map((audit) => `<article class="list-card"><span class="marker">${auditMetrics(audit).progress}%</span><div><h3>${h(audit.establishment)}</h3><p>${h(projectConfig(audit).label)} · ${h(audit.client)} · ${formatDate(audit.auditDate)}</p><small>Dernière sauvegarde ${formatDateTime(audit.updatedAt)}</small></div><div class="list-actions"><button data-action="switch-audit" data-id="${audit.id}">OUV</button></div></article>`).join('')}</section>`,
+    content: `<section class="item-list">${workspace.audits.map((audit) => `<article class="list-card"><span class="marker">${auditMetrics(audit).progress}%</span><div><h3>${h(audit.establishment)}</h3><p>${h(projectConfig(audit).label)} · ${h(audit.client)} · ${formatDate(audit.auditDate)}</p><small>Dernière sauvegarde ${formatDateTime(audit.updatedAt)}</small></div><div class="list-actions"><button data-action="switch-audit" data-id="${audit.id}">Ouvrir</button></div></article>`).join('')}</section>`,
     actions: `<button class="secondary-button" data-action="close-modal">Fermer</button><button class="primary-button" data-action="new-audit">Nouvelle mission</button>`,
   });
 }
@@ -1384,7 +1412,7 @@ document.addEventListener('submit', async (event) => {
     closeModal();
     const saved = persist();
     render();
-    toast(saved ? 'Constat enregistré.' : 'Constat conservé dans cette session. Exportez la mission en JSON.');
+    toast(saved ? 'Problème enregistré.' : 'Problème conservé dans cette session. Sauvegardez la visite avant de quitter.');
   }
 
   if (form.id === 'interview-form') {
@@ -1396,7 +1424,7 @@ document.addEventListener('submit', async (event) => {
     closeModal();
     const saved = persist();
     render();
-    toast(saved ? 'Entretien enregistré.' : 'Entretien conservé dans cette session. Exportez la mission en JSON.');
+    toast(saved ? 'Personne enregistrée.' : 'Personne conservée dans cette session. Sauvegardez la visite avant de quitter.');
   }
 
   if (form.id === 'system-form') {
@@ -1462,6 +1490,7 @@ document.addEventListener('click', (event) => {
   }
   if (action === 'navigate') { workspace.ui.view = target.dataset.view; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (action === 'select-domain' || action === 'continue-audit') { workspace.ui.view = 'questionnaire'; workspace.ui.questionnaireDomain = target.dataset.domain; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (action === 'open-notes') { workspace.ui.view = 'terrain'; workspace.ui.terrainTab = 'findings'; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (action === 'question-mode') { workspace.ui.questionnaireMode = target.dataset.mode; persist(false); render(); }
   if (action === 'answer') {
     const questionId = target.dataset.question;
@@ -1478,10 +1507,10 @@ document.addEventListener('click', (event) => {
   if (action === 'terrain-tab') { workspace.ui.terrainTab = target.dataset.tab; persist(false); render(); }
   if (action === 'add-finding') openFindingModal(null, { domain: target.dataset.domain });
   if (action === 'edit-finding') openFindingModal(audit.findings.find((item) => item.id === target.dataset.id));
-  if (action === 'delete-finding') removeById('findings', target.dataset.id, 'ce constat');
+  if (action === 'delete-finding') removeById('findings', target.dataset.id, 'ce problème');
   if (action === 'add-interview') openInterviewModal();
   if (action === 'edit-interview') openInterviewModal(audit.interviews.find((item) => item.id === target.dataset.id));
-  if (action === 'delete-interview') removeById('interviews', target.dataset.id, 'cet entretien');
+  if (action === 'delete-interview') removeById('interviews', target.dataset.id, 'cette personne');
   if (action === 'add-system') openSystemModal();
   if (action === 'edit-system') openSystemModal(audit.systems.find((item) => item.id === target.dataset.id));
   if (action === 'delete-system') removeById('systems', target.dataset.id, projectTypeOf(audit) === 'greenfield' ? 'cet équipement' : 'cet outil');
