@@ -53,6 +53,29 @@ const SEVERITIES = {
   opportunity: { label: 'Amélioration (P4)', short: 'P4' },
 };
 
+const INTERLOCUTORS = [
+  { id: 'direction', label: 'Direction', detail: 'Objectifs, organisation, finances et expérience client', domains: ['direction', 'finance', 'customer'] },
+  { id: 'reception', label: 'Réception hôtel', detail: 'Réservations, chambres, folios et demandes clients', domains: ['pms', 'customer'] },
+  { id: 'restaurant', label: 'Manager restaurant', detail: 'Salle, caisse, cuisine, recettes et stock', domains: ['restaurant', 'finance', 'stock'] },
+  { id: 'cashier', label: 'Caissier', detail: 'Encaissements, clôtures, moyens de paiement et écarts', domains: ['restaurant', 'finance'] },
+  { id: 'stock', label: 'Responsable stock', detail: 'Achats, dépôts, inventaires, transferts et données produit', domains: ['stock', 'data'] },
+  { id: 'it', label: 'Responsable matériel', detail: 'Logiciels, caisses, réseau, sécurité et récupération des données', domains: ['it', 'data'] },
+  { id: 'online', label: 'Responsable vente en ligne', detail: 'Catalogue, commandes, préparation, livraison et service client', domains: ['online', 'stock', 'customer'] },
+  { id: 'overview', label: 'Tour complet', detail: 'Toutes les activités incluses dans cette mission', domains: ['*'] },
+];
+
+const PROOFS_BY_DOMAIN = {
+  direction: ['Un organigramme ou la liste des responsables', 'Un rapport récent utilisé par la direction'],
+  pms: ['Un dossier de réservation ou un folio réel', 'Un écran de chambre et un export disponible'],
+  restaurant: ['Un ticket réel et une clôture de caisse', 'Le parcours d’une commande jusqu’à la cuisine'],
+  stock: ['Une fiche de stock ou un inventaire récent', 'Un bon de réception, transfert ou sortie'],
+  finance: ['Un rapport X/Z et un exemple d’écart', 'Un relevé de paiement espèces, carte, Wave ou Orange Money'],
+  customer: ['Une réclamation ou demande client récente', 'Un exemple de fiche client ou de suivi effectué'],
+  online: ['Une commande réelle de bout en bout', 'Un écran de disponibilité, préparation ou livraison'],
+  it: ['La référence du matériel et une photo des branchements', 'La méthode de sauvegarde, d’accès ou de support'],
+  data: ['Un export réel ouvert et lisible', 'Les champs produit, client, stock ou historique disponibles'],
+};
+
 const DOMAINS = [
   {
     id: 'direction',
@@ -478,7 +501,7 @@ function loadWorkspace() {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (parsed?.version === 1 && Array.isArray(parsed.audits)) {
       parsed.audits = parsed.audits.map((audit) => normalizeAudit(audit));
-      parsed.ui = { view: 'overview', questionnaireDomain: 'direction', questionnaireMode: 'express', terrainTab: 'findings', query: '', severity: 'all', ...(parsed.ui || {}) };
+      parsed.ui = { view: 'overview', questionnaireDomain: 'direction', questionnaireMode: 'express', guidedPersona: '', guidedIndex: 0, terrainTab: 'findings', query: '', severity: 'all', ...(parsed.ui || {}) };
       return parsed;
     }
   } catch (error) {
@@ -488,7 +511,7 @@ function loadWorkspace() {
     version: 1,
     activeAuditId: null,
     audits: [],
-    ui: { view: 'overview', questionnaireDomain: 'direction', questionnaireMode: 'express', terrainTab: 'findings', query: '', severity: 'all' },
+    ui: { view: 'overview', questionnaireDomain: 'direction', questionnaireMode: 'express', guidedPersona: '', guidedIndex: 0, terrainTab: 'findings', query: '', severity: 'all' },
   };
 }
 
@@ -497,9 +520,11 @@ function normalizeAudit(audit) {
     ...audit,
     projectType: PROJECT_TYPES[audit.projectType] ? audit.projectType : 'replacement',
     modules: Array.isArray(audit.modules) ? [...new Set([...audit.modules, 'stock'])] : ['stock'],
-    answers: audit.answers || {},
+    answers: Object.fromEntries(Object.entries(audit.answers || {}).map(([id, answer]) => [id, { attachments: [], ...answer }])),
     findings: Array.isArray(audit.findings) ? audit.findings.map((finding) => ({ responsibleParty: 'client', owner: '', dueDate: '', ...finding })) : [],
     interviews: Array.isArray(audit.interviews) ? audit.interviews : [],
+    guidedSessions: Array.isArray(audit.guidedSessions) ? audit.guidedSessions : [],
+    followUps: Array.isArray(audit.followUps) ? audit.followUps : [],
     systems: Array.isArray(audit.systems) ? audit.systems : [],
     documents: Array.isArray(audit.documents) ? audit.documents : [],
     sizing: { ...defaultSizing(), ...(audit.sizing || {}) },
@@ -563,6 +588,82 @@ function projectConfig(audit) {
 function activeDomains(audit) {
   const catalog = projectTypeOf(audit) === 'greenfield' ? GREENFIELD_DOMAINS : DOMAINS;
   return catalog.filter((domain) => domain.modules.length === 0 || domain.modules.some((module) => audit.modules.includes(module)));
+}
+
+function availableInterlocutors(audit) {
+  const domainIds = new Set(activeDomains(audit).map((domain) => domain.id));
+  return INTERLOCUTORS.filter((person) => person.domains.includes('*') || person.domains.some((domain) => domainIds.has(domain)));
+}
+
+function interlocutorFor(audit, id) {
+  if (id?.startsWith('domain:')) {
+    const domain = activeDomains(audit).find((item) => item.id === id.slice(7));
+    return domain ? { id, label: domain.label, detail: domain.description, domains: [domain.id] } : null;
+  }
+  return availableInterlocutors(audit).find((person) => person.id === id) || null;
+}
+
+function guidedQuestions(audit, personaId, mode = 'express') {
+  const persona = interlocutorFor(audit, personaId);
+  if (!persona) return [];
+  const domains = activeDomains(audit).filter((domain) => persona.domains.includes('*') || persona.domains.includes(domain.id));
+  return domains.flatMap((domain) => domain.questions
+    .filter((question) => mode === 'complete' || question.required)
+    .map((question) => ({ domain, question })));
+}
+
+function questionContext(audit, questionId) {
+  for (const domain of activeDomains(audit)) {
+    const question = domain.questions.find((item) => item.id === questionId);
+    if (question) return { domain, question };
+  }
+  return null;
+}
+
+function proofSuggestions(domain, question) {
+  return [question.help, ...(PROOFS_BY_DOMAIN[domain.id] || [])].filter(Boolean).slice(0, 3);
+}
+
+function guidedSessionSummary(audit, personaId, mode) {
+  const entries = guidedQuestions(audit, personaId, mode);
+  const answered = entries.filter(({ question }) => audit.answers[question.id]?.status);
+  const risks = entries.filter(({ question }) => ['no', 'partial'].includes(audit.answers[question.id]?.status));
+  const deferred = entries.filter(({ question }) => audit.followUps.some((item) => item.questionId === question.id && item.status !== 'done'));
+  const photos = entries.reduce((sum, { question }) => sum + (audit.answers[question.id]?.attachments?.length || 0), 0);
+  return { total: entries.length, answered: answered.length, risks: risks.length, deferred: deferred.length, photos };
+}
+
+function simpleReportData(audit) {
+  const positive = [];
+  activeDomains(audit).forEach((domain) => domain.questions.forEach((question) => {
+    if (audit.answers[question.id]?.status === 'yes') positive.push(question.label);
+  }));
+  const issues = buildPriorities(audit).slice(0, 8);
+  const actions = [
+    ...audit.followUps.filter((item) => item.status !== 'done').map((item) => item.evidence || item.title),
+    ...clientRequestItems(audit).map((item) => `Obtenir : ${item.label}`),
+    ...issues.map((item) => item.action || item.title),
+  ].filter(Boolean).filter((item, index, rows) => rows.indexOf(item) === index).slice(0, 8);
+  return { positive: positive.slice(0, 8), issues, actions };
+}
+
+function visitChecks(audit) {
+  const required = activeDomains(audit).flatMap((domain) => domain.questions.filter((question) => question.required).map((question) => ({ domain, question })));
+  const unanswered = required.filter(({ question }) => !audit.answers[question.id]?.status);
+  const openFollowUps = audit.followUps.filter((item) => item.status !== 'done');
+  const missingDocuments = audit.documents.filter((item) => ['requested', 'unavailable'].includes(item.status));
+  const unassignedProblems = audit.findings.filter((item) => item.status !== 'closed' && (!item.owner || !item.dueDate));
+  const photoCount = Object.values(audit.answers).reduce((sum, answer) => sum + (answer.attachments?.length || 0), 0)
+    + audit.findings.reduce((sum, item) => sum + (item.attachments?.length || 0), 0)
+    + audit.systems.reduce((sum, item) => sum + (item.attachments?.length || 0), 0);
+  return [
+    { label: 'Questions essentielles sans réponse', count: unanswered.length, action: 'Revenir à la visite', view: 'questionnaire', blocking: true },
+    { label: 'Points à vérifier plus tard', count: openFollowUps.length, action: 'Voir les points', view: 'followups', blocking: true },
+    { label: 'Documents encore manquants', count: missingDocuments.length, action: 'Voir les documents', view: 'documents', blocking: true },
+    { label: 'Problèmes sans responsable ou date', count: unassignedProblems.length, action: 'Compléter les problèmes', view: 'findings', blocking: true },
+    { label: 'Personnes rencontrées enregistrées', count: audit.guidedSessions.length + audit.interviews.length, action: 'Voir les entretiens', view: 'interviews', blocking: false, positive: true },
+    { label: 'Photos et preuves ajoutées', count: photoCount, action: 'Voir les notes', view: 'systems', blocking: false, positive: true },
+  ];
 }
 
 function documentTemplatesFor(projectType, modules) {
@@ -661,6 +762,8 @@ function createAudit(data) {
     answers: {},
     findings: [],
     interviews: [],
+    guidedSessions: [],
+    followUps: [],
     systems: projectType === 'replacement' ? [{
       id: uid('system'),
       name: modules.includes('pms') ? 'Orchestra' : 'Système actuel',
@@ -682,6 +785,8 @@ function createAudit(data) {
   workspace.activeAuditId = audit.id;
   workspace.ui.view = 'overview';
   workspace.ui.questionnaireDomain = 'direction';
+  workspace.ui.guidedPersona = '';
+  workspace.ui.guidedIndex = 0;
   persist();
   return audit;
 }
@@ -853,7 +958,7 @@ function renderOverview(audit, metrics) {
   const visitPlan = visitPlanFor(audit);
   const scope = sizingSummary(audit);
   const firstIncomplete = metrics.domains.find((row) => row.progress < 100)?.domain.id || metrics.domains[0]?.domain.id || 'direction';
-  const noteCount = audit.findings.length + audit.interviews.length + audit.systems.length;
+  const noteCount = audit.findings.length + audit.interviews.length + audit.systems.length + audit.followUps.length;
   const nextButton = metrics.progress < 100
     ? `<button class="primary-button" data-action="continue-audit" data-domain="${firstIncomplete}">${metrics.answered ? 'Continuer la visite' : 'Commencer la visite'}</button>`
     : '<button class="primary-button" data-action="navigate" data-view="report">Voir le résultat</button>';
@@ -911,30 +1016,53 @@ function renderDomainCard(row) {
 }
 
 function renderQuestionnaire(audit) {
-  const domains = activeDomains(audit);
-  const requestedDomain = domains.find((item) => item.id === workspace.ui.questionnaireDomain) || domains[0];
-  workspace.ui.questionnaireDomain = requestedDomain.id;
   const mode = workspace.ui.questionnaireMode || 'express';
-  const metrics = domainMetrics(audit, requestedDomain, mode);
-  const allMetrics = domainMetrics(audit, requestedDomain, 'complete');
+  const persona = interlocutorFor(audit, workspace.ui.guidedPersona);
+  if (!persona) return renderInterlocutorSelector(audit, mode);
+  const entries = guidedQuestions(audit, persona.id, mode);
+  const index = Math.max(0, Math.min(Number(workspace.ui.guidedIndex) || 0, Math.max(0, entries.length - 1)));
+  workspace.ui.guidedIndex = index;
+  const entry = entries[index];
+  if (!entry) return renderInterlocutorSelector(audit, mode);
+  const answered = entries.filter(({ question }) => audit.answers[question.id]?.status).length;
+  const progress = entries.length ? Math.round(answered / entries.length * 100) : 0;
   return `<div class="page-container">
-    <header class="page-heading"><div><span class="eyebrow">Étape 2 · Faire la visite</span><h1>${requestedDomain.label}</h1><p>${requestedDomain.description} Choisissez “Je ne sais pas” si vous n’avez pas pu vérifier.</p></div><div class="action-row"><button class="secondary-button" data-action="add-finding" data-domain="${requestedDomain.id}">Signaler un problème</button></div></header>
-    <section class="questionnaire-toolbar">
-      <div class="toolbar-row"><div><strong>${metrics.answered}/${metrics.total} questions répondues</strong><div class="progress-track" style="width:min(420px,100%);margin-top:7px"><i style="width:${metrics.progress}%"></i></div></div><div class="mode-toggle"><button class="${mode === 'express' ? 'active' : ''}" data-action="question-mode" data-mode="express">Questions essentielles</button><button class="${mode === 'complete' ? 'active' : ''}" data-action="question-mode" data-mode="complete">Toutes (${allMetrics.total})</button></div></div>
-      <div class="domain-tabs">${domains.map((domain) => `<button class="${domain.id === requestedDomain.id ? 'active' : ''}" data-action="select-domain" data-domain="${domain.id}">${domain.label}</button>`).join('')}</div>
-    </section>
-    <section class="question-list">${metrics.questions.map((question, index) => renderQuestion(audit, requestedDomain, question, index)).join('')}</section>
+    <header class="guided-heading"><div><span class="eyebrow">Étape 2 · ${h(persona.label)}</span><h1>${mode === 'express' ? 'Visite rapide' : 'Audit complet'}</h1><p>${h(persona.detail)}</p></div><div class="action-row"><button class="secondary-button" data-action="change-persona">Changer de personne</button><button class="secondary-button" data-action="open-visit-check">Contrôler avant de partir</button></div></header>
+    <section class="guided-progress"><div><strong>Question ${index + 1} sur ${entries.length}</strong><span>${answered} réponse${answered > 1 ? 's' : ''} enregistrée${answered > 1 ? 's' : ''}</span></div><div class="progress-track"><i style="width:${progress}%"></i></div></section>
+    ${renderGuidedQuestion(audit, entry.domain, entry.question, index, entries.length)}
   </div>`;
 }
 
-function renderQuestion(audit, domain, question, index) {
+function renderInterlocutorSelector(audit, mode) {
+  const people = availableInterlocutors(audit);
+  return `<div class="page-container">
+    <header class="page-heading"><div><span class="eyebrow">Étape 2 · Faire la visite</span><h1>Qui allez-vous rencontrer ?</h1><p>Choisissez la personne présente. Sártal affiche uniquement les questions utiles pour son travail.</p></div><div class="action-row"><button class="secondary-button" data-action="open-visit-check">Contrôler avant de partir</button></div></header>
+    <section class="visit-mode-card"><div><strong>Durée de la visite</strong><p>Vous pourrez changer de mode à tout moment sans perdre de réponse.</p></div><div class="mode-toggle"><button class="${mode === 'express' ? 'active' : ''}" data-action="question-mode" data-mode="express">Rapide · 45 à 60 min</button><button class="${mode === 'complete' ? 'active' : ''}" data-action="question-mode" data-mode="complete">Audit complet</button></div></section>
+    <section class="interlocutor-grid">${people.map((person) => {
+      const summary = guidedSessionSummary(audit, person.id, mode);
+      const completed = audit.guidedSessions.filter((session) => session.personaId === person.id).length;
+      return `<article class="interlocutor-card"><div class="interlocutor-icon">${h(person.label.split(' ').map((word) => word[0]).join('').slice(0, 2))}</div><div><h2>${h(person.label)}</h2><p>${h(person.detail)}</p><small>${summary.answered}/${summary.total} réponses${completed ? ` · ${completed} entretien${completed > 1 ? 's' : ''} terminé${completed > 1 ? 's' : ''}` : ''}</small></div><button class="primary-button" data-action="start-persona" data-persona="${person.id}">${summary.answered ? 'Reprendre' : 'Commencer'}</button></article>`;
+    }).join('')}</section>
+  </div>`;
+}
+
+function renderGuidedQuestion(audit, domain, question, index, total) {
   const answer = audit.answers[question.id] || {};
   const status = answer.status ? statusMeta(audit, answer.status) : null;
-  return `<article class="question-card ${status ? `answer-${status.className}` : ''}">
-    <header><span class="question-index">${String(index + 1).padStart(2, '0')}</span><div class="question-copy"><h3>${question.label}</h3><p>${question.help}</p></div>${question.required ? '<span class="required-badge">Essentiel</span>' : ''}</header>
+  const existingFinding = audit.findings.some((finding) => finding.sourceQuestionId === question.id);
+  const existingFollowUp = audit.followUps.some((item) => item.questionId === question.id && item.status !== 'done');
+  return `<section class="guided-question-shell">
+  <article class="question-card guided-question ${status ? `answer-${status.className}` : ''}">
+    <header><span class="question-index">${String(index + 1).padStart(2, '0')}</span><div class="question-copy"><span class="question-domain">${h(domain.label)}</span><h2>${h(question.label)}</h2><p>${h(question.help)}</p></div>${question.required ? '<span class="required-badge">Essentiel</span>' : ''}</header>
+    <aside class="proof-box"><strong>Ce que vous pouvez demander à voir</strong>${proofSuggestions(domain, question).map((proof) => `<span>${h(proof)}</span>`).join('')}</aside>
     <div class="answer-segments">${Object.keys(STATUS).map((value) => { const meta = statusMeta(audit, value); return `<button data-action="answer" data-question="${question.id}" data-value="${value}" class="${answer.status === value ? 'active' : ''}">${meta.label}</button>`; }).join('')}</div>
-    <div class="question-note"><textarea data-question-note="${question.id}" placeholder="Votre note : ce que vous avez vu, un exemple ou un document à demander...">${h(answer.note || '')}</textarea><button data-action="finding-from-question" data-question="${question.id}" data-domain="${domain.id}">Signaler un problème</button></div>
-  </article>`;
+    ${['no', 'partial'].includes(answer.status) ? `<div class="risk-prompt"><div><strong>Ce point mérite un suivi</strong><span>${existingFinding ? 'Il a déjà été ajouté aux problèmes.' : 'Souhaitez-vous l’ajouter aux problèmes à traiter ?'}</span></div>${existingFinding ? '<span class="risk-recorded">Ajouté</span>' : `<button class="primary-button" data-action="finding-from-question" data-question="${question.id}" data-domain="${domain.id}">Ajouter aux problèmes</button>`}</div>` : ''}
+    <div class="question-note"><textarea data-question-note="${question.id}" placeholder="Votre note : ce que vous avez vu, un exemple ou le nom d’un document...">${h(answer.note || '')}</textarea></div>
+    <div class="question-tools"><button class="secondary-button" data-action="dictate-note" data-question="${question.id}">Dicter une note</button><label class="secondary-button question-photo-button">Ajouter une photo<input data-question-photo="${question.id}" type="file" accept="image/*" capture="environment"></label><button class="secondary-button ${existingFollowUp ? 'active' : ''}" data-action="defer-question" data-question="${question.id}">${existingFollowUp ? 'À vérifier enregistré' : 'Je vérifierai plus tard'}</button></div>
+    ${answer.attachments?.length ? `<div class="evidence-grid question-evidence">${answer.attachments.map((image) => `<img src="${image}" alt="Preuve ajoutée pour cette question">`).join('')}</div>` : ''}
+  </article>
+  <nav class="guided-navigation"><button class="secondary-button" data-action="previous-question" ${index === 0 ? 'disabled' : ''}>Question précédente</button><button class="primary-button" data-action="next-question">${index + 1 === total ? 'Terminer cet entretien' : 'Question suivante'}</button></nav>
+  </section>`;
 }
 
 function renderTerrain(audit) {
@@ -944,16 +1072,18 @@ function renderTerrain(audit) {
     <header class="page-heading"><div><span class="eyebrow">Étape 3 · Mes notes</span><h1>Ce que vous avez observé</h1><p>Regroupez ici les problèmes, les personnes rencontrées, le matériel et les documents.</p></div><div class="action-row">${tabActionButton(tab)}</div></header>
     <nav class="section-tabs">${[
       ['findings', `Problèmes (${audit.findings.length})`],
-      ['interviews', `Personnes (${audit.interviews.length})`],
+      ['interviews', `Personnes (${audit.interviews.length + audit.guidedSessions.length})`],
+      ['followups', `À vérifier (${audit.followUps.filter((item) => item.status !== 'done').length})`],
       ['systems', `${inventoryLabel} (${audit.systems.length})`],
       ['documents', `Documents (${audit.documents.length})`],
     ].map(([id, label]) => `<button class="${tab === id ? 'active' : ''}" data-action="terrain-tab" data-tab="${id}">${label}</button>`).join('')}</nav>
-    ${tab === 'interviews' ? renderInterviews(audit) : tab === 'systems' ? renderSystems(audit) : tab === 'documents' ? renderDocuments(audit) : renderFindings(audit)}
+    ${tab === 'interviews' ? renderInterviews(audit) : tab === 'followups' ? renderFollowUps(audit) : tab === 'systems' ? renderSystems(audit) : tab === 'documents' ? renderDocuments(audit) : renderFindings(audit)}
   </div>`;
 }
 
 function tabActionButton(tab) {
   if (tab === 'documents') return '<button class="secondary-button" data-action="export-backup">Sauvegarder la visite</button>';
+  if (tab === 'followups') return '<button class="primary-button" data-action="open-visit-check">Contrôler la visite</button>';
   const labels = { findings: 'Ajouter un problème', interviews: 'Ajouter une personne', systems: 'Ajouter un matériel ou logiciel' };
   const actions = { findings: 'add-finding', interviews: 'add-interview', systems: 'add-system' };
   return `<button class="primary-button" data-action="${actions[tab]}">${labels[tab]}</button>`;
@@ -973,7 +1103,14 @@ function renderFindingCard(audit, finding) {
 }
 
 function renderInterviews(audit) {
-  return `<section class="item-list">${audit.interviews.length ? audit.interviews.map((item) => `<article class="list-card"><span class="marker">${h(item.role.split(' ').map((part) => part[0]).join('').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><p>${h(item.painPoints || 'Aucune difficulté saisie.')}</p>${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}<small>${h(item.tools || 'Outils non renseignés')} · ${item.duration || 0} min</small></div><div class="list-actions"><button data-action="edit-interview" data-id="${item.id}">Modifier</button><button data-action="delete-interview" data-id="${item.id}">Supprimer</button></div></article>`).join('') : emptyState('Aucune personne ajoutée', 'Rencontrez au minimum la direction, la réception, la caisse, le stock et la personne en charge du matériel.', 'add-interview', 'Ajouter une personne')}</section>`;
+  const guided = audit.guidedSessions.map((session) => `<article class="list-card guided-session-card"><span class="marker">${h((session.personaLabel || 'Visite').split(' ').map((part) => part[0]).join('').slice(0, 3).toUpperCase())}</span><div><h3>${h(session.personaLabel || 'Entretien guidé')}</h3><p>${session.answered}/${session.total} réponses · ${session.risks} problème(s) · ${session.deferred} point(s) à vérifier · ${session.photos} photo(s)</p><small>${session.mode === 'express' ? 'Visite rapide' : 'Audit complet'} · Terminé ${formatDateTime(session.completedAt)}</small></div></article>`).join('');
+  const manual = audit.interviews.map((item) => `<article class="list-card"><span class="marker">${h(item.role.split(' ').map((part) => part[0]).join('').slice(0, 3).toUpperCase())}</span><div><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><p>${h(item.painPoints || 'Aucune difficulté saisie.')}</p>${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}<small>${h(item.tools || 'Outils non renseignés')} · ${item.duration || 0} min</small></div><div class="list-actions"><button data-action="edit-interview" data-id="${item.id}">Modifier</button><button data-action="delete-interview" data-id="${item.id}">Supprimer</button></div></article>`).join('');
+  return `<section class="item-list">${guided || manual ? guided + manual : emptyState('Aucune personne ajoutée', 'Commencez une visite guidée ou ajoutez une personne rencontrée.', 'add-interview', 'Ajouter une personne')}</section>`;
+}
+
+function renderFollowUps(audit) {
+  const rows = audit.followUps.slice().sort((a, b) => Number(a.status === 'done') - Number(b.status === 'done'));
+  return `<section class="item-list">${rows.length ? rows.map((item) => `<article class="list-card ${item.status === 'done' ? 'completed-item' : ''}"><span class="marker">${item.status === 'done' ? 'OK' : '?'}</span><div><h3>${h(item.title)}</h3><p><strong>À vérifier :</strong> ${h(item.evidence)}</p><small>${h(item.owner || 'Personne à identifier')} · ${item.dueDate ? formatDate(item.dueDate) : 'Date à fixer'}</small></div><div class="list-actions"><button data-action="complete-followup" data-id="${item.id}">${item.status === 'done' ? 'Rouvrir' : 'Terminé'}</button><button data-action="edit-followup" data-id="${item.id}">Modifier</button><button data-action="delete-followup" data-id="${item.id}">Supprimer</button></div></article>`).join('') : emptyState('Rien à vérifier plus tard', 'Les questions reportées pendant la visite apparaîtront ici.', 'open-visit-check', 'Contrôler la visite')}</section>`;
 }
 
 function renderSystems(audit) {
@@ -1002,9 +1139,18 @@ function renderReport(audit, metrics) {
   const summary = reportSummary(audit, metrics);
   const roadmap = roadmapFor(audit);
   const greenfield = projectTypeOf(audit) === 'greenfield';
+  const simple = simpleReportData(audit);
+  const answerEvidence = activeDomains(audit).flatMap((domain) => domain.questions.map((question) => ({ domain, question, answer: audit.answers[question.id] })).filter((item) => item.answer?.attachments?.length));
   return `<div class="page-container">
-    <header class="page-heading no-print"><div><span class="eyebrow">Étape 4 · Résultat</span><h1>Votre dossier est prêt</h1><p>Relisez les priorités, imprimez le rapport et envoyez au client ce qu’il doit encore fournir.</p></div><div class="action-row"><button class="secondary-button" data-action="copy-client-followup">Copier le message client</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
+    <header class="page-heading no-print"><div><span class="eyebrow">Étape 4 · Résultat</span><h1>Votre dossier est prêt</h1><p>Commencez par la synthèse simple, puis ouvrez le rapport détaillé uniquement si nécessaire.</p></div><div class="action-row"><button class="secondary-button" data-action="open-visit-check">Contrôler la visite</button><button class="secondary-button" data-action="copy-client-followup">Copier le message client</button><button class="primary-button" data-action="print-report">Imprimer / PDF</button></div></header>
     <details class="report-tools no-print"><summary>Autres exports</summary><div class="action-row"><button class="secondary-button" data-action="export-actions">Plan d’action CSV</button><button class="secondary-button" data-action="export-csv">Toutes les réponses CSV</button><button class="secondary-button" data-action="export-backup">Sauvegarde complète JSON</button></div></details>
+    <section class="simple-result-grid">
+      <article class="simple-result positive"><span>1</span><h2>Ce qui fonctionne</h2><div>${simple.positive.length ? simple.positive.map((item) => `<p>${h(item)}</p>`).join('') : '<p>Aucun point positif n’a encore été confirmé.</p>'}</div></article>
+      <article class="simple-result warning"><span>2</span><h2>Ce qui pose problème</h2><div>${simple.issues.length ? simple.issues.map((item) => `<p><b>${h(item.priority)}</b>${h(item.title)}</p>`).join('') : '<p>Aucun problème prioritaire n’a encore été relevé.</p>'}</div></article>
+      <article class="simple-result action"><span>3</span><h2>Ce qu’il faut faire ensuite</h2><div>${simple.actions.length ? simple.actions.map((item) => `<p>${h(item)}</p>`).join('') : '<p>Terminez la visite pour produire les prochaines actions.</p>'}</div></article>
+    </section>
+    <details class="report-details">
+      <summary class="no-print">Voir le rapport détaillé</summary>
     <section class="report-page">
       <article class="card report-cover"><span class="eyebrow">${h(config.reportTitle)}</span><h1>${h(audit.establishment)}</h1><p>${h(summary)}</p><div class="report-meta"><span>${h(config.label)}</span><span>${h(audit.client)}</span><span>${formatDate(audit.auditDate)}</span><span>${h(audit.location || 'Lieu à confirmer')}</span><span>Auditeur : ${h(audit.auditor)}</span><span>Couverture : ${metrics.progress}%</span></div></article>
       <article class="card report-section"><header><div><h2>Synthèse exécutive</h2><p>Lecture consolidée des domaines inclus dans la mission.</p></div><strong>${metrics.score}% de ${h(config.scoreLabel)}</strong></header><div class="report-score-grid">${metrics.domains.map((row) => `<article class="report-score"><header><strong>${row.domain.label}</strong><b>${row.score === null ? 'À faire' : `${row.score}%`}</b></header><div class="progress-track"><i style="width:${row.score || 0}%"></i></div><small>${row.answered}/${row.total} réponses · ${row.risks} point(s) à traiter</small></article>`).join('')}</div></article>
@@ -1016,11 +1162,14 @@ function renderReport(audit, metrics) {
         const domain = activeDomains(audit).find((item) => item.id === finding.domain);
         return `<article><header><b class="report-priority ${finding.severity}">${SEVERITIES[finding.severity]?.short || 'P?'}</b><div><h3>${h(finding.title)}</h3><small>${h(domain?.label || finding.domain)} · ${finding.status === 'closed' ? 'Traité' : finding.status === 'confirmed' ? 'Confirmé' : 'Ouvert'}</small></div></header><p><strong>Observation :</strong> ${h(finding.situation)}</p>${finding.impact ? `<p><strong>Impact :</strong> ${h(finding.impact)}</p>` : ''}${finding.recommendation ? `<p><strong>Action :</strong> ${h(finding.recommendation)}</p>` : ''}<div class="action-meta"><span>${responsiblePartyLabel(finding.responsibleParty)}</span><span>${h(finding.owner || 'Responsable à nommer')}</span><span>${finding.dueDate ? formatDate(finding.dueDate) : 'Échéance à fixer'}</span></div>${finding.attachments?.length ? `<div class="evidence-grid">${finding.attachments.map((image) => `<img src="${image}" alt="Preuve du constat">`).join('')}</div>` : ''}</article>`;
       }).join('')}</div></article>` : ''}
-      ${audit.interviews.length ? `<article class="card report-section"><header><div><h2>Entretiens réalisés</h2><p>Rôles rencontrés, outils utilisés et irritants exprimés.</p></div><strong>${audit.interviews.length} entretien(s)</strong></header><div class="report-interviews">${audit.interviews.map((item) => `<article><header><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><small>${item.duration || 0} min</small></header>${item.tools ? `<p><strong>Outils :</strong> ${h(item.tools)}</p>` : ''}${item.painPoints ? `<p><strong>Irritants :</strong> ${h(item.painPoints)}</p>` : ''}${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}</article>`).join('')}</div></article>` : ''}
+      ${answerEvidence.length ? `<article class="card report-section"><header><div><h2>Photos prises pendant les questions</h2><p>Chaque image reste reliée au point contrôlé sur le terrain.</p></div><strong>${answerEvidence.reduce((sum, item) => sum + item.answer.attachments.length, 0)} photo(s)</strong></header><div class="report-findings">${answerEvidence.map((item) => `<article><header><div><h3>${h(item.question.label)}</h3><small>${h(item.domain.label)}</small></div></header>${item.answer.note ? `<p>${h(item.answer.note)}</p>` : ''}<div class="evidence-grid">${item.answer.attachments.map((image) => `<img src="${image}" alt="Preuve liée à la question">`).join('')}</div></article>`).join('')}</div></article>` : ''}
+      ${audit.interviews.length || audit.guidedSessions.length ? `<article class="card report-section"><header><div><h2>Entretiens réalisés</h2><p>Personnes rencontrées et synthèses des parcours guidés.</p></div><strong>${audit.interviews.length + audit.guidedSessions.length} entretien(s)</strong></header><div class="report-interviews">${audit.guidedSessions.map((session) => `<article><header><h3>${h(session.personaLabel)}</h3><small>${formatDateTime(session.completedAt)}</small></header><p>${session.answered}/${session.total} réponses · ${session.risks} problème(s) · ${session.deferred} vérification(s) différée(s) · ${session.photos} photo(s)</p></article>`).join('')}${audit.interviews.map((item) => `<article><header><h3>${h(item.role)}${item.name ? ` · ${h(item.name)}` : ''}</h3><small>${item.duration || 0} min</small></header>${item.tools ? `<p><strong>Outils :</strong> ${h(item.tools)}</p>` : ''}${item.painPoints ? `<p><strong>Difficultés :</strong> ${h(item.painPoints)}</p>` : ''}${item.needs ? `<p><strong>Attentes :</strong> ${h(item.needs)}</p>` : ''}</article>`).join('')}</div></article>` : ''}
+      ${audit.followUps.length ? `<article class="card report-section"><header><div><h2>Points à vérifier après la visite</h2><p>Personnes à recontacter et preuves qui n’ont pas pu être obtenues sur place.</p></div><strong>${audit.followUps.filter((item) => item.status !== 'done').length} ouvert(s)</strong></header><div class="report-findings">${audit.followUps.map((item) => `<article><header><b class="report-priority ${item.status === 'done' ? 'opportunity' : 'medium'}">${item.status === 'done' ? 'OK' : '?'}</b><div><h3>${h(item.title)}</h3><small>${h(item.owner || 'Personne à identifier')} · ${item.dueDate ? formatDate(item.dueDate) : 'Date à fixer'}</small></div></header><p>${h(item.evidence)}</p></article>`).join('')}</div></article>` : ''}
       <article class="card report-section"><header><div><h2>${greenfield ? 'Inventaire du matériel et des services' : 'Cartographie des outils'}</h2><p>${greenfield ? 'Équipements disponibles, compatibilité à confirmer et acquisitions éventuelles.' : 'Applications observées et décision à instruire.'}</p></div><strong>${audit.systems.length} élément(s)</strong></header><div class="item-list">${audit.systems.length ? audit.systems.map((item) => `<article class="list-card"><span class="marker">${h(item.domain.slice(0, 3).toUpperCase())}</span><div><h3>${h(item.name)}</h3><p>${h(item.vendor || 'À confirmer')} · ${h(item.version || 'À confirmer')} · ${h(item.deployment || 'À confirmer')}</p>${greenfield ? `<p>${h(item.location || 'Emplacement à confirmer')} · ${h(item.serial || 'Identifiant non relevé')} · ${hardwareConditionLabel(item.condition)}</p>` : ''}<small>${greenfield ? 'Connexion / test' : 'API'} : ${connectionStatusLabel(audit, item.api)} · ${decisionLabel(item.decision)}</small>${item.attachments?.length ? `<div class="evidence-grid">${item.attachments.map((image) => `<img src="${image}" alt="Photo de ${h(item.name)}">`).join('')}</div>` : ''}</div></article>`).join('') : '<p>Aucun élément inventorié à ce stade.</p>'}</div></article>
       <article class="card report-section"><header><div><h2>${greenfield ? 'Pièces et préparation de la configuration' : 'Pièces et capacité de migration'}</h2><p>${greenfield ? 'Disponibilité des référentiels, règles et données nécessaires à la configuration du pilote.' : 'Disponibilité des données nécessaires au chiffrage et au pilote.'}</p></div><strong>${metrics.verifiedDocs}/${audit.documents.length} vérifiées</strong></header>${clientRequests.length ? `<div class="client-request-box"><strong>À demander au client avant la prochaine étape</strong><div>${clientRequests.map((item) => `<p><b>${item.status === 'unavailable' ? 'ALTERNATIVE' : 'À FOURNIR'}</b><span>${h(item.label)}${item.note ? ` · ${h(item.note)}` : ''}</span></p>`).join('')}</div></div>` : '<div class="client-request-box complete"><strong>Toutes les pièces attendues ont été reçues ou vérifiées.</strong></div>'}<div class="document-list">${audit.documents.filter((item) => item.status !== 'na').map((item) => `<article class="document-row"><div><strong>${h(item.label)}</strong><small>${h(item.domain)}</small></div><strong>${documentStatusLabel(item.status)}</strong><span>${h(item.note || '')}</span></article>`).join('')}</div></article>
       <article class="card report-section"><header><div><h2>Trajectoire recommandée</h2><p>À confirmer après réception des données, tests matériels et arbitrage des priorités.</p></div></header><div class="roadmap">${roadmap.map((item, index) => `<article><small>Étape ${index + 1}</small><h3>${item[0]}</h3><p>${item[1]}</p></article>`).join('')}</div></article>
     </section>
+    </details>
   </div>`;
 }
 
@@ -1029,9 +1178,11 @@ function buildPriorities(audit) {
     .filter((item) => item.status !== 'closed')
     .map((item) => ({ priority: SEVERITIES[item.severity]?.short || 'P?', title: item.title, detail: item.impact || item.situation, action: item.recommendation, responsibleParty: item.responsibleParty || 'client', owner: item.owner || '', dueDate: item.dueDate || '', status: item.status, source: 'Constat terrain', rank: ['critical', 'major', 'medium', 'opportunity'].indexOf(item.severity) }));
   const answerRows = [];
-  activeDomains(audit).forEach((domain) => domain.questions.filter((question) => question.required).forEach((question) => {
+  activeDomains(audit).forEach((domain) => domain.questions.forEach((question) => {
     const answer = audit.answers[question.id];
     if (!['no', 'partial', 'unknown'].includes(answer?.status)) return;
+    if (audit.findings.some((item) => item.sourceQuestionId === question.id && item.status !== 'closed')) return;
+    if (answer.status === 'unknown' && audit.followUps.some((item) => item.questionId === question.id && item.status !== 'done')) return;
     answerRows.push({
       priority: answer.status === 'no' ? 'P1' : answer.status === 'partial' ? 'P2' : 'P3',
       title: question.label,
@@ -1056,24 +1207,34 @@ function buildFollowUpText(audit) {
   const scope = sizingSummary(audit).sizing;
   const requests = clientRequestItems(audit);
   const priorities = buildPriorities(audit).slice(0, 8);
+  const simple = simpleReportData(audit);
+  const followUps = audit.followUps.filter((item) => item.status !== 'done');
   const modules = MODULES.filter((module) => audit.modules.includes(module.id)).map((module) => module.label).join(', ');
   const lines = [
     audit.contact ? `Bonjour ${audit.contact},` : 'Bonjour,',
     '',
-    `Suite à l’audit de ${audit.establishment}, voici le cadrage retenu à ce stade.`,
+    `Suite à notre visite de ${audit.establishment}, voici un premier résumé des éléments observés.`,
     '',
     `Périmètre : ${modules}.`,
     `Volumes : ${scope.sites || 0} site(s), ${scope.pos || 0} POS, ${scope.cashRegisters || 0} caisse(s), ${scope.warehouses || 0} dépôt(s), ${scope.rooms || 0} chambre(s), ${scope.users || 0} utilisateur(s) et ${scope.products || 0} produit(s).`,
     `Pilote proposé : ${scope.pilot || 'à définir'}.`,
     `Date cible : ${scope.targetDate ? formatDate(scope.targetDate) : 'à confirmer'}.`,
   ];
-  if (requests.length) {
-    lines.push('', 'Éléments à nous transmettre ou à arbitrer :');
-    requests.forEach((item) => lines.push(`- ${item.label}${item.note ? ` : ${item.note}` : ''}`));
+  if (simple.positive.length) {
+    lines.push('', 'Ce qui fonctionne déjà :');
+    simple.positive.slice(0, 5).forEach((item) => lines.push(`- ${item}`));
   }
   if (priorities.length) {
-    lines.push('', 'Actions prioritaires :');
-    priorities.forEach((item) => lines.push(`- ${item.priority} · ${item.action || item.title} · ${responsiblePartyLabel(item.responsibleParty)} · ${item.owner || 'responsable à nommer'} · ${item.dueDate ? formatDate(item.dueDate) : 'date à fixer'}`));
+    lines.push('', 'Points à traiter en priorité :');
+    priorities.forEach((item) => lines.push(`- ${item.priority} · ${item.title}${item.action ? ` · ${item.action}` : ''}`));
+  }
+  if (followUps.length) {
+    lines.push('', 'Points restant à vérifier :');
+    followUps.forEach((item) => lines.push(`- ${item.evidence}${item.owner ? ` · avec ${item.owner}` : ''}${item.dueDate ? ` · avant le ${formatDate(item.dueDate)}` : ''}`));
+  }
+  if (requests.length) {
+    lines.push('', 'Documents à nous transmettre ou à arbitrer :');
+    requests.forEach((item) => lines.push(`- ${item.label}${item.note ? ` : ${item.note}` : ''}`));
   }
   lines.push('', `Prochaine étape : ${scope.nextStep || 'à convenir'} · ${scope.nextStepOwner || 'responsable à nommer'} · ${scope.nextStepDate ? formatDate(scope.nextStepDate) : 'date à fixer'}.`, '', 'Cordialement,', audit.auditor || 'Sártal');
   return lines.join('\n');
@@ -1088,12 +1249,12 @@ function closeModal() {
 }
 
 function openFindingModal(existing, prefill = {}) {
-  const finding = existing || { id: '', severity: 'major', domain: prefill.domain || workspace.ui.questionnaireDomain || 'direction', title: prefill.title || '', situation: prefill.situation || '', impact: '', recommendation: '', responsibleParty: 'client', owner: '', dueDate: '', status: 'open', attachments: [] };
+  const finding = existing || { id: '', sourceQuestionId: prefill.sourceQuestionId || '', severity: 'major', domain: prefill.domain || workspace.ui.questionnaireDomain || 'direction', title: prefill.title || '', situation: prefill.situation || '', impact: '', recommendation: '', responsibleParty: 'client', owner: '', dueDate: '', status: 'open', attachments: [] };
   openModal({
     title: existing ? 'Modifier le problème' : 'Ajouter un problème',
     subtitle: 'Décrivez simplement ce que vous avez vu, l’impact et l’action à prévoir.',
     wide: true,
-    content: `<form id="finding-form"><input type="hidden" name="id" value="${h(finding.id)}"><div class="form-grid">
+    content: `<form id="finding-form"><input type="hidden" name="id" value="${h(finding.id)}"><input type="hidden" name="sourceQuestionId" value="${h(finding.sourceQuestionId || '')}"><div class="form-grid">
       <label class="field"><span>Importance</span><select name="severity">${Object.entries(SEVERITIES).map(([value, meta]) => `<option value="${value}" ${finding.severity === value ? 'selected' : ''}>${meta.label}</option>`).join('')}</select></label>
       <label class="field"><span>Activité concernée</span><select name="domain">${activeDomains(activeAudit()).map((domain) => `<option value="${domain.id}" ${finding.domain === domain.id ? 'selected' : ''}>${domain.label}</option>`).join('')}</select></label>
       <label class="field span-2"><span>Nom du problème</span><input name="title" required value="${h(finding.title)}" placeholder="Exemple : Les ventes bar sont déduites du dépôt restaurant"></label>
@@ -1109,6 +1270,85 @@ function openFindingModal(existing, prefill = {}) {
     </div></form>`,
     actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="finding-form">Enregistrer le problème</button>`,
   });
+}
+
+function openFollowUpModal(questionId, existing) {
+  const context = questionContext(activeAudit(), questionId || existing?.questionId);
+  if (!context) return;
+  const item = existing || { id: '', questionId, title: context.question.label, evidence: context.question.help, owner: '', dueDate: '', status: 'open' };
+  openModal({
+    title: existing ? 'Modifier le point à vérifier' : 'Vérifier ce point plus tard',
+    subtitle: 'Indiquez qui recontacter et la preuve précise à obtenir.',
+    content: `<form id="followup-form"><input type="hidden" name="id" value="${h(item.id)}"><input type="hidden" name="questionId" value="${h(item.questionId)}"><div class="form-grid">
+      <label class="field span-2"><span>Question concernée</span><input name="title" value="${h(item.title)}" required></label>
+      <label class="field span-2"><span>Ce qu’il faut vérifier ou demander</span><textarea name="evidence" required>${h(item.evidence)}</textarea></label>
+      <label class="field"><span>Personne à recontacter</span><input name="owner" value="${h(item.owner)}" placeholder="Nom ou fonction"></label>
+      <label class="field"><span>Date prévue</span><input name="dueDate" type="date" value="${h(item.dueDate)}"></label>
+    </div></form>`,
+    actions: `<button class="secondary-button" data-action="close-modal">Annuler</button><button class="primary-button" type="submit" form="followup-form">Enregistrer</button>`,
+  });
+}
+
+function completeGuidedInterview(audit) {
+  const persona = interlocutorFor(audit, workspace.ui.guidedPersona);
+  if (!persona) return;
+  const mode = workspace.ui.questionnaireMode || 'express';
+  const summary = guidedSessionSummary(audit, persona.id, mode);
+  audit.guidedSessions.unshift({ id: uid('session'), personaId: persona.id, personaLabel: persona.label, mode, ...summary, completedAt: new Date().toISOString() });
+  workspace.ui.guidedPersona = '';
+  workspace.ui.guidedIndex = 0;
+  persist();
+  render();
+  openModal({
+    title: `${persona.label} · entretien terminé`,
+    subtitle: 'Voici ce qui a été enregistré avant de passer à la personne suivante.',
+    content: `<section class="interview-summary"><article><strong>${summary.answered}/${summary.total}</strong><span>questions répondues</span></article><article><strong>${summary.risks}</strong><span>problème(s) relevé(s)</span></article><article><strong>${summary.deferred}</strong><span>point(s) à vérifier</span></article><article><strong>${summary.photos}</strong><span>photo(s) ajoutée(s)</span></article></section>${summary.answered < summary.total ? '<p class="summary-warning">Certaines questions restent sans réponse. Vous pourrez reprendre cet entretien depuis la liste.</p>' : '<p class="summary-success">Toutes les questions prévues pour cet entretien ont une réponse.</p>'}`,
+    actions: `<button class="secondary-button" data-action="open-visit-check">Contrôler la visite</button><button class="primary-button" data-action="close-modal">Choisir la personne suivante</button>`,
+  });
+}
+
+function openVisitCheck() {
+  const audit = activeAudit();
+  const checks = visitChecks(audit);
+  const blockers = checks.filter((item) => item.blocking && item.count > 0).length;
+  openModal({
+    title: blockers ? 'Avant de quitter l’établissement' : 'La visite est prête à être restituée',
+    subtitle: blockers ? `${blockers} catégorie(s) demandent encore votre attention.` : 'Les contrôles essentiels sont couverts. Vous pouvez préparer le résultat.',
+    wide: true,
+    content: `<section class="visit-check-list">${checks.map((item) => `<article class="${item.count === 0 && item.blocking ? 'check-ok' : item.positive ? 'check-info' : 'check-warning'}"><span>${item.count === 0 && item.blocking ? 'OK' : item.count}</span><div><strong>${h(item.label)}</strong><small>${item.count === 0 && item.blocking ? 'Aucun élément restant' : item.positive ? (item.count ? 'Éléments collectés pendant la visite' : 'Aucun élément collecté pour le moment') : 'À examiner avant la restitution'}</small></div><button data-action="visit-check-action" data-view="${item.view}">${h(item.action)}</button></article>`).join('')}</section>`,
+    actions: `<button class="secondary-button" data-action="copy-client-followup">Copier le message client</button><button class="primary-button" data-action="visit-check-action" data-view="report">Voir le résultat</button>`,
+  });
+}
+
+let speechRecognition;
+
+function startDictation(questionId) {
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Recognition) {
+    toast('La dictée vocale n’est pas disponible sur ce navigateur. Utilisez le clavier du téléphone.');
+    return;
+  }
+  if (speechRecognition) speechRecognition.stop();
+  const recognition = new Recognition();
+  speechRecognition = recognition;
+  recognition.lang = 'fr-FR';
+  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results).map((result) => result[0].transcript).join(' ').trim();
+    const answer = activeAudit().answers[questionId] || { attachments: [] };
+    answer.note = [answer.note, transcript].filter(Boolean).join(' ');
+    answer.updatedAt = new Date().toISOString();
+    activeAudit().answers[questionId] = answer;
+    speechRecognition = null;
+    persist();
+    render();
+    toast('Note vocale ajoutée.');
+  };
+  recognition.onerror = () => { speechRecognition = null; toast('La dictée n’a pas pu être enregistrée. Vous pouvez saisir la note au clavier.'); };
+  recognition.onend = () => { speechRecognition = null; };
+  recognition.start();
+  toast('Dictée en cours… Parlez maintenant.');
 }
 
 function openInterviewModal(existing) {
@@ -1302,10 +1542,11 @@ function exportBackup() {
 
 function exportCsv() {
   const audit = activeAudit();
-  const rows = [['Domaine', 'Question', 'Statut', 'Note', 'Essentiel']];
+  const rows = [['Domaine', 'Question', 'Statut', 'Note', 'Photos', 'À vérifier plus tard', 'Essentiel']];
   activeDomains(audit).forEach((domain) => domain.questions.forEach((question) => {
     const answer = audit.answers[question.id] || {};
-    rows.push([domain.label, question.label, statusMeta(audit, answer.status)?.label || 'Non renseigné', answer.note || '', question.required ? 'Oui' : 'Non']);
+    const followUp = audit.followUps.find((item) => item.questionId === question.id && item.status !== 'done');
+    rows.push([domain.label, question.label, statusMeta(audit, answer.status)?.label || 'Non renseigné', answer.note || '', answer.attachments?.length || 0, followUp ? `${followUp.evidence} · ${followUp.owner || 'personne à identifier'} · ${followUp.dueDate || 'date à fixer'}` : '', question.required ? 'Oui' : 'Non']);
   }));
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
   downloadBlob(`sartal-audit-${slug(audit.establishment)}-questions.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8');
@@ -1316,6 +1557,7 @@ function exportActionPlan() {
   const audit = activeAudit();
   const rows = [['Priorité', 'Action', 'Détail', 'Responsabilité', 'Responsable', 'Échéance', 'Statut', 'Source']];
   buildPriorities(audit).forEach((item) => rows.push([item.priority, item.action || item.title, item.detail || '', responsiblePartyLabel(item.responsibleParty), item.owner || 'À nommer', item.dueDate || '', item.status || 'open', item.source || 'Audit']));
+  audit.followUps.forEach((item) => rows.push(['P3', item.evidence, item.title, 'Action client', item.owner || 'À nommer', item.dueDate || '', item.status, 'Vérification différée']));
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(';')).join('\n');
   downloadBlob(`sartal-audit-${slug(audit.establishment)}-plan-action.csv`, `\ufeff${csv}`, 'text/csv;charset=utf-8');
   toast('Plan d’action exporté.');
@@ -1406,7 +1648,7 @@ document.addEventListener('submit', async (event) => {
     const attachments = [...(existing?.attachments || [])];
     for (const photo of photos) attachments.push(await compressImage(photo));
     const item = {
-      id: id || uid('finding'), severity: data.get('severity'), domain: data.get('domain'), title: data.get('title').trim(), situation: data.get('situation').trim(), impact: data.get('impact').trim(), recommendation: data.get('recommendation').trim(), responsibleParty: data.get('responsibleParty'), owner: data.get('owner').trim(), dueDate: data.get('dueDate'), status: data.get('status'), attachments, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
+      id: id || uid('finding'), sourceQuestionId: data.get('sourceQuestionId') || '', severity: data.get('severity'), domain: data.get('domain'), title: data.get('title').trim(), situation: data.get('situation').trim(), impact: data.get('impact').trim(), recommendation: data.get('recommendation').trim(), responsibleParty: data.get('responsibleParty'), owner: data.get('owner').trim(), dueDate: data.get('dueDate'), status: data.get('status'), attachments, createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
     if (existing) Object.assign(existing, item); else audit.findings.unshift(item);
     closeModal();
@@ -1425,6 +1667,21 @@ document.addEventListener('submit', async (event) => {
     const saved = persist();
     render();
     toast(saved ? 'Personne enregistrée.' : 'Personne conservée dans cette session. Sauvegardez la visite avant de quitter.');
+  }
+
+  if (form.id === 'followup-form') {
+    const audit = activeAudit();
+    const id = data.get('id');
+    const existing = audit.followUps.find((item) => item.id === id);
+    const item = { id: id || uid('followup'), questionId: data.get('questionId'), title: data.get('title').trim(), evidence: data.get('evidence').trim(), owner: data.get('owner').trim(), dueDate: data.get('dueDate'), status: existing?.status || 'open', createdAt: existing?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() };
+    if (existing) Object.assign(existing, item); else audit.followUps.unshift(item);
+    const answer = audit.answers[item.questionId] || { attachments: [] };
+    if (!answer.status) answer.status = 'unknown';
+    audit.answers[item.questionId] = { ...answer, updatedAt: new Date().toISOString() };
+    closeModal();
+    persist();
+    render();
+    toast('Point à vérifier enregistré.');
   }
 
   if (form.id === 'system-form') {
@@ -1489,12 +1746,28 @@ document.addEventListener('click', (event) => {
     return;
   }
   if (action === 'navigate') { workspace.ui.view = target.dataset.view; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  if (action === 'select-domain' || action === 'continue-audit') { workspace.ui.view = 'questionnaire'; workspace.ui.questionnaireDomain = target.dataset.domain; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (action === 'continue-audit') { workspace.ui.view = 'questionnaire'; workspace.ui.guidedPersona = ''; workspace.ui.guidedIndex = 0; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (action === 'select-domain') { workspace.ui.view = 'questionnaire'; workspace.ui.guidedPersona = `domain:${target.dataset.domain}`; workspace.ui.guidedIndex = 0; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (action === 'start-persona') {
+    workspace.ui.guidedPersona = target.dataset.persona;
+    const entries = guidedQuestions(audit, target.dataset.persona, workspace.ui.questionnaireMode || 'express');
+    const firstUnanswered = entries.findIndex(({ question }) => !audit.answers[question.id]?.status);
+    workspace.ui.guidedIndex = firstUnanswered >= 0 ? firstUnanswered : 0;
+    persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (action === 'change-persona') { workspace.ui.guidedPersona = ''; workspace.ui.guidedIndex = 0; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   if (action === 'open-notes') { workspace.ui.view = 'terrain'; workspace.ui.terrainTab = 'findings'; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  if (action === 'question-mode') { workspace.ui.questionnaireMode = target.dataset.mode; persist(false); render(); }
+  if (action === 'question-mode') { workspace.ui.questionnaireMode = target.dataset.mode; workspace.ui.guidedIndex = 0; persist(false); render(); }
+  if (action === 'previous-question') { workspace.ui.guidedIndex = Math.max(0, (Number(workspace.ui.guidedIndex) || 0) - 1); persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  if (action === 'next-question') {
+    const entries = guidedQuestions(audit, workspace.ui.guidedPersona, workspace.ui.questionnaireMode || 'express');
+    const index = Number(workspace.ui.guidedIndex) || 0;
+    if (index + 1 >= entries.length) completeGuidedInterview(audit);
+    else { workspace.ui.guidedIndex = index + 1; persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  }
   if (action === 'answer') {
     const questionId = target.dataset.question;
-    const current = audit.answers[questionId] || { note: '' };
+    const current = audit.answers[questionId] || { note: '', attachments: [] };
     audit.answers[questionId] = { ...current, status: target.dataset.value, updatedAt: new Date().toISOString() };
     persist(); render();
   }
@@ -1502,7 +1775,20 @@ document.addEventListener('click', (event) => {
     const domain = activeDomains(audit).find((item) => item.id === target.dataset.domain);
     const question = domain?.questions.find((item) => item.id === target.dataset.question);
     const answer = audit.answers[target.dataset.question];
-    if (domain && question) openFindingModal(null, { domain: domain.id, title: question.label, situation: answer?.note || question.help });
+    if (domain && question) openFindingModal(null, { sourceQuestionId: question.id, domain: domain.id, title: question.label, situation: answer?.note || question.help });
+  }
+  if (action === 'defer-question') {
+    const existing = audit.followUps.find((item) => item.questionId === target.dataset.question && item.status !== 'done');
+    openFollowUpModal(target.dataset.question, existing);
+  }
+  if (action === 'dictate-note') startDictation(target.dataset.question);
+  if (action === 'open-visit-check') openVisitCheck();
+  if (action === 'visit-check-action') {
+    closeModal();
+    if (target.dataset.view === 'report') workspace.ui.view = 'report';
+    else if (target.dataset.view === 'questionnaire') { workspace.ui.view = 'questionnaire'; workspace.ui.guidedPersona = ''; }
+    else { workspace.ui.view = 'terrain'; workspace.ui.terrainTab = target.dataset.view; }
+    persist(false); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   if (action === 'terrain-tab') { workspace.ui.terrainTab = target.dataset.tab; persist(false); render(); }
   if (action === 'add-finding') openFindingModal(null, { domain: target.dataset.domain });
@@ -1511,6 +1797,12 @@ document.addEventListener('click', (event) => {
   if (action === 'add-interview') openInterviewModal();
   if (action === 'edit-interview') openInterviewModal(audit.interviews.find((item) => item.id === target.dataset.id));
   if (action === 'delete-interview') removeById('interviews', target.dataset.id, 'cette personne');
+  if (action === 'edit-followup') openFollowUpModal('', audit.followUps.find((item) => item.id === target.dataset.id));
+  if (action === 'delete-followup') removeById('followUps', target.dataset.id, 'ce point à vérifier');
+  if (action === 'complete-followup') {
+    const item = audit.followUps.find((row) => row.id === target.dataset.id);
+    if (item) { item.status = item.status === 'done' ? 'open' : 'done'; persist(); render(); }
+  }
   if (action === 'add-system') openSystemModal();
   if (action === 'edit-system') openSystemModal(audit.systems.find((item) => item.id === target.dataset.id));
   if (action === 'delete-system') removeById('systems', target.dataset.id, projectTypeOf(audit) === 'greenfield' ? 'cet équipement' : 'cet outil');
@@ -1526,7 +1818,7 @@ document.addEventListener('click', (event) => {
   if (action === 'export-csv') exportCsv();
   if (action === 'export-actions') exportActionPlan();
   if (action === 'copy-client-followup') copyClientFollowUp();
-  if (action === 'print-report') window.print();
+  if (action === 'print-report') { document.querySelectorAll('.report-details').forEach((details) => { details.open = true; }); window.print(); }
   if (action === 'delete-audit') {
     if (!window.confirm('Supprimer définitivement cette mission de cet appareil ? Exportez une sauvegarde avant de continuer.')) return;
     workspace.audits = workspace.audits.filter((item) => item.id !== audit.id);
@@ -1544,7 +1836,7 @@ document.addEventListener('input', (event) => {
   if (!audit) return;
   if (event.target.matches('[data-question-note]')) {
     const questionId = event.target.dataset.questionNote;
-    audit.answers[questionId] = { ...(audit.answers[questionId] || {}), note: event.target.value, updatedAt: new Date().toISOString() };
+    audit.answers[questionId] = { attachments: [], ...(audit.answers[questionId] || {}), note: event.target.value, updatedAt: new Date().toISOString() };
     schedulePersist();
   }
   if (event.target.matches('[data-document-note]')) {
@@ -1553,9 +1845,21 @@ document.addEventListener('input', (event) => {
   }
 });
 
-document.addEventListener('change', (event) => {
+document.addEventListener('change', async (event) => {
   const audit = activeAudit();
   if (!audit) return;
+  if (event.target.matches('[data-question-photo]')) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const questionId = event.target.dataset.questionPhoto;
+    const answer = audit.answers[questionId] || { note: '', attachments: [] };
+    const attachments = [...(answer.attachments || [])];
+    if (attachments.length >= 3) { toast('Trois photos maximum par question.'); return; }
+    attachments.push(await compressImage(file));
+    audit.answers[questionId] = { ...answer, attachments, updatedAt: new Date().toISOString() };
+    persist(); render(); toast('Photo ajoutée à la question.');
+    return;
+  }
   if (event.target.matches('[data-document-status]')) {
     const item = audit.documents.find((row) => row.id === event.target.dataset.documentStatus);
     if (item) { item.status = event.target.value; persist(); render(); }

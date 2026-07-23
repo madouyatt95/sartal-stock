@@ -53,6 +53,22 @@ for (const marker of [
   'Noter ce qui compte',
   'Je ne sais pas',
   'open-notes',
+  'INTERLOCUTORS',
+  'Qui allez-vous rencontrer ?',
+  'Rapide · 45 à 60 min',
+  'renderGuidedQuestion',
+  'Ce que vous pouvez demander à voir',
+  'Dicter une note',
+  'data-question-photo',
+  'Je vérifierai plus tard',
+  'guidedSessions',
+  'followUps',
+  'completeGuidedInterview',
+  'openVisitCheck',
+  'Avant de quitter l’établissement',
+  'Ce qui fonctionne',
+  'Ce qui pose problème',
+  'Ce qu’il faut faire ensuite',
   'responsibleParty',
   'socle inclus',
   'print-report',
@@ -87,6 +103,11 @@ assert.match(css, /\.client-request-box/);
 assert.match(css, /\.journey-card/);
 assert.match(css, /\.advanced-details/);
 assert.match(css, /\.report-tools/);
+assert.match(css, /\.interlocutor-grid/);
+assert.match(css, /\.guided-question-shell/);
+assert.match(css, /\.proof-box/);
+assert.match(css, /\.visit-check-list/);
+assert.match(css, /\.simple-result-grid/);
 
 const parsedManifest = JSON.parse(manifest);
 assert.equal(parsedManifest.display, 'standalone');
@@ -96,7 +117,7 @@ assert.equal(parsedManifest.icons.length, 3);
 for (const asset of ['./index.html', './audit.css', './audit.js', './manifest.webmanifest']) {
   assert.ok(serviceWorker.includes(asset), `Ressource PWA non mise en cache: ${asset}`);
 }
-assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v5'"), 'Le cache PWA doit être renouvelé pour diffuser le parcours guidé');
+assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v6'"), 'Le cache PWA doit être renouvelé pour diffuser le mode terrain assisté');
 
 assert.doesNotMatch(js, /https?:\/\//, 'L’application d’audit ne doit dépendre d’aucun service externe');
 
