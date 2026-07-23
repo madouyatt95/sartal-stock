@@ -576,9 +576,12 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .guided-question { padding: 24px; }
 .guided-question .question-copy h2 { margin: 4px 0 8px; font-size: 24px; }
 .question-domain { color: var(--primary); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.plain-example { display: grid; gap: 3px; padding: 11px 13px; border-radius: 7px; background: var(--paper); color: var(--text); }
+.plain-example strong { color: var(--primary-dark); font-size: 12px; }
+.plain-example span { color: var(--muted); font-size: 15px; line-height: 1.45; }
 .proof-box { display: grid; gap: 7px; margin-top: 16px; padding: 14px; border-left: 4px solid var(--blue); border-radius: 7px; background: var(--blue-soft); }
 .proof-box strong { color: #173b8e; }
-.proof-box span { display: flex; gap: 8px; color: #38578e; font-size: 13px; }
+.proof-box span { display: flex; gap: 8px; color: #38578e; font-size: 14px; line-height: 1.4; }
 .proof-box span::before { color: var(--blue); content: "✓"; font-weight: 900; }
 .risk-prompt { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 13px; padding: 13px; border: 1px solid #e6b1a8; border-radius: 7px; background: var(--coral-soft); }
 .risk-prompt > div { display: grid; gap: 3px; }
@@ -589,6 +592,10 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
 .question-photo-button { cursor: pointer; }
 .question-photo-button input { display: none; }
 .question-evidence { padding-top: 10px; border-top: 1px solid var(--line); }
+.technical-context { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); }
+.technical-context summary { width: fit-content; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 800; }
+.technical-context p { margin: 10px 0 4px; color: var(--text); font-size: 14px; }
+.technical-context small { display: block; font-size: 13px; line-height: 1.45; }
 .guided-navigation { position: sticky; bottom: 8px; z-index: 14; display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: rgb(255 255 255 / 97%); box-shadow: var(--shadow); }
 
 .interview-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
@@ -931,7 +938,9 @@ h1, h2, h3, h4 { color: #0f1f27; line-height: 1.15; }
   .guided-progress > div:first-child { justify-content: space-between; }
   .guided-question { padding: 18px 15px; }
   .guided-question .question-copy h2 { font-size: 21px; }
+  .plain-example span { font-size: 16px; }
   .proof-box { padding: 12px; }
+  .proof-box span { font-size: 15px; }
   .risk-prompt { display: grid; }
   .risk-prompt button { width: 100%; }
   .question-tools { display: grid; grid-template-columns: 1fr; }

@@ -76,6 +76,200 @@ const PROOFS_BY_DOMAIN = {
   data: ['Un export réel ouvert et lisible', 'Les champs produit, client, stock ou historique disponibles'],
 };
 
+const SIMPLE_QUESTIONS = {
+  'dir-01': 'Les trois améliorations les plus importantes attendues du futur système sont-elles clairement écrites ?',
+  'dir-02': 'Avez-vous une liste complète des sites, restaurants, dépôts, chambres, tables et caisses concernés ?',
+  'dir-03': 'Avez-vous classé les problèmes actuels selon leurs conséquences pour les clients, les équipes et les finances ?',
+  'dir-04': 'Pour chaque tâche importante, une personne responsable est-elle clairement désignée ?',
+  'dir-05': 'Les chiffres reçus par la direction sont-ils réguliers et suffisamment fiables pour prendre des décisions ?',
+  'pms-02': 'Les tarifs, forfaits et règles de séjour sont-ils regroupés au même endroit ?',
+  'pos-01': 'Chaque caisse est-elle reliée au bon restaurant, au bon bar ou à la bonne activité ?',
+  'pos-02': 'Le plan des tables visible à l’écran correspond-il à la salle réelle ?',
+  'data-05': 'Avez-vous décidé combien d’années d’historique doivent être récupérées pour chaque type d’information ?',
+  'data-09': 'Les équipes disposent-elles d’une version d’essai pour tester leur travail avant le changement ?',
+  'new-dir-01': 'Avez-vous décidé quelles activités équiper en premier ?',
+  'new-dir-02': 'Avez-vous compté les sites, restaurants, dépôts, chambres, tables, caisses et utilisateurs à équiper ?',
+  'new-dir-03': 'Avez-vous choisi une date de lancement qui évite les périodes les plus chargées ?',
+  'new-dir-04': 'Une personne peut-elle prendre les décisions et une personne de chaque métier peut-elle valider les réglages ?',
+  'new-dir-05': 'Chaque équipe peut-elle expliquer simplement son travail, du début à la fin ?',
+  'new-dir-08': 'Le budget couvre-t-il le logiciel, le matériel, le réseau, l’installation, la formation et l’assistance ?',
+  'new-pms-01': 'La liste complète des chambres, catégories, capacités et équipements est-elle prête ?',
+  'new-pms-02': 'Les tarifs, saisons, forfaits et règles de séjour sont-ils décidés ?',
+  'new-pms-03': 'Avez-vous choisi comment les clients pourront réserver : téléphone, réception, site ou agence ?',
+  'new-stk-01': 'Avez-vous listé chaque réserve ou dépôt avec sa personne responsable ?',
+  'new-stk-02': 'La liste des produits utilise-t-elle partout les mêmes catégories, unités et formats d’achat ?',
+  'new-data-01': 'Pour chaque fichier à préparer avant le lancement, une personne responsable et une date limite sont-elles fixées ?',
+  'pms-01': 'La liste des chambres correspond-elle à la réalité aujourd’hui ?',
+  'pms-03': 'Quand une réservation arrive par téléphone, par le site ou par une agence, la chambre devient-elle indisponible partout ?',
+  'pms-04': 'Le système empêche-t-il de réserver deux fois la même chambre ?',
+  'pms-05': 'Tous les réceptionnistes suivent-ils les mêmes étapes pour l’arrivée et le départ d’un client ?',
+  'pms-06': 'Quand le compte d’une chambre est modifié, peut-on savoir qui a fait le changement ?',
+  'pms-07': 'Une dépense du restaurant peut-elle être ajoutée directement au compte de la bonne chambre ?',
+  'pms-08': 'La réception voit-elle immédiatement si une chambre est propre, occupée ou en maintenance ?',
+  'pms-09': 'Avant de terminer la journée, le système signale-t-il les comptes de chambre et paiements à corriger ?',
+  'pms-11': 'Pouvez-vous récupérer dans des fichiers lisibles les réservations, chambres, clients et paiements d’Orchestra ?',
+  'pms-12': 'Savez-vous combien d’années de données Orchestra peuvent être récupérées, sous quel format, à quel coût et sous quel délai ?',
+  'pos-03': 'Avez-vous une seule fiche Coca-Cola, même s’il est vendu dans plusieurs restaurants ou caisses ?',
+  'pos-04': 'Le même Coca-Cola peut-il avoir un prix différent selon le restaurant ou la caisse ?',
+  'pos-05': 'Les plats vont-ils seulement en cuisine et les boissons seulement au bar ?',
+  'pos-07': 'Une remise, un offert ou une annulation doit-il être justifié et validé par la bonne personne ?',
+  'pos-08': 'Pouvez-vous comparer séparément les encaissements espèces, carte, Wave et Orange Money avec les montants réellement reçus ?',
+  'pos-09': 'Pour chaque caisse, connaissez-vous le fonds de départ, le total encaissé et l’écart de fin de service ?',
+  'pos-11': 'Pouvez-vous récupérer le détail de chaque article vendu, annulé et payé ?',
+  'pos-12': 'Les équipes peuvent-elles continuer à travailler sans Internet puis retrouver toutes les opérations au retour du réseau ?',
+  'stk-01': 'Chaque réserve ou dépôt correspond-il à un lieu réel avec une personne responsable ?',
+  'stk-03': 'Savez-vous à quelle date le stock de départ a été compté, comment et par qui ?',
+  'stk-04': 'À la livraison, distinguez-vous ce qui a été commandé, reçu, refusé et facturé ?',
+  'stk-05': 'Lorsqu’un produit change de dépôt, peut-on prouver sa sortie et sa réception ?',
+  'stk-06': 'Pour chaque plat, connaissez-vous les ingrédients, les quantités et les pertes de préparation ?',
+  'stk-07': 'Quand un Coca-Cola est vendu, le stock baisse-t-il dans la réserve du bon restaurant ?',
+  'stk-09': 'Pendant un inventaire, les équipes comptent-elles sans voir le stock attendu, puis les écarts sont-ils chiffrés en FCFA ?',
+  'stk-10': 'Pour les produits concernés, utilisez-vous d’abord les plus anciens ou ceux qui périment le plus tôt ?',
+  'stk-12': 'Connaissez-vous la valeur réelle du stock, le coût des ingrédients et la marge de chaque produit ?',
+  'fin-01': 'Chaque paiement peut-il être relié à une vente, une chambre ou un compte client précis ?',
+  'fin-03': 'Chaque caisse fournit-elle un résumé pendant le service et une clôture définitive en fin de journée ?',
+  'fin-04': 'Les montants Wave et Orange Money enregistrés en caisse correspondent-ils aux relevés des opérateurs ?',
+  'fin-05': 'Une dépense restaurant ajoutée à une chambre n’est-elle comptée qu’une seule fois dans le chiffre d’affaires ?',
+  'fin-06': 'Quand une caisse présente un écart, sait-on qui doit l’expliquer et le valider ?',
+  'fin-09': 'La comptabilité peut-elle recevoir un fichier utilisable sans tout ressaisir ?',
+  'cx-01': 'Un même client est-il reconnu comme une seule personne à l’hôtel, au restaurant et en ligne ?',
+  'cx-04': 'Chaque demande client a-t-elle un responsable et reste-t-elle suivie jusqu’à sa résolution ?',
+  'cx-07': 'Les parcours Sártal peuvent-ils être ajoutés au site actuel par un lien, un QR code ou une connexion automatique ?',
+  'web-01': 'Les prix, photos et disponibilités visibles en ligne correspondent-ils à la liste de produits interne ?',
+  'web-02': 'Le site évite-t-il de vendre deux fois le dernier article disponible ?',
+  'web-03': 'Dès qu’une commande est confirmée, la quantité est-elle mise de côté jusqu’à sa préparation ou son annulation ?',
+  'web-05': 'Le préparateur sait-il où trouver chaque produit et quoi proposer s’il manque ?',
+  'web-06': 'Chaque commande est-elle attribuée au bon livreur avec sa zone et le montant à encaisser ?',
+  'web-07': 'Pouvez-vous prouver que la commande a bien été remise au client ?',
+  'web-09': 'Pouvez-vous comparer les paiements en ligne et à la livraison avec les montants réellement reçus ?',
+  'it-01': 'Avez-vous une liste à jour de tous les logiciels, caisses, imprimantes, terminaux et serveurs ?',
+  'it-03': 'En cas de coupure d’Internet ou de courant, l’activité peut-elle continuer sans perdre de vente ?',
+  'it-04': 'Savez-vous où sont installés les logiciels et comment ils échangent leurs informations ?',
+  'it-05': 'Les sauvegardes sont-elles automatiques et avez-vous déjà vérifié qu’elles peuvent être restaurées ?',
+  'it-06': 'Chaque employé utilise-t-il son propre compte ?',
+  'it-07': 'Chaque employé voit-il uniquement ce dont il a besoin pour son travail ?',
+  'it-08': 'Pouvez-vous retrouver au même endroit les pannes, erreurs et modifications importantes ?',
+  'it-10': 'Les mots de passe, mises à jour, antivirus et accès à distance sont-ils régulièrement contrôlés ?',
+  'data-01': 'Pour chaque liste importante, savez-vous qui doit la tenir correcte et à jour ?',
+  'data-02': 'Pouvez-vous récupérer les données de chaque logiciel dans un fichier qui s’ouvre et se réutilise facilement ?',
+  'data-03': 'Un produit, un ticket ou une réservation garde-t-il le même numéro dans tous les fichiers récupérés ?',
+  'data-04': 'Savez-vous combien de doublons, d’informations manquantes ou d’erreurs existent dans les données ?',
+  'data-06': 'Savez-vous quelles informations passent automatiquement d’un logiciel à l’autre, à quel rythme et que faire en cas d’erreur ?',
+  'data-07': 'Avez-vous déjà récupéré un vrai fichier de chaque logiciel pour tester la reprise des anciennes données ?',
+  'data-08': 'Après la reprise des données, pourrez-vous prouver que les ventes, paiements, stocks et comptes de chambre sont identiques ?',
+  'data-10': 'Le jour du changement de système, savez-vous qui intervient, quoi vérifier et comment revenir en arrière si nécessaire ?',
+  'new-pms-04': 'Les étapes et documents nécessaires pour l’arrivée et le départ d’un client sont-ils décidés ?',
+  'new-pms-05': 'Avez-vous décidé qui pourra modifier, déplacer ou rembourser une somme sur le compte d’une chambre ?',
+  'new-pms-06': 'Avez-vous défini qui indique qu’une chambre est sale, propre, contrôlée ou en maintenance ?',
+  'new-pms-07': 'Avez-vous décidé comment une dépense restaurant ou minibar sera ajoutée au compte de la bonne chambre ?',
+  'new-pms-08': 'Avez-vous défini les vérifications à faire avant de terminer chaque journée de l’hôtel ?',
+  'new-pos-03': 'Un même produit gardera-t-il une seule fiche, même avec plusieurs prix ou plusieurs caisses ?',
+  'new-pos-04': 'Avez-vous décidé le prix et la taxe de chaque produit pour chaque restaurant ou caisse ?',
+  'new-pos-05': 'Avez-vous décidé quels tickets vont en cuisine, au bar ou au dessert ?',
+  'new-pos-07': 'Les comptes espèces, carte, Wave et Orange Money sont-ils prêts et séparés ?',
+  'new-pos-08': 'Avez-vous défini comment ouvrir, contrôler et fermer chaque caisse ?',
+  'new-pos-09': 'Pouvez-vous tester chaque caisse, imprimante, tiroir et terminal déjà disponible ?',
+  'new-pos-10': 'Avez-vous décidé comment les équipes travailleront pendant une coupure d’Internet ou de courant ?',
+  'new-stk-03': 'Avez-vous prévu une date, une méthode et un responsable pour compter le stock de départ ?',
+  'new-stk-05': 'Avez-vous défini les étapes entre la commande au fournisseur, la livraison, le refus éventuel et la facture ?',
+  'new-stk-06': 'Les ingrédients et quantités des plats les plus vendus sont-ils prêts ?',
+  'new-stk-07': 'Avez-vous choisi quelle réserve doit baisser pour chaque restaurant ou caisse ?',
+  'new-stk-09': 'Avez-vous décidé quand compter chaque famille de produits et à partir de quel niveau recommander ?',
+  'new-fin-04': 'Avez-vous défini l’heure de fin de journée et la personne qui valide chaque clôture de caisse ?',
+  'new-fin-06': 'Savez-vous exactement quel fichier la comptabilité souhaite recevoir ?',
+  'new-fin-07': 'Dès le premier jour, pourrez-vous comparer les ventes aux espèces, cartes, Wave, Orange Money et banque ?',
+  'new-cx-04': 'Avez-vous listé les sites, numéros WhatsApp, téléphones, QR codes et réseaux sociaux à relier ?',
+  'new-web-02': 'Avez-vous décidé à quel moment un produit est mis de côté pour éviter de vendre deux fois le dernier article ?',
+  'new-web-04': 'Avez-vous défini comment le préparateur trouve, contrôle et remplace les produits du panier ?',
+  'new-web-06': 'Avez-vous défini comment attribuer une commande au livreur, encaisser et prouver la remise ?',
+  'new-web-07': 'Les comptes Wave, Orange Money, carte et espèces sont-ils prêts pour comparer commandes et encaissements ?',
+  'new-it-02': 'Pouvez-vous vérifier que les caisses et imprimantes fonctionneront avec Sártal ?',
+  'new-it-05': 'Avez-vous une connexion Internet de secours si la connexion principale tombe ?',
+  'new-it-08': 'Avez-vous défini les règles de mot de passe, de double vérification et d’accès à distance ?',
+  'new-it-09': 'En cas de panne, chacun sait-il qui appeler, à quelles heures et sous quel délai ?',
+  'new-it-10': 'Pouvez-vous tester les données, les droits, le réseau et les imprimantes avant le vrai lancement ?',
+  'new-data-02': 'Avez-vous décidé comment nommer et numéroter les produits, dépôts, chambres, caisses et utilisateurs ?',
+  'new-data-03': 'Les fichiers à remplir pour charger les premières données sont-ils prêts et sans doublons importants ?',
+  'new-data-04': 'Avez-vous choisi un premier site, une caisse et une petite équipe pour tester avant le lancement général ?',
+  'new-data-05': 'Avez-vous préparé des tests concrets de vente, paiement, stock, annulation et coupure ?',
+  'new-data-06': 'Chaque métier aura-t-il une formation pratique avant le lancement ?',
+  'new-data-07': 'Qui décidera, le jour du lancement, si tout est prêt ou s’il faut reporter ?',
+  'new-data-08': 'Avez-vous défini ce qui devra être contrôlé après la première vente et la première clôture ?',
+};
+
+const SIMPLE_TEXT_REPLACEMENTS = [
+  [/\bLe périmètre des\b/g, 'La liste des'],
+  [/\bselon le périmètre\b/gi, 'selon les activités prévues'],
+  [/\bChaque processus critique\b/g, 'Chaque tâche importante'],
+  [/\bLa profondeur historique\b/g, 'Le nombre d’années d’historique'],
+  [/\bUn environnement de test\b/g, 'Une version d’essai'],
+  [/\bréférentiel produit\b/gi, 'liste de produits'],
+  [/\bréférentiel des chambres\b/gi, 'liste des chambres'],
+  [/\bréférentiel\b/gi, 'liste de référence'],
+  [/\bPOS\b/g, 'point de vente'],
+  [/\bPMS\b/g, 'logiciel hôtelier'],
+  [/\bfolios?\b/gi, 'comptes de chambre'],
+  [/\bhousekeeping\b/gi, 'nettoyage des chambres'],
+  [/\bcheck-in\/check-out\b/gi, 'arrivée et départ du client'],
+  [/\bcheck-in\b/gi, 'arrivée du client'],
+  [/\bcheck-out\b/gi, 'départ du client'],
+  [/\bpackages?\b/gi, 'forfaits'],
+  [/\bOTA\b/g, 'sites de réservation'],
+  [/\bsurbooking\b/gi, 'trop de réservations'],
+  [/\bno-show\b/gi, 'clients absents'],
+  [/\bimputées?\b/gi, 'ajoutées'],
+  [/\bimputation\b/gi, 'ajout'],
+  [/\bsans ressaisie\b/gi, 'sans retaper les informations'],
+  [/\brapprochables?\b/gi, 'comparables aux montants réellement reçus'],
+  [/\brapprochement\b/gi, 'comparaison des montants'],
+  [/\boffline\b/gi, 'sans Internet'],
+  [/\broutage\b/gi, 'envoi au bon poste'],
+  [/\bpicking\b/gi, 'préparation du panier'],
+  [/\bdispatch\b/gi, 'attribution au livreur'],
+  [/\bFIFO\/FEFO\b/g, 'sortie des produits les plus anciens ou proches de la péremption'],
+  [/\bécarts valorisés\b/gi, 'écarts chiffrés en FCFA'],
+  [/\bvalorisation\b/gi, 'valeur du stock en FCFA'],
+  [/\bcoût matière\b/gi, 'coût des ingrédients'],
+  [/\baxes analytiques\b/gi, 'répartition par activité ou service'],
+  [/\bAPI, webhooks et fréquences de synchronisation\b/gi, 'connexions automatiques entre logiciels et leur fréquence de mise à jour'],
+  [/\bAPI\b/g, 'connexion automatique'],
+  [/\bwebhooks?\b/gi, 'alertes automatiques entre logiciels'],
+  [/\bmigration\b/gi, 'reprise des anciennes données'],
+  [/\bbascule\b/gi, 'changement de système'],
+  [/\bgo\/no-go\b/gi, 'décision de démarrer ou reporter'],
+  [/\bMFA\b/g, 'double vérification à la connexion'],
+  [/\bcloud\b/gi, 'hébergement en ligne'],
+  [/\barchitecture locale\b/gi, 'installation sur place'],
+  [/\bflux entre systèmes\b/gi, 'échanges entre logiciels'],
+  [/\bformalisés?\b/gi, 'écrits'],
+  [/\bpriorisés?\b/gi, 'classés par importance'],
+  [/\bpérimètre\b/gi, 'activités concernées'],
+  [/\bprocessus critiques?\b/gi, 'tâches importantes'],
+  [/\bindicateurs\b/gi, 'chiffres utiles'],
+  [/\bparamétrables?\b/gi, 'modifiables dans les réglages'],
+  [/\bcentralisés?\b/gi, 'regroupés au même endroit'],
+  [/\btraçable\b/gi, 'avec un historique des actions'],
+  [/\bjournal d’audit\b/gi, 'historique des modifications'],
+  [/\bprofondeur historique\b/gi, 'nombre d’années d’historique'],
+  [/\bcartographie\b/gi, 'liste'],
+  [/\bdécrémenté\b/gi, 'diminué'],
+  [/\bscénarios de recette\b/gi, 'tests avant lancement'],
+  [/\benvironnement de test\b/gi, 'version d’essai'],
+  [/\bpilote limité\b/gi, 'premier test à petite échelle'],
+  [/\bconventions de nommage\b/gi, 'règles pour nommer les éléments'],
+  [/\bmodèles d’import\b/gi, 'fichiers à remplir pour charger les données'],
+  [/\bprocédure d’escalade\b/gi, 'liste des personnes à appeler si le problème continue'],
+  [/\bconsentements\b/gi, 'autorisations données par le client'],
+  [/\bconsentement\b/gi, 'autorisation donnée par le client'],
+  [/\bescalade\b/gi, 'personne suivante à prévenir'],
+  [/\breprise de service\b/gi, 'solution proposée au client'],
+  [/\bmulti-activité\b/gi, 'utilisation dans plusieurs activités'],
+  [/\bconditionnements?\b/gi, 'formats d’achat'],
+  [/\bcriticité\b/gi, 'importance'],
+  [/\bscénarios métier\b/gi, 'situations réelles'],
+  [/\bsupport\b/gi, 'assistance'],
+];
+
 const DOMAINS = [
   {
     id: 'direction',
@@ -620,8 +814,22 @@ function questionContext(audit, questionId) {
   return null;
 }
 
-function proofSuggestions(domain, question) {
-  return [question.help, ...(PROOFS_BY_DOMAIN[domain.id] || [])].filter(Boolean).slice(0, 3);
+function simplifyAuditText(value) {
+  return SIMPLE_TEXT_REPLACEMENTS.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), String(value || ''));
+}
+
+function plainQuestionCopy(audit, question) {
+  const directQuestion = SIMPLE_QUESTIONS[question.id];
+  const statement = simplifyAuditText(question.label).replace(/\.$/, '');
+  const prefix = projectTypeOf(audit) === 'greenfield' ? 'Avant le démarrage' : 'Aujourd’hui';
+  return {
+    question: directQuestion || `${prefix}, est-ce que ${statement.charAt(0).toLowerCase()}${statement.slice(1)} ?`,
+    example: simplifyAuditText(question.help),
+  };
+}
+
+function proofSuggestions(domain) {
+  return (PROOFS_BY_DOMAIN[domain.id] || []).slice(0, 2);
 }
 
 function guidedSessionSummary(audit, personaId, mode) {
@@ -1049,17 +1257,19 @@ function renderInterlocutorSelector(audit, mode) {
 function renderGuidedQuestion(audit, domain, question, index, total) {
   const answer = audit.answers[question.id] || {};
   const status = answer.status ? statusMeta(audit, answer.status) : null;
+  const copy = plainQuestionCopy(audit, question);
   const existingFinding = audit.findings.some((finding) => finding.sourceQuestionId === question.id);
   const existingFollowUp = audit.followUps.some((item) => item.questionId === question.id && item.status !== 'done');
   return `<section class="guided-question-shell">
   <article class="question-card guided-question ${status ? `answer-${status.className}` : ''}">
-    <header><span class="question-index">${String(index + 1).padStart(2, '0')}</span><div class="question-copy"><span class="question-domain">${h(domain.label)}</span><h2>${h(question.label)}</h2><p>${h(question.help)}</p></div>${question.required ? '<span class="required-badge">Essentiel</span>' : ''}</header>
-    <aside class="proof-box"><strong>Ce que vous pouvez demander à voir</strong>${proofSuggestions(domain, question).map((proof) => `<span>${h(proof)}</span>`).join('')}</aside>
+    <header><span class="question-index">${String(index + 1).padStart(2, '0')}</span><div class="question-copy"><span class="question-domain">${h(domain.label)}</span><h2>${h(copy.question)}</h2><div class="plain-example"><strong>Exemple concret</strong><span>${h(copy.example)}</span></div></div>${question.required ? '<span class="required-badge">Essentiel</span>' : ''}</header>
+    <aside class="proof-box"><strong>Demandez simplement à voir</strong>${proofSuggestions(domain).map((proof) => `<span>${h(simplifyAuditText(proof))}</span>`).join('')}</aside>
     <div class="answer-segments">${Object.keys(STATUS).map((value) => { const meta = statusMeta(audit, value); return `<button data-action="answer" data-question="${question.id}" data-value="${value}" class="${answer.status === value ? 'active' : ''}">${meta.label}</button>`; }).join('')}</div>
     ${['no', 'partial'].includes(answer.status) ? `<div class="risk-prompt"><div><strong>Ce point mérite un suivi</strong><span>${existingFinding ? 'Il a déjà été ajouté aux problèmes.' : 'Souhaitez-vous l’ajouter aux problèmes à traiter ?'}</span></div>${existingFinding ? '<span class="risk-recorded">Ajouté</span>' : `<button class="primary-button" data-action="finding-from-question" data-question="${question.id}" data-domain="${domain.id}">Ajouter aux problèmes</button>`}</div>` : ''}
     <div class="question-note"><textarea data-question-note="${question.id}" placeholder="Votre note : ce que vous avez vu, un exemple ou le nom d’un document...">${h(answer.note || '')}</textarea></div>
     <div class="question-tools"><button class="secondary-button" data-action="dictate-note" data-question="${question.id}">Dicter une note</button><label class="secondary-button question-photo-button">Ajouter une photo<input data-question-photo="${question.id}" type="file" accept="image/*" capture="environment"></label><button class="secondary-button ${existingFollowUp ? 'active' : ''}" data-action="defer-question" data-question="${question.id}">${existingFollowUp ? 'À vérifier enregistré' : 'Je vérifierai plus tard'}</button></div>
     ${answer.attachments?.length ? `<div class="evidence-grid question-evidence">${answer.attachments.map((image) => `<img src="${image}" alt="Preuve ajoutée pour cette question">`).join('')}</div>` : ''}
+    <details class="technical-context"><summary>Voir le contrôle détaillé</summary><p>${h(question.label)}</p><small>${h(question.help)}</small></details>
   </article>
   <nav class="guided-navigation"><button class="secondary-button" data-action="previous-question" ${index === 0 ? 'disabled' : ''}>Question précédente</button><button class="primary-button" data-action="next-question">${index + 1 === total ? 'Terminer cet entretien' : 'Question suivante'}</button></nav>
   </section>`;

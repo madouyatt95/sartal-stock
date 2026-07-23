@@ -57,7 +57,15 @@ for (const marker of [
   'Qui allez-vous rencontrer ?',
   'Rapide · 45 à 60 min',
   'renderGuidedQuestion',
-  'Ce que vous pouvez demander à voir',
+  'Demandez simplement à voir',
+  'Exemple concret',
+  'Voir le contrôle détaillé',
+  'plainQuestionCopy',
+  'La liste des chambres correspond-elle à la réalité aujourd’hui ?',
+  'Avez-vous une seule fiche Coca-Cola',
+  'Quand un Coca-Cola est vendu',
+  'Pouvez-vous récupérer les données de chaque logiciel',
+  'Qui décidera, le jour du lancement',
   'Dicter une note',
   'data-question-photo',
   'Je vérifierai plus tard',
@@ -106,6 +114,8 @@ assert.match(css, /\.report-tools/);
 assert.match(css, /\.interlocutor-grid/);
 assert.match(css, /\.guided-question-shell/);
 assert.match(css, /\.proof-box/);
+assert.match(css, /\.plain-example/);
+assert.match(css, /\.technical-context/);
 assert.match(css, /\.visit-check-list/);
 assert.match(css, /\.simple-result-grid/);
 
@@ -117,7 +127,7 @@ assert.equal(parsedManifest.icons.length, 3);
 for (const asset of ['./index.html', './audit.css', './audit.js', './manifest.webmanifest']) {
   assert.ok(serviceWorker.includes(asset), `Ressource PWA non mise en cache: ${asset}`);
 }
-assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v6'"), 'Le cache PWA doit être renouvelé pour diffuser le mode terrain assisté');
+assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v7'"), 'Le cache PWA doit être renouvelé pour diffuser les questions en langage simple');
 
 assert.doesNotMatch(js, /https?:\/\//, 'L’application d’audit ne doit dépendre d’aucun service externe');
 
