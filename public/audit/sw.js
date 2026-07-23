@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sartal-audit-v1';
+const CACHE_NAME = 'sartal-audit-v2';
 const ASSETS = [
   './',
   './index.html',

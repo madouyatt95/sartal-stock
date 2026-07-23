@@ -39,6 +39,12 @@ for (const marker of [
   'Constats terrain détaillés',
   'Entretiens réalisés',
   'Stockage local saturé',
+  'ACCESS_SESSION_KEY',
+  "ACCESS_CODE = '0134'",
+  'audit-access-form',
+  'inputmode="numeric"',
+  'lock-audit',
+  "updateViaCache: 'none'",
 ]) assert.ok(js.includes(marker), `Marqueur manquant: ${marker}`);
 
 assert.match(css, /@media \(max-width: 720px\)/);
@@ -47,6 +53,8 @@ assert.match(css, /max-height: 92dvh/);
 assert.match(css, /safe-area-inset-bottom/);
 assert.match(css, /\.score-ring\s*\{[^}]*position: relative/s);
 assert.match(css, /\.report-findings/);
+assert.match(css, /\.audit-access-screen/);
+assert.match(css, /\.audit-code-field input/);
 
 const parsedManifest = JSON.parse(manifest);
 assert.equal(parsedManifest.display, 'standalone');
@@ -56,6 +64,7 @@ assert.equal(parsedManifest.icons.length, 3);
 for (const asset of ['./index.html', './audit.css', './audit.js', './manifest.webmanifest']) {
   assert.ok(serviceWorker.includes(asset), `Ressource PWA non mise en cache: ${asset}`);
 }
+assert.ok(serviceWorker.includes("CACHE_NAME = 'sartal-audit-v2'"), 'Le cache PWA doit être renouvelé pour diffuser le verrou d’accès');
 
 assert.doesNotMatch(js, /https?:\/\//, 'L’application d’audit ne doit dépendre d’aucun service externe');
 

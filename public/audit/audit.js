@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'sartal-audit-workspace-v1';
+const ACCESS_SESSION_KEY = 'sartal-audit-access-v1';
+const ACCESS_CODE = '0134';
 
 const MODULES = [
   { id: 'pms', label: 'Hôtel / PMS' },
@@ -241,6 +243,7 @@ const backupImport = document.querySelector('#backup-import');
 let workspace = loadWorkspace();
 let saveStateTimer;
 let persistTimer;
+let auditUnlocked = readAccessSession();
 
 function q(id, label, help, weight = 2, required = false) {
   return { id, label, help, weight, required };
@@ -265,6 +268,24 @@ function h(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function readAccessSession() {
+  try {
+    return sessionStorage.getItem(ACCESS_SESSION_KEY) === 'granted';
+  } catch {
+    return false;
+  }
+}
+
+function writeAccessSession(unlocked) {
+  auditUnlocked = unlocked;
+  try {
+    if (unlocked) sessionStorage.setItem(ACCESS_SESSION_KEY, 'granted');
+    else sessionStorage.removeItem(ACCESS_SESSION_KEY);
+  } catch {
+    // Le verrou reste actif en memoire lorsque le stockage de session est indisponible.
+  }
 }
 
 function loadWorkspace() {
@@ -401,6 +422,10 @@ function auditMetrics(audit) {
 }
 
 function render() {
+  if (!auditUnlocked) {
+    renderAccessGate();
+    return;
+  }
   const audit = activeAudit();
   if (!audit) {
     renderGateway();
@@ -417,9 +442,30 @@ function render() {
   `;
 }
 
+function renderAccessGate() {
+  app.innerHTML = `
+    <main class="audit-access-screen">
+      <section class="audit-access-panel">
+        <div class="audit-access-brand"><img src="../brand-mark.svg" alt=""><span><strong>SÁRTAL AUDIT</strong><small>Diagnostic métier terrain</small></span></div>
+        <span class="audit-access-badge">ESPACE PROTÉGÉ</span>
+        <h1>Accéder aux missions d’audit</h1>
+        <p>Saisissez le code à quatre chiffres transmis à l’auditeur.</p>
+        <form id="audit-access-form" novalidate>
+          <label class="field audit-code-field"><span>Code d’accès</span><input name="accessCode" type="password" inputmode="numeric" pattern="[0-9]{4}" minlength="4" maxlength="4" autocomplete="one-time-code" required autofocus placeholder="4 chiffres"></label>
+          <p class="audit-access-error" data-access-error role="alert"></p>
+          <button class="primary-button" type="submit">Déverrouiller Sártal Audit</button>
+        </form>
+        <a class="audit-access-back" href="../">Retour au portail Sártal</a>
+        <small class="audit-access-note">L’accès reste ouvert uniquement pendant cette session sur cet appareil.</small>
+      </section>
+    </main>
+  `;
+}
+
 function renderGateway() {
   app.innerHTML = `
     <main class="mission-gateway">
+      <button class="gateway-lock-button" data-action="lock-audit">Verrouiller</button>
       <section class="gateway-panel">
         <div class="gateway-intro">
           <div class="gateway-logo"><img src="../brand-mark.svg" alt=""><span><strong>SÁRTAL AUDIT</strong><small>Diagnostic métier terrain</small></span></div>
@@ -463,6 +509,7 @@ function renderHeader(audit) {
       <div class="audit-header-mission"><small>Mission active</small><strong>${h(audit.establishment)}</strong></div>
       <span class="save-state ${saveError ? 'save-error' : ''}" data-save-state>${saveError ? 'Stockage saturé' : 'Autosauvegarde active'}</span>
       <button class="header-button" data-action="open-missions">Missions</button>
+      <button class="icon-button audit-lock-button" data-action="lock-audit" aria-label="Verrouiller Sártal Audit">VR</button>
       <button class="icon-button" data-action="open-settings" aria-label="Paramètres de la mission">⋮</button>
     </header>
   `;
@@ -868,6 +915,22 @@ document.addEventListener('submit', async (event) => {
   const form = event.target;
   const data = new FormData(form);
 
+  if (form.id === 'audit-access-form') {
+    const code = String(data.get('accessCode') || '').replace(/\D/g, '').slice(0, 4);
+    const field = form.querySelector('[name="accessCode"]');
+    const error = form.querySelector('[data-access-error]');
+    if (code === ACCESS_CODE) {
+      writeAccessSession(true);
+      render();
+      toast('Accès à Sártal Audit autorisé.');
+    } else {
+      error.textContent = code.length === 4 ? 'Code incorrect. Vérifiez les quatre chiffres.' : 'Saisissez exactement quatre chiffres.';
+      field.value = '';
+      field.focus();
+    }
+    return;
+  }
+
   if (form.id === 'create-mission-form') {
     createAudit({
       client: data.get('client'), establishment: data.get('establishment'), location: data.get('location'), auditDate: data.get('auditDate'), auditor: data.get('auditor'), contact: data.get('contact'), objectives: data.get('objectives'), modules: data.getAll('modules'),
@@ -978,6 +1041,7 @@ document.addEventListener('click', (event) => {
   if (action === 'switch-audit') { workspace.activeAuditId = target.dataset.id; workspace.ui.view = 'overview'; closeModal(); persist(); render(); }
   if (action === 'new-audit') { workspace.activeAuditId = null; closeModal(); persist(false); render(); }
   if (action === 'open-preparation') openPreparation();
+  if (action === 'lock-audit') { writeAccessSession(false); closeModal(); render(); window.scrollTo({ top: 0, behavior: 'auto' }); }
   if (action === 'export-backup') exportBackup();
   if (action === 'import-backup') backupImport.click();
   if (action === 'export-csv') exportCsv();
@@ -991,6 +1055,10 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  if (event.target.matches('[name="accessCode"]')) {
+    event.target.value = event.target.value.replace(/\D/g, '').slice(0, 4);
+    return;
+  }
   const audit = activeAudit();
   if (!audit) return;
   if (event.target.matches('[data-question-note]')) {
@@ -1038,7 +1106,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './' }).catch((error) => console.warn('Service worker non disponible', error)));
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).catch((error) => console.warn('Service worker non disponible', error)));
 }
 
 render();
