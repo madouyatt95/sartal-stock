@@ -26,9 +26,10 @@ try {
   const { getDB } = await server.ssrLoadModule('/src/db.ts');
 
   const portalHtml = renderToStaticMarkup(React.createElement(DemoPortal));
-  ['Choisissez l’univers à découvrir', 'Sártal Stock', 'Restaurant + Stock', 'Vente en ligne + Stock', 'PMS Hôtel + Stock', 'PMS + Restaurant + Stock', 'Suite complète Sártal'].forEach(marker => {
+  ['Choisissez l’univers à découvrir', 'Ouvrir Sártal Audit', 'Diagnostiquer les outils actuels avant le déploiement', 'Sártal Stock', 'Restaurant + Stock', 'Vente en ligne + Stock', 'PMS Hôtel + Stock', 'PMS + Restaurant + Stock', 'Suite complète Sártal'].forEach(marker => {
     assert(portalHtml.includes(marker), `Offre absente du portail : ${marker}`);
   });
+  assert(portalHtml.includes('href="./audit/"'), 'Le portail principal doit donner accès à Sártal Audit');
 
   const combinedHtml = renderToStaticMarkup(React.createElement(DemoPortal, { initialUniverseId: 'pms-restaurant-stock' }));
   ['Choisissez votre point de vue', 'Pilotage et responsables', 'Équipes opérationnelles', 'Expériences client', 'Direction', 'Manager PMS', 'Réception', 'Manager restaurant', 'Serveur', 'Caissier restaurant', 'Cuisine', 'Gouvernante', 'Responsable stock', 'Finance', 'Client hôtel', 'Client restaurant'].forEach(marker => {

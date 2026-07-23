@@ -13479,6 +13479,14 @@ button, input, select, textarea {
 .demo-portal-eyebrow { display: flex; align-items: center; gap: 7px; color: #f2c968; font-size: 0.72rem; font-weight: 900; }
 .demo-portal-hero h1 { margin: 8px 0 0; font-size: 2.35rem; line-height: 1.08; letter-spacing: 0; }
 .demo-portal-hero p { max-width: 720px; margin: 10px 0 0; color: #d6e6e2; font-size: 0.92rem; line-height: 1.55; }
+.demo-audit-cta { width: fit-content; max-width: 100%; min-height: 58px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; margin-top: 19px; padding: 8px 12px; border: 1px solid #7cd3c4; border-radius: 7px; background: #fff; color: #153f39; text-decoration: none; box-shadow: 0 10px 24px rgb(0 0 0 / 0.16); transition: transform 150ms ease, box-shadow 150ms ease; }
+.demo-audit-cta:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgb(0 0 0 / 0.22); }
+.demo-audit-cta:focus-visible { outline: 3px solid #f0bd4e; outline-offset: 3px; }
+.demo-audit-cta > span { width: 39px; height: 39px; display: grid; place-items: center; border-radius: 6px; background: #dff3ee; color: #0f766e; }
+.demo-audit-cta > div { min-width: 0; display: grid; gap: 1px; }
+.demo-audit-cta strong { font-size: 0.82rem; }
+.demo-audit-cta small { color: #607872; font-size: 0.68rem; }
+.demo-audit-cta > svg { color: #0f766e; }
 .demo-portal-steps { flex: 0 0 310px; display: grid; grid-template-columns: 1fr 1fr; margin: 0; padding: 0; list-style: none; }
 .demo-portal-steps li { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 11px; border: 1px solid #4e746e; color: #9fb8b2; }
 .demo-portal-steps li + li { border-left: 0; }
@@ -13587,6 +13595,8 @@ button, input, select, textarea {
   .demo-portal-hero { gap: 22px; padding: 24px 19px; }
   .demo-portal-hero h1 { font-size: 1.75rem; }
   .demo-portal-hero p { font-size: 0.83rem; }
+  .demo-audit-cta { width: 100%; }
+  .demo-audit-cta small { font-size: 0.72rem; }
   .demo-portal-steps { grid-template-columns: 1fr; }
   .demo-portal-steps li + li { border-top: 0; border-left: 1px solid #4e746e; }
   .demo-portal-steps li.active + li { border-left-color: #f0bd4e; }

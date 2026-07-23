@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   CircleUserRound,
+  ClipboardCheck,
   Hotel,
   Package,
   ShieldCheck,
@@ -100,6 +101,11 @@ export const DemoPortal: React.FC<DemoPortalProps> = ({ initialUniverseId }) => 
           <span className="demo-portal-eyebrow"><Sparkles size={16} /> DÉCOUVRIR SÁRTAL</span>
           <h1>{selectedUniverse ? 'Choisissez votre point de vue' : 'Choisissez l’univers à découvrir'}</h1>
           <p>{selectedUniverse ? `Vous explorez ${selectedUniverse.label}. Ouvrez directement l’interface d’un utilisateur réel.` : 'Explorez une offre concrète, puis voyez exactement ce que chaque utilisateur utilise au quotidien.'}</p>
+          {!selectedUniverse && <a className="demo-audit-cta" href="./audit/">
+            <span><ClipboardCheck size={22} /></span>
+            <div><strong>Ouvrir Sártal Audit</strong><small>Diagnostiquer les outils actuels avant le déploiement</small></div>
+            <ArrowRight size={18} />
+          </a>}
         </div>
         <ol className="demo-portal-steps" aria-label="Étapes de la démonstration">
           <li className={selectedUniverse ? 'complete' : 'active'}><span>{selectedUniverse ? <Check size={16} /> : '1'}</span><div><strong>Univers</strong><small>Modules inclus</small></div></li>
